@@ -941,6 +941,8 @@ const App = {
 
     async renderCommunications() {
         document.getElementById('page-content').innerHTML = `
+            <div id="email-status-banner"></div>
+
             <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
                 <div class="stat-card">
                     <div class="stat-card-header">
@@ -1011,21 +1013,102 @@ Thank you for..."></textarea>
                     </div>
                 </div>
             </div>
+
+            <!-- Campaign Modal -->
+            <div class="modal-overlay" id="campaign-modal">
+                <div class="modal">
+                    <div class="modal-header">
+                        <h3 class="modal-title">New Campaign</h3>
+                        <button class="modal-close" onclick="document.getElementById('campaign-modal').classList.remove('show')">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label>Use Template (optional)</label>
+                            <select id="campaign-template">
+                                <option value="">— Write from scratch —</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Subject</label>
+                            <input type="text" id="campaign-subject" placeholder="Email subject line">
+                        </div>
+                        <div class="form-group">
+                            <label>Body (use {{name}}, {{email}} for personalization)</label>
+                            <textarea id="campaign-body" rows="10" placeholder="Dear {{name}},
+
+We have exciting news..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Filter recipients by status (optional)</label>
+                            <select id="campaign-filter-status">
+                                <option value="">All registrations</option>
+                                <option value="new">New only</option>
+                                <option value="contacted">Contacted</option>
+                                <option value="qualified">Qualified</option>
+                                <option value="converted">Converted</option>
+                            </select>
+                        </div>
+                        <p id="campaign-warning" style="color: #e67e22; font-size: 0.85rem; display: none;"></p>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="document.getElementById('campaign-modal').classList.remove('show')">Cancel</button>
+                        <button class="btn btn-primary" id="send-campaign-btn">Send Campaign</button>
+                    </div>
+                </div>
+            </div>
         `;
 
         // Load data
-        const [templatesRes, campaignsRes] = await Promise.all([
+        const [templatesRes, campaignsRes, emailStatusRes] = await Promise.all([
             fetch('/api/templates'),
-            fetch('/api/campaigns')
+            fetch('/api/campaigns'),
+            fetch('/api/email/status')
         ]);
 
         const templates = (await templatesRes.json()).data;
         const campaigns = (await campaignsRes.json()).data;
+        const emailStatus = await emailStatusRes.json();
+
+        // Show email config status banner
+        const banner = document.getElementById('email-status-banner');
+        if (!emailStatus.configured) {
+            banner.innerHTML = `
+                <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 0.9rem; color: #856404;">
+                    <strong>Email not configured.</strong> Set the <code>RESEND_API_KEY</code> environment variable to enable email sending.
+                    Campaigns will be saved but emails won't be delivered.
+                </div>
+            `;
+        } else {
+            banner.innerHTML = `
+                <div style="background: #d4edda; border: 1px solid #28a745; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 0.9rem; color: #155724;">
+                    Email configured via <strong>Resend</strong>. Campaigns will be delivered.
+                </div>
+            `;
+        }
 
         // Update stats
         document.getElementById('total-campaigns').textContent = campaigns.length;
-        document.getElementById('total-sent').textContent = campaigns.reduce((sum, c) => sum + (parseInt(c.recipient_count) || 0), 0);
+        document.getElementById('total-sent').textContent = campaigns.reduce((sum, c) => sum + (parseInt(c.sent_count) || parseInt(c.recipient_count) || 0), 0);
         document.getElementById('total-templates').textContent = templates.length;
+
+        // Populate campaign template dropdown
+        const templateSelect = document.getElementById('campaign-template');
+        templates.forEach(t => {
+            const option = document.createElement('option');
+            option.value = t.id;
+            option.textContent = t.name;
+            option.dataset.subject = t.subject;
+            option.dataset.body = t.body;
+            templateSelect.appendChild(option);
+        });
+
+        templateSelect.addEventListener('change', () => {
+            const selected = templateSelect.options[templateSelect.selectedIndex];
+            if (selected.value) {
+                document.getElementById('campaign-subject').value = selected.dataset.subject;
+                document.getElementById('campaign-body').value = selected.dataset.body;
+            }
+        });
 
         // Render templates
         if (templates.length === 0) {
@@ -1129,21 +1212,53 @@ Thank you for..."></textarea>
             this.renderCommunications();
         });
 
-        // New campaign (simple version)
-        document.getElementById('new-campaign-btn').addEventListener('click', async () => {
-            const subject = prompt('Campaign subject:');
-            if (!subject) return;
+        // New campaign modal
+        document.getElementById('new-campaign-btn').addEventListener('click', () => {
+            document.getElementById('campaign-subject').value = '';
+            document.getElementById('campaign-body').value = '';
+            document.getElementById('campaign-template').value = '';
+            document.getElementById('campaign-filter-status').value = '';
+            const warning = document.getElementById('campaign-warning');
+            warning.style.display = 'none';
+            if (!emailStatus.configured) {
+                warning.textContent = 'Warning: RESEND_API_KEY is not set. Emails will not be delivered.';
+                warning.style.display = 'block';
+            }
+            document.getElementById('campaign-modal').classList.add('show');
+        });
 
-            const body = prompt('Campaign body (use {{name}} for personalization):');
-            if (!body) return;
+        document.getElementById('send-campaign-btn').addEventListener('click', async () => {
+            const subject = document.getElementById('campaign-subject').value;
+            const body = document.getElementById('campaign-body').value;
+            const statusFilter = document.getElementById('campaign-filter-status').value;
 
-            await fetch('/api/campaigns', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ subject, body, filters: {} })
-            });
+            if (!subject || !body) {
+                alert('Subject and body are required');
+                return;
+            }
 
-            this.renderCommunications();
+            const filters = {};
+            if (statusFilter) filters.status = statusFilter;
+
+            const btn = document.getElementById('send-campaign-btn');
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
+
+            try {
+                const res = await fetch('/api/campaigns', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ subject, body, filters })
+                });
+                const data = await res.json();
+                document.getElementById('campaign-modal').classList.remove('show');
+                alert(`Campaign created! ${data.recipientCount} recipients.`);
+                this.renderCommunications();
+            } catch (err) {
+                alert('Failed to create campaign');
+                btn.disabled = false;
+                btn.textContent = 'Send Campaign';
+            }
         });
     },
 

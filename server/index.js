@@ -11,6 +11,7 @@ const bcrypt = require('bcrypt');
 const db = require('./db');
 const { router: authRouter, setDb: setAuthDb } = require('./routes/auth');
 const { requireAuth, requireSuperAdmin } = require('./middleware/auth');
+const emailService = require('./services/email');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -88,6 +89,16 @@ app.post('/api/register', registrationLimiter, async (req, res) => {
         const result = await db.saveRegistration(data);
 
         console.log(`New registration: ${data.name} (${data.email}) - ID: ${result.id}`);
+
+        // Send emails asynchronously (don't block response)
+        db.getAllSettings().then(settings => {
+            emailService.sendWelcomeEmail({ ...data, id: result.id }, settings).catch(err =>
+                console.error('Welcome email error:', err)
+            );
+            emailService.sendRegistrationNotification({ ...data, id: result.id }, settings).catch(err =>
+                console.error('Notification email error:', err)
+            );
+        }).catch(err => console.error('Settings fetch error:', err));
 
         res.json({
             success: true,
@@ -409,15 +420,75 @@ app.post('/api/campaigns', requireAuth, async (req, res) => {
             recipientCount
         }, req.admin.id);
 
-        // Create email send records (email sending would happen here in production)
+        // Create email send records
+        const enrichedRecipients = [];
         for (const recipient of recipients) {
-            await db.createEmailSend(campaign.id, recipient.id);
+            const send = await db.createEmailSend(campaign.id, recipient.id);
+            enrichedRecipients.push({ ...recipient, _sendId: send.id });
         }
+
+        // Send emails via Resend (async, don't block response)
+        emailService.sendCampaign({
+            subject,
+            body,
+            recipients: enrichedRecipients,
+            db,
+            campaignId: campaign.id,
+        }).then(result => {
+            console.log(`Campaign ${campaign.id}: ${result.sentCount} sent, ${result.failedCount} failed`);
+        }).catch(err => {
+            console.error(`Campaign ${campaign.id} send error:`, err);
+        });
 
         res.json({ success: true, data: campaign, recipientCount });
     } catch (err) {
         console.error('Error creating campaign:', err);
         res.status(500).json({ success: false, error: 'Failed to create campaign' });
+    }
+});
+
+// ============================================
+// EMAIL STATUS ROUTE
+// ============================================
+
+app.get('/api/email/status', requireAuth, (req, res) => {
+    res.json({
+        success: true,
+        configured: emailService.isConfigured(),
+        provider: 'resend',
+    });
+});
+
+// Send a single email to a registration
+app.post('/api/email/send', requireAuth, async (req, res) => {
+    try {
+        const { registrationId, subject, body } = req.body;
+        if (!registrationId || !subject || !body) {
+            return res.status(400).json({ success: false, error: 'registrationId, subject, and body are required' });
+        }
+
+        const registration = await db.getRegistrationById(registrationId);
+        if (!registration) {
+            return res.status(404).json({ success: false, error: 'Registration not found' });
+        }
+
+        const personalizedSubject = emailService.renderTemplate(subject, registration);
+        const personalizedBody = emailService.renderTemplate(body, registration);
+
+        const result = await emailService.sendEmail({
+            to: registration.email,
+            subject: personalizedSubject,
+            body: personalizedBody,
+        });
+
+        if (result.skipped) {
+            return res.status(503).json({ success: false, error: 'Email not configured. Set RESEND_API_KEY.' });
+        }
+
+        res.json({ success: result.success, error: result.error });
+    } catch (err) {
+        console.error('Error sending email:', err);
+        res.status(500).json({ success: false, error: 'Failed to send email' });
     }
 });
 
