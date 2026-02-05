@@ -70,3 +70,29 @@
 - Build interactive investment calculator
 
 **Session notes**: `.claude/sessions/2026-02-06-landing-enhancement.md`
+
+## 2026-02-06 - Remaining 5 Improvements Implementation
+
+**Status**: Completed
+**Commits**: e8d8841
+
+### What was done
+1. **Founder photo** - Replaced ФМ text placeholder with `<img>` element (Unsplash placeholder, ready for real photo swap)
+2. **Social share buttons** - Floating Telegram/WhatsApp/VK sidebar, appears after scrolling past hero, properly encodes share URLs
+3. **Blog/updates page** - New `/updates` route with 4 articles (launch, calculator, region research, founding story), tags, bilingual
+4. **Legal structure section** - 4 cards: ownership (СПоК), decision making, revenue sharing, exit mechanism
+5. **Investment calculator** - Interactive slider $0-$100k, real-time tier detection (Observer/Pioneer/Builder/Founder), projected land, housing, rental, farm share
+
+### Files modified
+- `src/index.html` — +101 lines (calculator, legal, share bar, founder photo, footer links)
+- `src/styles.css` — +270 lines (calculator, legal, share bar, founder photo styles)
+- `src/script.js` — +140 lines (calculator logic, share bar initialization)
+- `src/updates.html` — new file, 233 lines (blog page)
+- `server/index.js` — +5 lines (/updates route)
+
+### Verification
+- All 5 features confirmed in production HTML
+- Updates page returns 200 at /updates
+- Calculator responds to slider input correctly
+- Bilingual switching works on all new content
+- Share buttons generate proper encoded URLs
