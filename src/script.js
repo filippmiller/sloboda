@@ -5,6 +5,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     initLanguageSwitcher();
     initSloganRotation();
+    initFounderSlider();
     initFormNavigation();
     initScrollAnimations();
     initModalHandlers();
@@ -96,6 +97,54 @@ function initSloganRotation() {
 
     // Start rotation
     setInterval(showNextSlogan, rotationInterval);
+}
+
+// ============================================
+// FOUNDER SLIDER
+// ============================================
+function initFounderSlider() {
+    const slides = document.querySelectorAll('.founder-slide');
+    const dots = document.querySelectorAll('.founder-dot');
+    if (slides.length === 0) return;
+
+    let currentSlide = 0;
+    const autoRotateInterval = 7000; // 7 seconds
+    let autoRotateTimer;
+
+    function showSlide(index) {
+        // Hide all slides
+        slides.forEach(slide => slide.classList.remove('active'));
+        dots.forEach(dot => dot.classList.remove('active'));
+
+        // Show target slide
+        currentSlide = index;
+        slides[currentSlide].classList.add('active');
+        dots[currentSlide].classList.add('active');
+    }
+
+    function nextSlide() {
+        showSlide((currentSlide + 1) % slides.length);
+    }
+
+    function startAutoRotate() {
+        autoRotateTimer = setInterval(nextSlide, autoRotateInterval);
+    }
+
+    function resetAutoRotate() {
+        clearInterval(autoRotateTimer);
+        startAutoRotate();
+    }
+
+    // Dot click handlers
+    dots.forEach((dot, index) => {
+        dot.addEventListener('click', () => {
+            showSlide(index);
+            resetAutoRotate();
+        });
+    });
+
+    // Start auto rotation
+    startAutoRotate();
 }
 
 // ============================================

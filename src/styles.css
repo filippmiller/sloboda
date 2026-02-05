@@ -491,6 +491,64 @@ p {
     font-size: 0.875rem;
 }
 
+/* Founder Slider */
+.founder-slider {
+    position: relative;
+    min-height: 180px;
+}
+
+.founder-slide {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.6s ease, visibility 0.6s ease, transform 0.6s ease;
+    transform: translateY(10px);
+}
+
+.founder-slide.active {
+    position: relative;
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.founder-slider-nav {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: var(--space-md);
+    margin-bottom: var(--space-md);
+}
+
+.founder-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--color-glass-border);
+    border: none;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    padding: 0;
+}
+
+.founder-dot:hover {
+    background: var(--color-text-muted);
+}
+
+.founder-dot.active {
+    background: var(--color-accent);
+    transform: scale(1.2);
+}
+
+@media (max-width: 768px) {
+    .founder-slider {
+        min-height: 220px;
+    }
+}
+
 /* ============================================
    VALUES SECTION
    ============================================ */
