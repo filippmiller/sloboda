@@ -471,14 +471,16 @@ app.get('*', (req, res) => {
 // ============================================
 
 async function seedDefaultAdmin() {
-    // Seed default admin from environment variables if no admins exist
+    // Seed default admin from environment variables if no ACTIVE admins exist
     const admins = await db.getAllAdmins();
-    if (admins.length === 0) {
+    const activeAdmins = admins.filter(a => !a.pending);
+
+    if (activeAdmins.length === 0) {
         const email = process.env.ADMIN_EMAIL || 'admin@sloboda.land';
         const password = process.env.ADMIN_PASSWORD || 'changeme123';
         const name = process.env.ADMIN_NAME || 'Super Admin';
 
-        console.log(`No admins found. Creating default super admin: ${email}`);
+        console.log(`No active admins found. Creating default super admin: ${email}`);
         await createSuperAdmin(email, password, name);
         console.log('Default admin created. Please change the password after first login.');
     }
