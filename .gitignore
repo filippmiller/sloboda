@@ -35,3 +35,12 @@ npm-debug.log*
 # Python
 __pycache__/
 *.py[cod]
+
+# Testing artifacts
+.temp/
+*.png
+*.jpeg
+*.jpg
+!src/**/*.png
+!src/**/*.jpeg
+!src/**/*.jpg
