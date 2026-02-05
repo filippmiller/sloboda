@@ -1,0 +1,15 @@
+{
+  "name": "sloboda",
+  "version": "1.0.0",
+  "description": "SLOBODA - Rural infrastructure platform for AI unemployment exodus",
+  "scripts": {
+    "start": "serve src -l $PORT",
+    "dev": "serve src -l 3000"
+  },
+  "dependencies": {
+    "serve": "^14.2.1"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
