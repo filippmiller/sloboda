@@ -1112,3 +1112,482 @@ p {
 .looking-item:nth-child(4) { transition-delay: 0.25s; }
 .looking-item:nth-child(5) { transition-delay: 0.3s; }
 .looking-item:nth-child(6) { transition-delay: 0.35s; }
+
+/* ============================================
+   SECTION SUBTITLE (shared)
+   ============================================ */
+.section-subtitle {
+    text-align: center;
+    color: var(--color-text-muted);
+    font-size: 1.1rem;
+    max-width: 600px;
+    margin: -2rem auto var(--space-lg);
+    font-weight: 300;
+}
+
+/* ============================================
+   VILLAGE VISION SECTION
+   ============================================ */
+.vision-section {
+    background: var(--color-bg-light);
+}
+
+.vision-diagram {
+    padding: var(--space-md);
+    margin-bottom: var(--space-lg);
+    overflow: hidden;
+}
+
+.village-svg {
+    width: 100%;
+    max-width: 800px;
+    height: auto;
+    display: block;
+    margin: 0 auto var(--space-md);
+}
+
+.vision-legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-sm) var(--space-md);
+    padding-top: var(--space-sm);
+    border-top: 1px solid var(--color-glass-border);
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+}
+
+.legend-swatch {
+    width: 16px;
+    height: 12px;
+    border-radius: 3px;
+    border: 1px solid;
+    flex-shrink: 0;
+}
+
+.legend-farm {
+    background: rgba(124, 181, 134, 0.3);
+    border-color: rgba(124, 181, 134, 0.7);
+}
+
+.legend-house {
+    background: rgba(196, 165, 116, 0.3);
+    border-color: rgba(196, 165, 116, 0.7);
+}
+
+.legend-community {
+    background: rgba(124, 181, 134, 0.15);
+    border-color: rgba(124, 181, 134, 0.5);
+}
+
+.legend-nature {
+    background: rgba(124, 181, 134, 0.25);
+    border-color: transparent;
+    border-radius: 50%;
+    width: 14px;
+    height: 14px;
+}
+
+/* Vision Feature Cards */
+.vision-features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--space-md);
+}
+
+.vision-feature {
+    padding: var(--space-md);
+    text-align: center;
+}
+
+.vision-feature-icon {
+    font-size: 2rem;
+    display: block;
+    margin-bottom: var(--space-sm);
+}
+
+.vision-feature h3 {
+    color: var(--color-accent);
+    margin-bottom: var(--space-xs);
+}
+
+.vision-feature p {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+}
+
+/* ============================================
+   ECONOMICS SECTION
+   ============================================ */
+.economics-section {
+    background: var(--color-bg);
+}
+
+/* Comparison Cards */
+.comparison-wrapper {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: var(--space-md);
+    align-items: stretch;
+    margin-bottom: var(--space-md);
+}
+
+@media (max-width: 768px) {
+    .comparison-wrapper {
+        grid-template-columns: 1fr;
+    }
+}
+
+.comparison-card {
+    padding: var(--space-md);
+}
+
+.comparison-header {
+    text-align: center;
+    margin-bottom: var(--space-md);
+    padding-bottom: var(--space-sm);
+    border-bottom: 1px solid var(--color-glass-border);
+}
+
+.comparison-emoji {
+    font-size: 2rem;
+    display: block;
+    margin-bottom: var(--space-xs);
+}
+
+.comparison-header h3 {
+    color: var(--color-text);
+    margin-bottom: 4px;
+}
+
+.comparison-tag {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+}
+
+.comparison-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.comparison-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-xs) 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.comparison-row span {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+}
+
+.comparison-row strong {
+    color: var(--color-text);
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+
+.comparison-row strong.green {
+    color: var(--color-accent);
+}
+
+.comparison-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: var(--space-sm);
+    padding-top: var(--space-sm);
+    border-top: 2px solid var(--color-glass-border);
+}
+
+.comparison-total span {
+    font-weight: 500;
+    color: var(--color-text-muted);
+}
+
+.comparison-total strong {
+    font-size: 1.25rem;
+    color: var(--color-text);
+}
+
+.comparison-total-green strong {
+    color: var(--color-accent);
+}
+
+.comparison-vs {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.comparison-vs span {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    opacity: 0.5;
+}
+
+@media (max-width: 768px) {
+    .comparison-vs {
+        padding: var(--space-xs) 0;
+    }
+}
+
+/* Savings Banner */
+.savings-banner {
+    text-align: center;
+    padding: var(--space-md) var(--space-lg);
+    margin-bottom: var(--space-lg);
+    background: rgba(124, 181, 134, 0.08);
+    border-color: rgba(124, 181, 134, 0.25);
+}
+
+.savings-amount {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-xs);
+}
+
+.savings-amount span {
+    color: var(--color-text-muted);
+    font-size: 1rem;
+}
+
+.savings-amount strong {
+    font-family: var(--font-display);
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--color-accent);
+    line-height: 1;
+}
+
+.savings-amount small {
+    font-size: 1rem;
+    font-weight: 400;
+}
+
+.savings-banner p {
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+}
+
+/* Tiers */
+.tiers-title {
+    text-align: center;
+    color: var(--color-text);
+    margin-bottom: var(--space-md);
+    font-size: 1.5rem;
+}
+
+.tiers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--space-md);
+    margin-bottom: var(--space-md);
+}
+
+.tier-card {
+    padding: var(--space-md);
+    text-align: center;
+    position: relative;
+}
+
+.tier-popular {
+    border-color: var(--color-accent);
+    background: rgba(124, 181, 134, 0.06);
+}
+
+.tier-badge {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--color-accent);
+    color: var(--color-bg);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px 16px;
+    border-radius: 100px;
+    white-space: nowrap;
+}
+
+.tier-name {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--color-accent-warm);
+    margin-bottom: var(--space-xs);
+}
+
+.tier-popular .tier-name {
+    color: var(--color-accent);
+}
+
+.tier-price {
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--color-text);
+    margin-bottom: var(--space-sm);
+}
+
+.tier-card ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.tier-card li {
+    color: var(--color-text-muted);
+    font-size: 0.875rem;
+    padding-left: 1.2em;
+    text-align: left;
+    position: relative;
+}
+
+.tier-card li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: var(--color-accent);
+    font-size: 0.75rem;
+}
+
+.economics-note {
+    text-align: center;
+    color: var(--color-text-muted);
+    font-size: 0.8rem;
+    opacity: 0.7;
+}
+
+/* ============================================
+   ROADMAP SECTION
+   ============================================ */
+.roadmap-section {
+    background: var(--color-bg-light);
+}
+
+.roadmap {
+    position: relative;
+    max-width: 700px;
+    margin: 0 auto;
+    padding-left: 40px;
+}
+
+.roadmap-line {
+    position: absolute;
+    left: 15px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(
+        to bottom,
+        var(--color-accent) 0%,
+        var(--color-glass-border) 25%,
+        var(--color-glass-border) 100%
+    );
+}
+
+.roadmap-step {
+    position: relative;
+    padding-bottom: var(--space-md);
+}
+
+.roadmap-step:last-child {
+    padding-bottom: 0;
+}
+
+.roadmap-dot {
+    position: absolute;
+    left: -33px;
+    top: var(--space-md);
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--color-bg-light);
+    border: 2px solid var(--color-glass-border);
+    z-index: 1;
+}
+
+.roadmap-active .roadmap-dot {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    box-shadow: 0 0 12px rgba(124, 181, 134, 0.4);
+}
+
+.roadmap-card {
+    padding: var(--space-md);
+}
+
+.roadmap-now {
+    display: inline-block;
+    background: var(--color-accent);
+    color: var(--color-bg);
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 2px 12px;
+    border-radius: 100px;
+    margin-bottom: var(--space-xs);
+}
+
+.roadmap-card h3 {
+    color: var(--color-accent-warm);
+    margin-bottom: var(--space-xs);
+}
+
+.roadmap-active .roadmap-card h3 {
+    color: var(--color-accent);
+}
+
+.roadmap-card p {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+}
+
+/* Scroll animations for new sections */
+.vision-feature,
+.comparison-card,
+.tier-card,
+.roadmap-step {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.vision-feature.visible,
+.comparison-card.visible,
+.tier-card.visible,
+.roadmap-step.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.vision-feature:nth-child(1) { transition-delay: 0.1s; }
+.vision-feature:nth-child(2) { transition-delay: 0.2s; }
+.vision-feature:nth-child(3) { transition-delay: 0.3s; }
+
+.tier-card:nth-child(1) { transition-delay: 0.1s; }
+.tier-card:nth-child(2) { transition-delay: 0.15s; }
+.tier-card:nth-child(3) { transition-delay: 0.2s; }
+.tier-card:nth-child(4) { transition-delay: 0.25s; }
+
+.roadmap-step:nth-child(2) { transition-delay: 0.1s; }
+.roadmap-step:nth-child(3) { transition-delay: 0.2s; }
+.roadmap-step:nth-child(4) { transition-delay: 0.3s; }
+.roadmap-step:nth-child(5) { transition-delay: 0.4s; }
+.roadmap-step:nth-child(6) { transition-delay: 0.5s; }

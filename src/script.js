@@ -303,7 +303,7 @@ function initFormNavigation() {
 // ============================================
 function initScrollAnimations() {
     const animatedElements = document.querySelectorAll(
-        '.thesis-card, .value-card, .looking-item'
+        '.thesis-card, .value-card, .looking-item, .vision-feature, .comparison-card, .tier-card, .roadmap-step'
     );
 
     const observer = new IntersectionObserver(
