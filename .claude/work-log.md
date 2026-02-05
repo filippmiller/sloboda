@@ -96,3 +96,47 @@
 - Calculator responds to slider input correctly
 - Bilingual switching works on all new content
 - Share buttons generate proper encoded URLs
+
+## 2026-02-06 - Production Security + Email Sending Implementation
+
+**Status**: Completed
+**Commits**: 0662db9
+
+### What was done
+1. **JWT_SECRET set in production** — Generated 64-byte random hex, set via Railway CLI
+2. **Admin password changed** — Generated secure password (base64url), set via Railway, verified reset in logs
+3. **RESET_ADMIN_PASSWORD disabled** — Set back to false after successful reset
+4. **Email sending with Resend** — Full implementation:
+   - Created `server/services/email.js` with Resend SDK integration
+   - Template variable substitution ({{name}}, {{email}}, etc.)
+   - Campaign bulk sending (async, non-blocking)
+   - Welcome email on registration (configurable via settings)
+   - Admin notification on registration (configurable via settings)
+   - Single email endpoint: POST /api/email/send
+   - Config status endpoint: GET /api/email/status
+   - Graceful degradation without RESEND_API_KEY
+5. **Admin panel improvements**:
+   - Campaign creation modal (replaces prompt-based UX)
+   - Template pre-fill from dropdown
+   - Recipient status filtering
+   - Email config status banner (green = configured, yellow = missing key)
+
+### Files modified
+- `server/services/email.js` — new file, email service module
+- `server/index.js` — +75 lines (email routes, registration notifications, campaign sending)
+- `src/admin/admin.js` — +128 lines (campaign modal, email status banner, template dropdown)
+- `package.json` — added `resend` dependency
+- `.env.example` — added RESEND_API_KEY and EMAIL_FROM docs
+
+### Verification
+- Production health check: OK
+- Admin login with new password: OK
+- Communications page: email status banner shows correctly
+- Campaign modal: opens, template dropdown works, filter works
+- Email status endpoint: returns 401 (auth required) as expected
+- Railway logs confirm: password reset applied, server running
+
+### Next steps
+- Get Resend API key and set RESEND_API_KEY on Railway
+- Replace founder photo placeholder with real photo
+- Verify domain with Resend for sending from sloboda.land
