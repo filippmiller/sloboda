@@ -430,6 +430,18 @@ async function deleteAdmin(id) {
     }
 }
 
+async function updateAdminPassword(id, passwordHash) {
+    const client = await pool.connect();
+    try {
+        await client.query(
+            'UPDATE admins SET password_hash = $1 WHERE id = $2',
+            [passwordHash, id]
+        );
+    } finally {
+        client.release();
+    }
+}
+
 // ============================================
 // SETTINGS FUNCTIONS
 // ============================================
@@ -754,6 +766,7 @@ module.exports = {
     updateAdminLastLogin,
     getAllAdmins,
     deleteAdmin,
+    updateAdminPassword,
     // Settings
     getAllSettings,
     updateSettings,
