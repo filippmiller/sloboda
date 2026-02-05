@@ -1,9 +1,41 @@
+// Load environment variables from .env file
+require('dotenv').config();
+
 const express = require('express');
 const path = require('path');
-const { initDatabase, saveRegistration, getRegistrations } = require('./db');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const { initDatabase, saveRegistration, getRegistrations, getRegistrationCount } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Security headers
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'", "fonts.googleapis.com"],
+            fontSrc: ["'self'", "fonts.gstatic.com"],
+            imgSrc: ["'self'", "data:", "https://images.unsplash.com"],
+            scriptSrc: ["'self'", "'unsafe-inline'"],
+            connectSrc: ["'self'"],
+        }
+    },
+    crossOriginEmbedderPolicy: false
+}));
+
+// Rate limiting for registration endpoint
+const registrationLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // 5 registrations per IP per window
+    message: {
+        success: false,
+        error: 'Too many registration attempts. Please try again in 15 minutes.'
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
 
 // Middleware
 app.use(express.json());
@@ -12,8 +44,8 @@ app.use(express.urlencoded({ extended: true }));
 // Serve static files from src directory
 app.use(express.static(path.join(__dirname, '../src')));
 
-// API: Submit registration
-app.post('/api/register', async (req, res) => {
+// API: Submit registration (rate limited)
+app.post('/api/register', registrationLimiter, async (req, res) => {
     try {
         const data = req.body;
 
@@ -67,6 +99,22 @@ app.get('/api/registrations', async (req, res) => {
     } catch (err) {
         console.error('Error fetching registrations:', err);
         res.status(500).json({ error: 'Failed to fetch registrations' });
+    }
+});
+
+// API: Get registration statistics (public)
+app.get('/api/stats', async (req, res) => {
+    try {
+        const count = await getRegistrationCount();
+        res.json({
+            success: true,
+            count: count,
+            // Only show count if above threshold for social proof
+            displayCount: count >= 10 ? count : null
+        });
+    } catch (err) {
+        console.error('Error fetching stats:', err);
+        res.status(500).json({ success: false, error: 'Failed to fetch statistics' });
     }
 });
 

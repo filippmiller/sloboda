@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initScrollAnimations();
     initModalHandlers();
     initSmoothScroll();
+    initSocialProof();
 });
 
 // ============================================
@@ -26,9 +27,13 @@ function initLanguageSwitcher() {
 
             currentLang = lang;
 
-            // Update button states
-            langBtns.forEach(b => b.classList.remove('active'));
+            // Update button states and aria-pressed
+            langBtns.forEach(b => {
+                b.classList.remove('active');
+                b.setAttribute('aria-pressed', 'false');
+            });
             btn.classList.add('active');
+            btn.setAttribute('aria-pressed', 'true');
 
             // Update all translatable elements
             updateLanguage(lang);
@@ -328,3 +333,51 @@ function initParallax() {
 
 // Uncomment to enable parallax
 // initParallax();
+
+// ============================================
+// SOCIAL PROOF COUNTER
+// ============================================
+async function initSocialProof() {
+    const proofContainer = document.getElementById('socialProof');
+    const proofCount = document.getElementById('proofCount');
+
+    if (!proofContainer || !proofCount) return;
+
+    try {
+        const response = await fetch('/api/stats');
+        const data = await response.json();
+
+        if (data.success && data.displayCount) {
+            // Animate the counter
+            animateCounter(proofCount, data.displayCount);
+            proofContainer.style.display = 'flex';
+        }
+    } catch (err) {
+        console.log('Could not load registration stats');
+    }
+}
+
+function animateCounter(element, target) {
+    const duration = 1500;
+    const start = 0;
+    const startTime = performance.now();
+
+    function update(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+
+        // Ease out cubic
+        const easeOut = 1 - Math.pow(1 - progress, 3);
+        const current = Math.floor(start + (target - start) * easeOut);
+
+        element.textContent = current;
+
+        if (progress < 1) {
+            requestAnimationFrame(update);
+        } else {
+            element.textContent = target;
+        }
+    }
+
+    requestAnimationFrame(update);
+}

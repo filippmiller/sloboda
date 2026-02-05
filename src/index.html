@@ -4,17 +4,46 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SLOBODA — План Б, который существует</title>
+
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="SLOBODA - платформа для создания сельской инфраструктуры. План Б для тех, кто думает на шаг вперёд. Сообщество единомышленников, готовых строить альтернативу вместе.">
+    <meta name="keywords" content="сельская жизнь, инвестиции в землю, сообщество, план Б, AI безработица, деревня, фермерство">
+    <meta name="author" content="Phillip Miller">
+    <meta name="robots" content="index, follow">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://sloboda.land/">
+    <meta property="og:title" content="SLOBODA — План Б, который существует">
+    <meta property="og:description" content="Платформа для создания сельской инфраструктуры. Сообщество единомышленников, готовых строить альтернативу вместе.">
+    <meta property="og:image" content="https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1200&h=630&fit=crop">
+    <meta property="og:locale" content="ru_RU">
+    <meta property="og:locale:alternate" content="en_US">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="SLOBODA — План Б, который существует">
+    <meta name="twitter:description" content="Платформа для создания сельской инфраструктуры. Сообщество единомышленников.">
+    <meta name="twitter:image" content="https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1200&h=630&fit=crop">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌾</text></svg>">
+
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Onest:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <!-- Skip to main content (accessibility) -->
+    <a href="#register" class="skip-link">Skip to main content</a>
+
     <!-- Language Switcher -->
-    <nav class="lang-nav">
-        <button class="lang-btn active" data-lang="ru">RU</button>
-        <span class="lang-divider">/</span>
-        <button class="lang-btn" data-lang="en">EN</button>
+    <nav class="lang-nav" aria-label="Language selection">
+        <button class="lang-btn active" data-lang="ru" aria-label="Switch to Russian" aria-pressed="true">RU</button>
+        <span class="lang-divider" aria-hidden="true">/</span>
+        <button class="lang-btn" data-lang="en" aria-label="Switch to English" aria-pressed="false">EN</button>
     </nav>
 
     <!-- Hero Section -->
@@ -37,6 +66,15 @@
             </div>
 
             <p class="hero-subtitle" data-ru="Проект для реалистов, которые думают на шаг вперёд" data-en="A project for realists who think one step ahead">Проект для реалистов, которые думают на шаг вперёд</p>
+
+            <!-- Registration Counter (Social Proof) -->
+            <div class="social-proof" id="socialProof" style="display: none;">
+                <span class="proof-icon">👥</span>
+                <span class="proof-text" data-ru="человек уже присоединились" data-en="people have already joined">
+                    <span class="proof-count" id="proofCount">0</span>
+                    <span data-ru=" человек уже присоединились" data-en=" people have already joined"> человек уже присоединились</span>
+                </span>
+            </div>
 
             <!-- CTA Buttons -->
             <div class="cta-container">
@@ -195,6 +233,39 @@
         </div>
     </section>
 
+    <!-- FAQ Section -->
+    <section class="section faq-section">
+        <div class="container">
+            <h2 class="section-title" data-ru="Частые вопросы" data-en="Frequently Asked Questions">Частые вопросы</h2>
+            <div class="faq-list">
+                <details class="faq-item glass-card">
+                    <summary data-ru="Что такое SLOBODA и чем вы занимаетесь?" data-en="What is SLOBODA and what do you do?">Что такое SLOBODA и чем вы занимаетесь?</summary>
+                    <p data-ru="SLOBODA — это платформа для создания сельской инфраструктуры. Мы объединяем людей, которые хотят иметь 'План Б' — возможность жить на земле, в сообществе единомышленников, независимо от городской экономики. Мы не продаём землю — мы создаём инфраструктуру и сообщество." data-en="SLOBODA is a rural infrastructure platform. We unite people who want a 'Plan B' — the ability to live on land, in a community of like-minded people, independent of the urban economy. We don't sell land — we create infrastructure and community.">SLOBODA — это платформа для создания сельской инфраструктуры. Мы объединяем людей, которые хотят иметь 'План Б' — возможность жить на земле, в сообществе единомышленников, независимо от городской экономики. Мы не продаём землю — мы создаём инфраструктуру и сообщество.</p>
+                </details>
+                <details class="faq-item glass-card">
+                    <summary data-ru="Сколько стоит участие?" data-en="How much does participation cost?">Сколько стоит участие?</summary>
+                    <p data-ru="Участие в сообществе бесплатно. Для тех, кто хочет стать соинвестором, существуют разные уровни участия — от $10,000 до $100,000+. Каждый участник получает права, пропорциональные вкладу. Мы также ценим участие временем и навыками." data-en="Community participation is free. For those who want to become co-investors, there are different participation levels — from $10,000 to $100,000+. Each participant receives rights proportional to their contribution. We also value participation through time and skills.">Участие в сообществе бесплатно. Для тех, кто хочет стать соинвестором, существуют разные уровни участия — от $10,000 до $100,000+. Каждый участник получает права, пропорциональные вкладу. Мы также ценим участие временем и навыками.</p>
+                </details>
+                <details class="faq-item glass-card">
+                    <summary data-ru="Где будут располагаться участки?" data-en="Where will the plots be located?">Где будут располагаться участки?</summary>
+                    <p data-ru="Мы рассматриваем несколько регионов с умеренным климатом, хорошей экологией и доступной землёй. Конкретные локации определяются совместно с участниками сообщества. Приоритет — доступность, климат и инфраструктурный потенциал." data-en="We are considering several regions with moderate climate, good ecology, and affordable land. Specific locations are determined together with community members. Priority is accessibility, climate, and infrastructure potential.">Мы рассматриваем несколько регионов с умеренным климатом, хорошей экологией и доступной землёй. Конкретные локации определяются совместно с участниками сообщества. Приоритет — доступность, климат и инфраструктурный потенциал.</p>
+                </details>
+                <details class="faq-item glass-card">
+                    <summary data-ru="Это инвестиция? Какие риски?" data-en="Is this an investment? What are the risks?">Это инвестиция? Какие риски?</summary>
+                    <p data-ru="Мы честны: это не классическая инвестиция с гарантированной доходностью. Это создание реального актива — земли с инфраструктурой. Риски включают: задержки строительства, изменение законодательства, рыночные факторы. Мы не обещаем быстрой прибыли — мы строим долгосрочную альтернативу." data-en="We're honest: this is not a classic investment with guaranteed returns. This is creating a real asset — land with infrastructure. Risks include: construction delays, legislation changes, market factors. We don't promise quick profits — we're building a long-term alternative.">Мы честны: это не классическая инвестиция с гарантированной доходностью. Это создание реального актива — земли с инфраструктурой. Риски включают: задержки строительства, изменение законодательства, рыночные факторы. Мы не обещаем быстрой прибыли — мы строим долгосрочную альтернативу.</p>
+                </details>
+                <details class="faq-item glass-card">
+                    <summary data-ru="Нужно ли переезжать в деревню?" data-en="Do I need to move to the countryside?">Нужно ли переезжать в деревню?</summary>
+                    <p data-ru="Нет. Вы можете участвовать как инвестор, оставаясь в городе. Ваше место будет ждать вас, когда вы решите им воспользоваться. Это именно 'План Б' — запасной вариант, а не обязательство переезжать прямо сейчас." data-en="No. You can participate as an investor while staying in the city. Your place will be waiting for you when you decide to use it. This is exactly a 'Plan B' — a backup option, not an obligation to move right now.">Нет. Вы можете участвовать как инвестор, оставаясь в городе. Ваше место будет ждать вас, когда вы решите им воспользоваться. Это именно 'План Б' — запасной вариант, а не обязательство переезжать прямо сейчас.</p>
+                </details>
+                <details class="faq-item glass-card">
+                    <summary data-ru="Как принимаются решения в сообществе?" data-en="How are decisions made in the community?">Как принимаются решения в сообществе?</summary>
+                    <p data-ru="Демократически. Каждый участник имеет голос, пропорциональный его участию. Крупные решения (выбор земли, распределение бюджета) принимаются голосованием. Мы ценим прозрачность: все финансы и решения открыты для участников." data-en="Democratically. Each participant has a vote proportional to their participation. Major decisions (land selection, budget allocation) are made by voting. We value transparency: all finances and decisions are open to participants.">Демократически. Каждый участник имеет голос, пропорциональный его участию. Крупные решения (выбор земли, распределение бюджета) принимаются голосованием. Мы ценим прозрачность: все финансы и решения открыты для участников.</p>
+                </details>
+            </div>
+        </div>
+    </section>
+
     <!-- Registration Section -->
     <section class="section register-section" id="register">
         <div class="container">
@@ -202,7 +273,7 @@
                 <h2 data-ru="Присоединиться к проекту" data-en="Join the project">Присоединиться к проекту</h2>
                 <p class="register-subtitle" data-ru="Заполните анкету, чтобы стать частью сообщества" data-en="Fill out the form to become part of the community">Заполните анкету, чтобы стать частью сообщества</p>
 
-                <form class="register-form" id="registerForm">
+                <form class="register-form" id="registerForm" aria-label="Registration form">
                     <!-- Step 1: Basic Info -->
                     <div class="form-step active" data-step="1">
                         <div class="form-group">

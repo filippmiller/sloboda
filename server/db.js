@@ -1,11 +1,16 @@
 const { Pool } = require('pg');
 
-// Railway provides DATABASE_URL in production
-const connectionString = process.env.DATABASE_URL ||
-    'postgresql://postgres:DrFOfHnEjyxSZylZrXGjdKPRClrKvhci@yamanote.proxy.rlwy.net:22556/railway';
+// DATABASE_URL must be provided via environment variable
+// In development: Create .env file with DATABASE_URL
+// In production: Set DATABASE_URL in Railway dashboard
+if (!process.env.DATABASE_URL) {
+    console.error('ERROR: DATABASE_URL environment variable is required');
+    console.error('Set it in your .env file or deployment environment');
+    process.exit(1);
+}
 
 const pool = new Pool({
-    connectionString,
+    connectionString: process.env.DATABASE_URL,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
@@ -81,4 +86,15 @@ async function getRegistrations() {
     }
 }
 
-module.exports = { pool, initDatabase, saveRegistration, getRegistrations };
+// Get registration count (for public stats)
+async function getRegistrationCount() {
+    const client = await pool.connect();
+    try {
+        const result = await client.query('SELECT COUNT(*) as count FROM registrations');
+        return parseInt(result.rows[0].count, 10);
+    } finally {
+        client.release();
+    }
+}
+
+module.exports = { pool, initDatabase, saveRegistration, getRegistrations, getRegistrationCount };
