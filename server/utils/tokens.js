@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'sloboda-admin-secret-change-in-production';
 const JWT_EXPIRES_IN = '24h';
@@ -36,7 +36,7 @@ function verifyToken(token) {
  * Generate invite token
  */
 function generateInviteToken() {
-    return uuidv4();
+    return crypto.randomUUID();
 }
 
 /**
