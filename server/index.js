@@ -461,6 +461,11 @@ async function createSuperAdmin(email, password, name) {
 // SPA FALLBACK
 // ============================================
 
+// Updates/blog page
+app.get('/updates', (req, res) => {
+    res.sendFile(path.join(__dirname, '../src/updates.html'));
+});
+
 // SPA fallback - serve index.html for all other routes
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../src/index.html'));

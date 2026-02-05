@@ -1591,3 +1591,273 @@ p {
 .roadmap-step:nth-child(4) { transition-delay: 0.3s; }
 .roadmap-step:nth-child(5) { transition-delay: 0.4s; }
 .roadmap-step:nth-child(6) { transition-delay: 0.5s; }
+
+/* ============================================
+   FOUNDER PHOTO
+   ============================================ */
+.founder-photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* ============================================
+   INVESTMENT CALCULATOR
+   ============================================ */
+.calculator-section {
+    background: var(--color-bg-light);
+}
+
+.calculator {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: var(--space-lg);
+}
+
+.calc-input {
+    text-align: center;
+    margin-bottom: var(--space-md);
+}
+
+.calc-input label {
+    display: block;
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    margin-bottom: var(--space-xs);
+}
+
+.calc-amount {
+    font-family: var(--font-display);
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--color-accent);
+    margin-bottom: var(--space-sm);
+    line-height: 1;
+}
+
+.calc-slider {
+    width: 100%;
+    height: 6px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--color-glass-border);
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+}
+
+.calc-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    cursor: pointer;
+    box-shadow: 0 0 12px rgba(124, 181, 134, 0.4);
+    border: 3px solid var(--color-bg-light);
+}
+
+.calc-slider::-moz-range-thumb {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    cursor: pointer;
+    border: 3px solid var(--color-bg-light);
+    box-shadow: 0 0 12px rgba(124, 181, 134, 0.4);
+}
+
+.calc-range-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: var(--space-xs);
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+}
+
+.calc-tier {
+    text-align: center;
+    margin-bottom: var(--space-md);
+}
+
+.calc-tier-badge {
+    display: inline-block;
+    padding: 4px 20px;
+    background: rgba(124, 181, 134, 0.15);
+    border: 1px solid rgba(124, 181, 134, 0.3);
+    border-radius: 100px;
+    color: var(--color-accent);
+    font-weight: 500;
+    font-size: 0.9rem;
+    transition: var(--transition-fast);
+}
+
+.calc-results {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: var(--space-md);
+}
+
+.calc-result {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-sm) 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.calc-result-label {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+}
+
+.calc-result-value {
+    color: var(--color-text);
+    font-weight: 500;
+    font-size: 1rem;
+    transition: var(--transition-fast);
+}
+
+.calc-result-highlight {
+    margin-top: var(--space-xs);
+    padding-top: var(--space-sm);
+    border-top: 2px solid var(--color-glass-border);
+    border-bottom: none;
+}
+
+.calc-result-highlight .calc-result-value {
+    color: var(--color-accent);
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.calc-note {
+    text-align: center;
+    color: var(--color-text-muted);
+    font-size: 0.8rem;
+    opacity: 0.7;
+}
+
+/* ============================================
+   LEGAL STRUCTURE SECTION
+   ============================================ */
+.legal-section {
+    background: var(--color-bg);
+}
+
+.legal-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: var(--space-md);
+}
+
+.legal-card {
+    padding: var(--space-md);
+    text-align: center;
+}
+
+.legal-icon {
+    font-size: 2rem;
+    display: block;
+    margin-bottom: var(--space-sm);
+}
+
+.legal-card h3 {
+    color: var(--color-accent-warm);
+    margin-bottom: var(--space-xs);
+}
+
+.legal-card p {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+/* Scroll animations for legal cards */
+.legal-card {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.legal-card.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.legal-card:nth-child(1) { transition-delay: 0.1s; }
+.legal-card:nth-child(2) { transition-delay: 0.2s; }
+.legal-card:nth-child(3) { transition-delay: 0.3s; }
+.legal-card:nth-child(4) { transition-delay: 0.4s; }
+
+/* ============================================
+   SOCIAL SHARE BUTTONS
+   ============================================ */
+.share-bar {
+    position: fixed;
+    left: var(--space-sm);
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 900;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+}
+
+.share-bar.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.share-btn {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: white;
+    text-decoration: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.share-btn:hover {
+    transform: scale(1.15);
+}
+
+.share-telegram { background: #0088cc; }
+.share-whatsapp { background: #25D366; }
+.share-vk { background: #4C75A3; }
+
+.share-telegram:hover { box-shadow: 0 4px 16px rgba(0, 136, 204, 0.4); }
+.share-whatsapp:hover { box-shadow: 0 4px 16px rgba(37, 211, 102, 0.4); }
+.share-vk:hover { box-shadow: 0 4px 16px rgba(76, 117, 163, 0.4); }
+
+@media (max-width: 768px) {
+    .share-bar {
+        left: auto;
+        right: var(--space-sm);
+        top: auto;
+        bottom: var(--space-md);
+        transform: none;
+    }
+
+    .share-btn {
+        width: 40px;
+        height: 40px;
+    }
+
+    .share-btn svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    .calc-amount {
+        font-size: 2.5rem;
+    }
+}

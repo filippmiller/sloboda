@@ -11,6 +11,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initModalHandlers();
     initSmoothScroll();
     initSocialProof();
+    initShareBar();
+    initInvestmentCalculator();
 });
 
 // ============================================
@@ -303,7 +305,7 @@ function initFormNavigation() {
 // ============================================
 function initScrollAnimations() {
     const animatedElements = document.querySelectorAll(
-        '.thesis-card, .value-card, .looking-item, .vision-feature, .comparison-card, .tier-card, .roadmap-step'
+        '.thesis-card, .value-card, .looking-item, .vision-feature, .comparison-card, .tier-card, .roadmap-step, .legal-card'
     );
 
     const observer = new IntersectionObserver(
@@ -429,4 +431,140 @@ function animateCounter(element, target) {
     }
 
     requestAnimationFrame(update);
+}
+
+// ============================================
+// SOCIAL SHARE BAR
+// ============================================
+function initShareBar() {
+    const shareBar = document.getElementById('shareBar');
+    if (!shareBar) return;
+
+    const pageUrl = encodeURIComponent(window.location.origin);
+    const textRu = encodeURIComponent('SLOBODA — План Б, который существует. Сообщество для тех, кто думает на шаг вперёд.');
+    const textEn = encodeURIComponent('SLOBODA — Plan B that exists. A community for those who think one step ahead.');
+
+    const tgBtn = shareBar.querySelector('.share-telegram');
+    const waBtn = shareBar.querySelector('.share-whatsapp');
+    const vkBtn = shareBar.querySelector('.share-vk');
+
+    function updateShareLinks() {
+        const text = currentLang === 'ru' ? textRu : textEn;
+        tgBtn.href = `https://t.me/share/url?url=${pageUrl}&text=${text}`;
+        waBtn.href = `https://api.whatsapp.com/send?text=${text}%20${pageUrl}`;
+        vkBtn.href = `https://vk.com/share.php?url=${pageUrl}`;
+    }
+
+    updateShareLinks();
+
+    // Show after scrolling past hero
+    const observer = new IntersectionObserver(
+        (entries) => {
+            entries.forEach(entry => {
+                shareBar.classList.toggle('visible', !entry.isIntersecting);
+            });
+        },
+        { threshold: 0.3 }
+    );
+
+    const hero = document.querySelector('.hero');
+    if (hero) observer.observe(hero);
+
+    // Update links when language changes
+    const origUpdateLang = window.updateLanguage;
+    if (typeof updateLanguage === 'function') {
+        const origFn = updateLanguage;
+        window.updateLanguage = function(lang) {
+            origFn(lang);
+            updateShareLinks();
+        };
+        // Re-bind the language switcher to use the wrapped function
+    }
+}
+
+// ============================================
+// INVESTMENT CALCULATOR
+// ============================================
+function initInvestmentCalculator() {
+    const slider = document.getElementById('calcSlider');
+    if (!slider) return;
+
+    const amountEl = document.getElementById('calcAmount');
+    const tierNameEl = document.getElementById('calcTierName');
+    const landEl = document.getElementById('calcLand');
+    const housingEl = document.getElementById('calcHousing');
+    const rentalEl = document.getElementById('calcRental');
+    const farmEl = document.getElementById('calcFarm');
+    const savingsEl = document.getElementById('calcSavings');
+
+    function formatUSD(val) {
+        return '$' + val.toLocaleString('en-US');
+    }
+
+    function updateCalculator() {
+        const amount = parseInt(slider.value);
+        amountEl.textContent = formatUSD(amount);
+
+        const isRu = currentLang === 'ru';
+
+        // Determine tier
+        let tierRu, tierEn, land, housingRu, housingEn, rental, farm;
+
+        if (amount < 10000) {
+            tierRu = 'Наблюдатель';
+            tierEn = 'Observer';
+            land = 0;
+            housingRu = '—';
+            housingEn = '—';
+            rental = 0;
+            farm = 0;
+        } else if (amount < 30000) {
+            tierRu = 'Пионер';
+            tierEn = 'Pioneer';
+            land = Math.round(8 + (amount - 10000) / 20000 * 4);
+            housingRu = 'Бронь участка';
+            housingEn = 'Plot reserved';
+            rental = 0;
+            farm = Math.round(300 + (amount - 10000) / 20000 * 400);
+        } else if (amount < 50000) {
+            tierRu = 'Строитель';
+            tierEn = 'Builder';
+            land = Math.round(12 + (amount - 30000) / 20000 * 3);
+            housingRu = 'Доля дома';
+            housingEn = 'House share';
+            rental = Math.round(100 + (amount - 30000) / 20000 * 200);
+            farm = Math.round(700 + (amount - 30000) / 20000 * 300);
+        } else {
+            tierRu = 'Основатель';
+            tierEn = 'Founder';
+            land = Math.round(15 + Math.min((amount - 50000) / 50000 * 5, 5));
+            housingRu = 'Полный дом';
+            housingEn = 'Full house';
+            rental = Math.round(300 + Math.min((amount - 50000) / 50000 * 300, 300));
+            farm = Math.round(1000 + Math.min((amount - 50000) / 50000 * 500, 500));
+        }
+
+        tierNameEl.textContent = isRu ? tierRu : tierEn;
+        tierNameEl.setAttribute('data-ru', tierRu);
+        tierNameEl.setAttribute('data-en', tierEn);
+
+        if (land > 0) {
+            landEl.innerHTML = land + ' <small>' + (isRu ? 'соток' : 'sotkas') + '</small>';
+        } else {
+            landEl.textContent = '—';
+        }
+
+        housingEl.textContent = isRu ? housingRu : housingEn;
+        housingEl.setAttribute('data-ru', housingRu);
+        housingEl.setAttribute('data-en', housingEn);
+
+        rentalEl.textContent = rental > 0 ? '~' + formatUSD(rental) + (isRu ? '/мес' : '/mo') : '—';
+        farmEl.textContent = farm > 0 ? '~' + formatUSD(farm) + (isRu ? '/год' : '/yr') : '—';
+
+        // Annual savings vs city (fixed 136k RUB/month = 1.632M/year)
+        savingsEl.innerHTML = '1.6 <small>' + (isRu ? 'млн ₽' : 'M ₽') + '</small>';
+    }
+
+    slider.addEventListener('input', updateCalculator);
+    updateCalculator();
 }
