@@ -161,8 +161,15 @@ function initFormNavigation() {
     });
 
     // Submit handler
-    form.addEventListener('submit', (e) => {
+    form.addEventListener('submit', async (e) => {
         e.preventDefault();
+
+        const submitBtn = form.querySelector('.form-submit');
+        const originalText = submitBtn.textContent;
+
+        // Disable button and show loading
+        submitBtn.disabled = true;
+        submitBtn.textContent = currentLang === 'ru' ? 'Отправка...' : 'Submitting...';
 
         // Collect form data
         const formData = new FormData(form);
@@ -175,14 +182,42 @@ function initFormNavigation() {
         });
         data.skills = skills;
 
-        console.log('Form submitted:', data);
+        // Convert checkbox values to booleans
+        data.newsletter = data.newsletter === 'on';
 
-        // Show success modal
-        document.getElementById('successModal').classList.add('active');
+        try {
+            const response = await fetch('/api/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
 
-        // Reset form
-        form.reset();
-        goToStep(1);
+            const result = await response.json();
+
+            if (result.success) {
+                // Show success modal
+                document.getElementById('successModal').classList.add('active');
+
+                // Reset form
+                form.reset();
+                goToStep(1);
+            } else {
+                alert(currentLang === 'ru'
+                    ? 'Ошибка при отправке: ' + (result.error || 'Попробуйте позже')
+                    : 'Submission error: ' + (result.error || 'Please try again'));
+            }
+        } catch (err) {
+            console.error('Form submission error:', err);
+            alert(currentLang === 'ru'
+                ? 'Ошибка соединения. Попробуйте позже.'
+                : 'Connection error. Please try again.');
+        } finally {
+            // Re-enable button
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+        }
     });
 
     function goToStep(step) {
