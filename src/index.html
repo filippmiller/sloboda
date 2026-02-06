@@ -3,956 +3,197 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SLOBODA — План Б, который существует</title>
+    <title>СЛОБОДА — План Б, который существует</title>
 
-    <!-- SEO Meta Tags -->
-    <meta name="description" content="SLOBODA - платформа для создания сельской инфраструктуры. План Б для тех, кто думает на шаг вперёд. Сообщество единомышленников, готовых строить альтернативу вместе.">
-    <meta name="keywords" content="сельская жизнь, инвестиции в землю, сообщество, план Б, AI безработица, деревня, фермерство">
+    <meta name="description" content="СЛОБОДА — исход из города. Сообщество людей, которые строят альтернативу. НКО, знания, земля, инфраструктура.">
+    <meta name="keywords" content="слобода, план Б, исход из города, сельская жизнь, НКО, сообщество, земля">
     <meta name="author" content="Phillip Miller">
     <meta name="robots" content="index, follow">
 
-    <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://sloboda.land/">
-    <meta property="og:title" content="SLOBODA — План Б, который существует">
-    <meta property="og:description" content="Платформа для создания сельской инфраструктуры. Сообщество единомышленников, готовых строить альтернативу вместе.">
-    <meta property="og:image" content="https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1200&h=630&fit=crop">
+    <meta property="og:title" content="СЛОБОДА — План Б, который существует">
+    <meta property="og:description" content="Исход из города. Сообщество людей, которые строят альтернативу вместе.">
     <meta property="og:locale" content="ru_RU">
-    <meta property="og:locale:alternate" content="en_US">
 
-    <!-- Twitter Card -->
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="SLOBODA — План Б, который существует">
-    <meta name="twitter:description" content="Платформа для создания сельской инфраструктуры. Сообщество единомышленников.">
-    <meta name="twitter:image" content="https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1200&h=630&fit=crop">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="СЛОБОДА — План Б, который существует">
+    <meta name="twitter:description" content="Исход из города. Сообщество людей, которые строят альтернативу вместе.">
 
-    <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌾</text></svg>">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>S</text></svg>">
 
-    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Onest:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <!-- Skip to main content (accessibility) -->
-    <a href="#register" class="skip-link">Skip to main content</a>
 
-    <!-- Language Switcher -->
-    <nav class="lang-nav" aria-label="Language selection">
-        <button class="lang-btn active" data-lang="ru" aria-label="Switch to Russian" aria-pressed="true">RU</button>
-        <span class="lang-divider" aria-hidden="true">/</span>
-        <button class="lang-btn" data-lang="en" aria-label="Switch to English" aria-pressed="false">EN</button>
-    </nav>
-
-    <!-- Hero Section -->
+    <!-- 1. Hero -->
     <section class="hero">
-        <div class="hero-bg">
-            <div class="hero-overlay"></div>
-            <div class="grain-overlay"></div>
-        </div>
+        <h1>СЛОБОДА</h1>
+        <p class="hero-subtitle">Исход из города. План Б, который существует.</p>
+        <p class="hero-text">Мы не продаём мечты про экопоселения. Мы создаём юридическую структуру, собираем людей с нужными навыками и строим инфраструктуру для жизни вне города. Это долгий, честный процесс. Если вы думаете на шаг вперёд — вам сюда.</p>
+        <a href="#signup" class="cta-btn">Заявить о себе</a>
+    </section>
 
-        <!-- Main Hero Card -->
-        <div class="hero-content">
-            <div class="glass-card hero-card">
-                <div class="slogan-container">
-                    <p class="slogan active" data-ru="Что невозможно одному — возможно вместе" data-en="What's impossible alone — is possible together">Что невозможно одному — возможно вместе</p>
-                    <p class="slogan" data-ru="AI заменит бухгалтеров, юристов, программистов. Что будет с городами?" data-en="AI will replace accountants, lawyers, programmers. What happens to cities?">AI заменит бухгалтеров, юристов, программистов. Что будет с городами?</p>
-                    <p class="slogan" data-ru="Умный человек не ждёт кризиса. Умный человек имеет План Б." data-en="A smart person doesn't wait for crisis. A smart person has Plan B.">Умный человек не ждёт кризиса. Умный человек имеет План Б.</p>
-                    <p class="slogan" data-ru="Мы не продаём мечты. Мы строим реальность вместе." data-en="We don't sell dreams. We build reality together.">Мы не продаём мечты. Мы строим реальность вместе.</p>
-                    <p class="slogan" data-ru="Города дорогие, потому что там работа. Уберите работу — зачем город?" data-en="Cities are expensive because of jobs. Remove jobs — why the city?">Города дорогие, потому что там работа. Уберите работу — зачем город?</p>
-                </div>
-            </div>
-
-            <p class="hero-subtitle" data-ru="Проект для реалистов, которые думают на шаг вперёд" data-en="A project for realists who think one step ahead">Проект для реалистов, которые думают на шаг вперёд</p>
-
-            <!-- Registration Counter (Social Proof) -->
-            <div class="social-proof" id="socialProof" style="display: none;">
-                <span class="proof-icon">👥</span>
-                <span class="proof-text" data-ru="человек уже присоединились" data-en="people have already joined">
-                    <span class="proof-count" id="proofCount">0</span>
-                    <span data-ru=" человек уже присоединились" data-en=" people have already joined"> человек уже присоединились</span>
-                </span>
-            </div>
-
-            <!-- CTA Buttons -->
-            <div class="cta-container">
-                <button class="glass-btn cta-primary" data-ru="Стать частью сообщества" data-en="Join the community">
-                    <span>Стать частью сообщества</span>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M5 12h14M12 5l7 7-7 7"/>
-                    </svg>
-                </button>
-                <button class="glass-btn cta-secondary" data-ru="Стать соинвестором" data-en="Become a co-investor">
-                    <span>Стать соинвестором</span>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M5 12h14M12 5l7 7-7 7"/>
-                    </svg>
-                </button>
-            </div>
-        </div>
-
-        <!-- Scroll Indicator -->
-        <div class="scroll-indicator">
-            <div class="scroll-line"></div>
+    <!-- 2. The Reality -->
+    <section class="section" id="reality">
+        <h2>Реальность</h2>
+        <div class="statements-grid">
+            <div class="statement">AI заменит бухгалтеров, юристов, программистов. Вопрос не «если», а «когда».</div>
+            <div class="statement">Города дорогие, потому что там работа. Уберите работу — зачем город?</div>
+            <div class="statement">Ипотека не платится без зарплаты. Квартира без работы — не актив, а ловушка.</div>
+            <div class="statement">Умный человек не ждёт кризиса. Умный человек имеет План Б.</div>
+            <div class="statement">Одному уехать в деревню — провал. Вместе, с навыками и планом — реально.</div>
+            <div class="statement">Земля не обесценивается. Навыки не отбирают. Сообщество не увольняет.</div>
+            <div class="statement">Мы не бежим от прогресса. Мы готовимся к его последствиям.</div>
+            <div class="statement">Лучшее время начать было вчера. Второе лучшее — сейчас.</div>
         </div>
     </section>
 
-    <!-- Thesis Section -->
-    <section class="section thesis-section">
-        <div class="container">
-            <div class="thesis-grid">
-                <div class="thesis-card glass-card">
-                    <span class="thesis-icon">⚡</span>
-                    <h3 data-ru="AI меняет всё" data-en="AI changes everything">AI меняет всё</h3>
-                    <p data-ru="Бухгалтеры, юристы, секретари, программисты — профессии, которые заменит искусственный интеллект в ближайшие годы." data-en="Accountants, lawyers, secretaries, programmers — professions that AI will replace in the coming years.">Бухгалтеры, юристы, секретари, программисты — профессии, которые заменит искусственный интеллект в ближайшие годы.</p>
-                </div>
-                <div class="thesis-card glass-card">
-                    <span class="thesis-icon">🏙️</span>
-                    <h3 data-ru="Города станут дорогими" data-en="Cities will become expensive">Города станут дорогими</h3>
-                    <p data-ru="Без работы ипотека не платится. Квартиры падают в цене. Начнётся исход из городов." data-en="Without jobs, mortgages don't get paid. Apartments drop in value. The exodus from cities begins.">Без работы ипотека не платится. Квартиры падают в цене. Начнётся исход из городов.</p>
-                </div>
-                <div class="thesis-card glass-card">
-                    <span class="thesis-icon">🌿</span>
-                    <h3 data-ru="Возвращение к земле" data-en="Return to the land">Возвращение к земле</h3>
-                    <p data-ru="Люди будут искать место, где можно жить недорого, на своей земле, в сообществе единомышленников." data-en="People will seek places to live affordably, on their own land, in a community of like-minded people.">Люди будут искать место, где можно жить недорого, на своей земле, в сообществе единомышленников.</p>
-                </div>
+    <!-- 3. What Is SLOBODA -->
+    <section class="section" id="about">
+        <h2>Что такое СЛОБОДА</h2>
+        <div class="text-block">
+            <p>СЛОБОДА — это некоммерческая организация и сообщество людей, которые строят инфраструктуру для жизни вне города. Мы не продаём участки и не обещаем доходность. Мы создаём юридическую структуру (НКО), собираем базу знаний, формируем сообщество специалистов и шаг за шагом движемся к реальному проекту: земля, дома, ферма, мастерские. Всё прозрачно, все решения коллективные, все финансы открыты.</p>
+        </div>
+    </section>
+
+    <!-- 4. What We're Building -->
+    <section class="section" id="phases">
+        <h2>Что мы строим</h2>
+        <div class="phases">
+            <div class="phase phase-now">
+                <h3>Фаза 1 — сейчас</h3>
+                <ul>
+                    <li>Создание НКО (некоммерческая организация)</li>
+                    <li>Сбор пожертвований на юридическую работу</li>
+                    <li>База знаний: строительство, сельское хозяйство, юридика</li>
+                    <li>Telegram-сообщество для координации</li>
+                    <li>Регистрация участников и их навыков</li>
+                </ul>
+            </div>
+            <div class="phase">
+                <h3>Дальше</h3>
+                <ul>
+                    <li>Сид-фонд на покупку техники и материалов</li>
+                    <li>Поиск и покупка земли</li>
+                    <li>Проектирование и строительство</li>
+                    <li>Запуск фермы и мастерских</li>
+                    <li>Спутниковые проекты в других регионах</li>
+                </ul>
             </div>
         </div>
     </section>
 
-    <!-- Founder Section -->
-    <section class="section founder-section">
-        <div class="container">
-            <div class="founder-card glass-card">
-                <div class="founder-image">
-                    <!-- Replace src with actual founder photo when available -->
-                    <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face" alt="Филипп Миллер" class="founder-photo" loading="lazy">
-                </div>
-                <div class="founder-content">
-                    <div class="founder-slider">
-                        <blockquote class="founder-slide active">
-                            <p class="founder-quote-main" data-ru="Человеческие ценности важнее денег." data-en="Human values matter more than money.">Человеческие ценности важнее денег.</p>
-                            <p class="founder-quote-sub" data-ru="Жизнь научила меня одному: когда у тебя есть настоящее сообщество — ты можешь пережить любой кризис." data-en="Life taught me one thing: when you have a real community — you can survive any crisis.">Жизнь научила меня одному: когда у тебя есть настоящее сообщество — ты можешь пережить любой кризис.</p>
-                        </blockquote>
-                        <blockquote class="founder-slide">
-                            <p class="founder-quote-main" data-ru="AI заменит профессии, но не заменит потребность в сообществе." data-en="AI will replace professions, but won't replace the need for community.">AI заменит профессии, но не заменит потребность в сообществе.</p>
-                            <p class="founder-quote-sub" data-ru="Вопрос не в том, потеряете ли вы работу. Вопрос — что у вас останется, когда это произойдёт?" data-en="The question isn't whether you'll lose your job. The question is — what will you have left when it happens?">Вопрос не в том, потеряете ли вы работу. Вопрос — что у вас останется, когда это произойдёт?</p>
-                        </blockquote>
-                        <blockquote class="founder-slide">
-                            <p class="founder-quote-main" data-ru="Города созданы для работы. Уберите работу — города станут ловушкой." data-en="Cities are built for work. Remove work — cities become a trap.">Города созданы для работы. Уберите работу — города станут ловушкой.</p>
-                            <p class="founder-quote-sub" data-ru="Мы не бежим от прогресса. Мы готовимся к его последствиям." data-en="We're not running from progress. We're preparing for its consequences.">Мы не бежим от прогресса. Мы готовимся к его последствиям.</p>
-                        </blockquote>
-                        <blockquote class="founder-slide">
-                            <p class="founder-quote-main" data-ru="Я не продаю землю. Я ищу людей, с которыми хочу быть соседями." data-en="I'm not selling land. I'm looking for people I want as neighbors.">Я не продаю землю. Я ищу людей, с которыми хочу быть соседями.</p>
-                            <p class="founder-quote-sub" data-ru="Этот проект — не инвестиция. Это страховка от будущего, которое уже наступает." data-en="This project isn't an investment. It's insurance against a future that's already arriving.">Этот проект — не инвестиция. Это страховка от будущего, которое уже наступает.</p>
-                        </blockquote>
-                        <blockquote class="founder-slide">
-                            <p class="founder-quote-main" data-ru="Умные люди не ждут кризиса. Умные люди имеют План Б." data-en="Smart people don't wait for crisis. Smart people have Plan B.">Умные люди не ждут кризиса. Умные люди имеют План Б.</p>
-                            <p class="founder-quote-sub" data-ru="Лучшее время посадить дерево было 20 лет назад. Второе лучшее — сейчас." data-en="The best time to plant a tree was 20 years ago. The second best time is now.">Лучшее время посадить дерево было 20 лет назад. Второе лучшее — сейчас.</p>
-                        </blockquote>
-                    </div>
-                    <div class="founder-slider-nav">
-                        <button class="founder-dot active" data-slide="0" aria-label="Slide 1"></button>
-                        <button class="founder-dot" data-slide="1" aria-label="Slide 2"></button>
-                        <button class="founder-dot" data-slide="2" aria-label="Slide 3"></button>
-                        <button class="founder-dot" data-slide="3" aria-label="Slide 4"></button>
-                        <button class="founder-dot" data-slide="4" aria-label="Slide 5"></button>
-                    </div>
-                    <div class="founder-name">
-                        <strong>Филипп Миллер</strong>
-                        <span data-ru="Основатель проекта" data-en="Project Founder">Основатель проекта</span>
-                    </div>
-                </div>
+    <!-- 5. What We Need From You -->
+    <section class="section" id="needs">
+        <h2>Что нам нужно от вас</h2>
+        <div class="needs-grid">
+            <div class="need-block">
+                <h3>Навыки</h3>
+                <p>Нам нужны люди, которые умеют делать руками. Не инвесторы на диване — а те, кто готов участвовать.</p>
+                <ul>
+                    <li>Строительство и архитектура</li>
+                    <li>Сельское хозяйство и агрономия</li>
+                    <li>Электрика и инженерные сети</li>
+                    <li>Лесное дело и деревообработка</li>
+                    <li>Семеноводство и садоводство</li>
+                    <li>Юриспруденция и документы</li>
+                    <li>Медицина и ветеринария</li>
+                    <li>Инженерия и механика</li>
+                    <li>Выживание и автономность</li>
+                </ul>
+            </div>
+            <div class="need-block">
+                <h3>Поддержка</h3>
+                <p>Деньги идут на конкретные вещи. Не на «развитие проекта», а на то, что можно потрогать.</p>
+                <ul>
+                    <li>Регистрация и содержание НКО</li>
+                    <li>Создание и поддержка базы знаний</li>
+                    <li>Сид-фонд на оборудование</li>
+                    <li>Покупка техники и материалов</li>
+                    <li>Покупка земли</li>
+                </ul>
             </div>
         </div>
     </section>
 
-    <!-- Values Section -->
-    <section class="section values-section">
-        <div class="container">
-            <h2 class="section-title" data-ru="На чём мы стоим" data-en="What we stand for">На чём мы стоим</h2>
-            <div class="values-grid">
-                <div class="value-card glass-card">
-                    <div class="value-icon">🗳️</div>
-                    <h3 data-ru="Демократия" data-en="Democracy">Демократия</h3>
-                    <p data-ru="Каждый участник имеет голос. Решения принимаются вместе." data-en="Every participant has a voice. Decisions are made together.">Каждый участник имеет голос. Решения принимаются вместе.</p>
+    <!-- 6. Signup Form -->
+    <section class="section" id="signup">
+        <h2>Заявить о себе</h2>
+        <p class="form-intro">Заполните форму. Мы свяжемся с теми, кто нам подходит.</p>
+
+        <form class="signup-form" id="signupForm">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="f-name">Имя *</label>
+                    <input type="text" id="f-name" name="name" required autocomplete="name">
                 </div>
-                <div class="value-card glass-card">
-                    <div class="value-icon">🤝</div>
-                    <h3 data-ru="Уважение" data-en="Respect">Уважение</h3>
-                    <p data-ru="Человек — не ресурс. Каждый ценен сам по себе." data-en="A person is not a resource. Everyone is valuable in their own right.">Человек — не ресурс. Каждый ценен сам по себе.</p>
-                </div>
-                <div class="value-card glass-card">
-                    <div class="value-icon">👁️</div>
-                    <h3 data-ru="Прозрачность" data-en="Transparency">Прозрачность</h3>
-                    <p data-ru="Все решения открыты. Финансы видны всем участникам." data-en="All decisions are open. Finances are visible to all participants.">Все решения открыты. Финансы видны всем участникам.</p>
-                </div>
-                <div class="value-card glass-card">
-                    <div class="value-icon">📊</div>
-                    <h3 data-ru="Реализм" data-en="Realism">Реализм</h3>
-                    <p data-ru="Никаких обещаний. Только факты и честный разговор." data-en="No promises. Only facts and honest conversation.">Никаких обещаний. Только факты и честный разговор.</p>
-                </div>
-                <div class="value-card glass-card">
-                    <div class="value-icon">🏗️</div>
-                    <h3 data-ru="Общее дело" data-en="Common cause">Общее дело</h3>
-                    <p data-ru="Строим вместе — владеем вместе." data-en="Build together — own together.">Строим вместе — владеем вместе.</p>
-                </div>
-                <div class="value-card glass-card">
-                    <div class="value-icon">🕊️</div>
-                    <h3 data-ru="Свобода" data-en="Freedom">Свобода</h3>
-                    <p data-ru="Участвуй как хочешь: деньгами, временем, знаниями." data-en="Participate as you wish: with money, time, or knowledge.">Участвуй как хочешь: деньгами, временем, знаниями.</p>
+                <div class="form-group">
+                    <label for="f-email">Email *</label>
+                    <input type="email" id="f-email" name="email" required autocomplete="email">
                 </div>
             </div>
-        </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="f-telegram">Telegram</label>
+                    <input type="text" id="f-telegram" name="telegram" placeholder="@username" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="f-city">Город</label>
+                    <input type="text" id="f-city" name="city" autocomplete="address-level2">
+                </div>
+            </div>
+
+            <fieldset class="form-fieldset">
+                <legend>Навыки (отметьте все подходящие)</legend>
+                <div class="checkbox-grid">
+                    <label><input type="checkbox" name="skills" value="construction"> Строительство</label>
+                    <label><input type="checkbox" name="skills" value="agriculture"> Сельское хозяйство</label>
+                    <label><input type="checkbox" name="skills" value="electrical"> Электрика</label>
+                    <label><input type="checkbox" name="skills" value="forestry"> Лесное дело</label>
+                    <label><input type="checkbox" name="skills" value="seeds"> Семеноводство</label>
+                    <label><input type="checkbox" name="skills" value="legal"> Юриспруденция</label>
+                    <label><input type="checkbox" name="skills" value="medical"> Медицина</label>
+                    <label><input type="checkbox" name="skills" value="engineering"> Инженерия</label>
+                    <label><input type="checkbox" name="skills" value="survival"> Выживание</label>
+                </div>
+            </fieldset>
+
+            <div class="form-group">
+                <label for="f-about">Что вас интересует в проекте?</label>
+                <textarea id="f-about" name="about" rows="3" placeholder="Чем хотите заниматься, что умеете, зачем вам это"></textarea>
+            </div>
+
+            <fieldset class="form-fieldset">
+                <legend>Готовы поддержать финансово?</legend>
+                <div class="radio-row">
+                    <label><input type="radio" name="donate" value="yes"> Да</label>
+                    <label><input type="radio" name="donate" value="no"> Нет</label>
+                    <label><input type="radio" name="donate" value="later" checked> Позже</label>
+                </div>
+            </fieldset>
+
+            <div class="form-group form-privacy">
+                <label><input type="checkbox" name="privacy" required> Согласен с обработкой персональных данных</label>
+            </div>
+
+            <button type="submit" class="submit-btn" id="submitBtn">Отправить</button>
+
+            <div class="form-status" id="formStatus"></div>
+        </form>
     </section>
 
-    <!-- Looking For Section -->
-    <section class="section looking-section">
-        <div class="container">
-            <h2 class="section-title" data-ru="Сейчас мы ищем" data-en="We're currently looking for">Сейчас мы ищем</h2>
-            <div class="looking-grid">
-                <div class="looking-item">
-                    <span class="looking-emoji">👨‍🌾</span>
-                    <div>
-                        <strong data-ru="Фермеров и агрономов" data-en="Farmers and agronomists">Фермеров и агрономов</strong>
-                        <p data-ru="Знания о земле и урожае" data-en="Knowledge about land and harvest">Знания о земле и урожае</p>
-                    </div>
-                </div>
-                <div class="looking-item">
-                    <span class="looking-emoji">🏗️</span>
-                    <div>
-                        <strong data-ru="Строителей" data-en="Builders">Строителей</strong>
-                        <p data-ru="Опыт возведения домов и инфраструктуры" data-en="Experience in building homes and infrastructure">Опыт возведения домов и инфраструктуры</p>
-                    </div>
-                </div>
-                <div class="looking-item">
-                    <span class="looking-emoji">⚖️</span>
-                    <div>
-                        <strong data-ru="Юристов" data-en="Lawyers">Юристов</strong>
-                        <p data-ru="Помощь со структурой и договорами" data-en="Help with structure and contracts">Помощь со структурой и договорами</p>
-                    </div>
-                </div>
-                <div class="looking-item">
-                    <span class="looking-emoji">🗺️</span>
-                    <div>
-                        <strong data-ru="Скаутов" data-en="Scouts">Скаутов</strong>
-                        <p data-ru="Кто готов искать и оценивать участки" data-en="Those ready to search and evaluate land plots">Кто готов искать и оценивать участки</p>
-                    </div>
-                </div>
-                <div class="looking-item">
-                    <span class="looking-emoji">💰</span>
-                    <div>
-                        <strong data-ru="Соинвесторов" data-en="Co-investors">Соинвесторов</strong>
-                        <p data-ru="Кто готов вложить в общее дело" data-en="Those ready to invest in the common cause">Кто готов вложить в общее дело</p>
-                    </div>
-                </div>
-                <div class="looking-item">
-                    <span class="looking-emoji">📣</span>
-                    <div>
-                        <strong data-ru="Рассказчиков" data-en="Storytellers">Рассказчиков</strong>
-                        <p data-ru="Кто поможет донести идею до других" data-en="Those who will help spread the idea">Кто поможет донести идею до других</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Village Vision Section -->
-    <section class="section vision-section">
-        <div class="container">
-            <h2 class="section-title" data-ru="Как это выглядит" data-en="What it looks like">Как это выглядит</h2>
-            <p class="section-subtitle" data-ru="Каждый посёлок SLOBODA строится вокруг центральной фермы" data-en="Every SLOBODA village is built around a central farm">Каждый посёлок SLOBODA строится вокруг центральной фермы</p>
-
-            <div class="vision-diagram glass-card">
-                <svg class="village-svg" viewBox="0 0 800 520" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Village layout plan">
-                    <defs>
-                        <pattern id="dotGrid" width="30" height="30" patternUnits="userSpaceOnUse">
-                            <circle cx="15" cy="15" r="0.6" fill="rgba(255,255,255,0.06)"/>
-                        </pattern>
-                    </defs>
-
-                    <rect width="800" height="520" fill="url(#dotGrid)"/>
-
-                    <!-- Outer nature ring -->
-                    <circle cx="400" cy="260" r="235" fill="none" stroke="rgba(124,181,134,0.1)" stroke-width="30"/>
-
-                    <!-- Path ring -->
-                    <circle cx="400" cy="260" r="155" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1.5" stroke-dasharray="8,6"/>
-
-                    <!-- Radial paths -->
-                    <g stroke="rgba(255,255,255,0.06)" stroke-width="1">
-                        <line x1="400" y1="260" x2="400" y2="90"/>
-                        <line x1="400" y1="260" x2="534" y2="183"/>
-                        <line x1="400" y1="260" x2="555" y2="260"/>
-                        <line x1="400" y1="260" x2="534" y2="337"/>
-                        <line x1="400" y1="260" x2="400" y2="430"/>
-                        <line x1="400" y1="260" x2="266" y2="337"/>
-                        <line x1="400" y1="260" x2="245" y2="260"/>
-                        <line x1="400" y1="260" x2="266" y2="183"/>
-                    </g>
-
-                    <!-- Trees - outer ring -->
-                    <g fill="rgba(124,181,134,0.25)">
-                        <circle cx="400" cy="30" r="10"/><circle cx="310" cy="42" r="8"/>
-                        <circle cx="490" cy="42" r="9"/><circle cx="220" cy="85" r="10"/>
-                        <circle cx="580" cy="85" r="8"/><circle cx="160" cy="155" r="9"/>
-                        <circle cx="640" cy="155" r="10"/><circle cx="140" cy="240" r="8"/>
-                        <circle cx="660" cy="240" r="9"/><circle cx="140" cy="320" r="10"/>
-                        <circle cx="660" cy="320" r="8"/><circle cx="170" cy="390" r="9"/>
-                        <circle cx="630" cy="390" r="10"/><circle cx="220" cy="440" r="8"/>
-                        <circle cx="580" cy="440" r="9"/><circle cx="300" cy="478" r="10"/>
-                        <circle cx="500" cy="478" r="8"/><circle cx="400" cy="490" r="7"/>
-                    </g>
-
-                    <!-- Central Farm -->
-                    <circle cx="400" cy="260" r="65" fill="rgba(124,181,134,0.12)" stroke="rgba(124,181,134,0.5)" stroke-width="1.5"/>
-                    <g stroke="rgba(124,181,134,0.2)" stroke-width="1">
-                        <line x1="370" y1="225" x2="370" y2="295"/>
-                        <line x1="385" y1="215" x2="385" y2="305"/>
-                        <line x1="400" y1="210" x2="400" y2="310"/>
-                        <line x1="415" y1="215" x2="415" y2="305"/>
-                        <line x1="430" y1="225" x2="430" y2="295"/>
-                    </g>
-
-                    <!-- Houses -->
-                    <g>
-                        <rect x="383" y="95" width="34" height="22" rx="3" fill="rgba(196,165,116,0.2)" stroke="rgba(196,165,116,0.5)" stroke-width="1"/>
-                        <rect x="517" y="168" width="34" height="22" rx="3" fill="rgba(196,165,116,0.2)" stroke="rgba(196,165,116,0.5)" stroke-width="1"/>
-                        <rect x="517" y="327" width="34" height="22" rx="3" fill="rgba(196,165,116,0.2)" stroke="rgba(196,165,116,0.5)" stroke-width="1"/>
-                        <rect x="383" y="418" width="34" height="22" rx="3" fill="rgba(196,165,116,0.2)" stroke="rgba(196,165,116,0.5)" stroke-width="1"/>
-                        <rect x="249" y="327" width="34" height="22" rx="3" fill="rgba(196,165,116,0.2)" stroke="rgba(196,165,116,0.5)" stroke-width="1"/>
-                        <rect x="249" y="168" width="34" height="22" rx="3" fill="rgba(196,165,116,0.2)" stroke="rgba(196,165,116,0.5)" stroke-width="1"/>
-                        <rect x="443" y="100" width="28" height="18" rx="3" fill="rgba(196,165,116,0.15)" stroke="rgba(196,165,116,0.4)" stroke-width="0.8"/>
-                        <rect x="330" y="100" width="28" height="18" rx="3" fill="rgba(196,165,116,0.15)" stroke="rgba(196,165,116,0.4)" stroke-width="0.8"/>
-                        <rect x="443" y="400" width="28" height="18" rx="3" fill="rgba(196,165,116,0.15)" stroke="rgba(196,165,116,0.4)" stroke-width="0.8"/>
-                        <rect x="330" y="400" width="28" height="18" rx="3" fill="rgba(196,165,116,0.15)" stroke="rgba(196,165,116,0.4)" stroke-width="0.8"/>
-                    </g>
-
-                    <!-- Community Center (right) -->
-                    <rect x="540" y="245" width="45" height="30" rx="4" fill="rgba(124,181,134,0.15)" stroke="rgba(124,181,134,0.5)" stroke-width="1"/>
-
-                    <!-- Workshop (left) -->
-                    <rect x="215" y="245" width="45" height="30" rx="4" fill="rgba(196,165,116,0.15)" stroke="rgba(196,165,116,0.4)" stroke-width="1"/>
-
-                    <!-- Labels -->
-                    <text x="400" y="265" text-anchor="middle" fill="rgba(124,181,134,0.8)" font-family="sans-serif" font-size="11" font-weight="600" letter-spacing="2" data-ru="ФЕРМА" data-en="FARM">ФЕРМА</text>
-                    <text x="562" y="265" text-anchor="middle" fill="rgba(124,181,134,0.6)" font-family="sans-serif" font-size="8" font-weight="500" letter-spacing="1" data-ru="КЛУБ" data-en="CLUB">КЛУБ</text>
-                    <text x="238" y="265" text-anchor="middle" fill="rgba(196,165,116,0.6)" font-family="sans-serif" font-size="7.5" font-weight="500" letter-spacing="1" data-ru="МАСТЕРСКАЯ" data-en="WORKSHOP">МАСТЕРСКАЯ</text>
-
-                    <!-- Entrance -->
-                    <line x1="400" y1="455" x2="400" y2="500" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
-                    <polygon points="394,495 400,508 406,495" fill="rgba(255,255,255,0.15)"/>
-                </svg>
-
-                <div class="vision-legend">
-                    <div class="legend-item">
-                        <span class="legend-swatch legend-farm"></span>
-                        <span data-ru="Центральная ферма" data-en="Central farm">Центральная ферма</span>
-                    </div>
-                    <div class="legend-item">
-                        <span class="legend-swatch legend-house"></span>
-                        <span data-ru="Жилые дома" data-en="Houses">Жилые дома</span>
-                    </div>
-                    <div class="legend-item">
-                        <span class="legend-swatch legend-community"></span>
-                        <span data-ru="Общественные здания" data-en="Community buildings">Общественные здания</span>
-                    </div>
-                    <div class="legend-item">
-                        <span class="legend-swatch legend-nature"></span>
-                        <span data-ru="Зелёная зона" data-en="Green zone">Зелёная зона</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="vision-features">
-                <div class="vision-feature glass-card">
-                    <span class="vision-feature-icon">🌾</span>
-                    <h3 data-ru="Центральная ферма" data-en="Central Farm">Центральная ферма</h3>
-                    <p data-ru="Сердце посёлка. Продукты для жителей и на продажу. Управляется кооперативом." data-en="Heart of the village. Food for residents and for sale. Managed by the cooperative.">Сердце посёлка. Продукты для жителей и на продажу. Управляется кооперативом.</p>
-                </div>
-                <div class="vision-feature glass-card">
-                    <span class="vision-feature-icon">🏡</span>
-                    <h3 data-ru="Свой дом и участок" data-en="Your Own Home & Plot">Свой дом и участок</h3>
-                    <p data-ru="10-15 соток земли. Дом — ваша собственность. Можно жить или сдавать в аренду." data-en="1000-1500 m² of land. The house is your property. Live in it or rent it out.">10-15 соток земли. Дом — ваша собственность. Можно жить или сдавать в аренду.</p>
-                </div>
-                <div class="vision-feature glass-card">
-                    <span class="vision-feature-icon">🛠️</span>
-                    <h3 data-ru="Общие пространства" data-en="Shared Spaces">Общие пространства</h3>
-                    <p data-ru="Мастерская, клуб, коворкинг — всё для жизни и работы в шаговой доступности." data-en="Workshop, club, coworking — everything for living and working, within walking distance.">Мастерская, клуб, коворкинг — всё для жизни и работы в шаговой доступности.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Economics Section -->
-    <section class="section economics-section">
-        <div class="container">
-            <h2 class="section-title" data-ru="Экономика проекта" data-en="Project Economics">Экономика проекта</h2>
-            <p class="section-subtitle" data-ru="Конкретные цифры, а не обещания" data-en="Real numbers, not promises">Конкретные цифры, а не обещания</p>
-
-            <div class="comparison-wrapper">
-                <div class="comparison-card glass-card comparison-city">
-                    <div class="comparison-header">
-                        <span class="comparison-emoji">🏙️</span>
-                        <h3 data-ru="Город" data-en="City">Город</h3>
-                        <span class="comparison-tag" data-ru="Москва, средние расходы" data-en="Moscow, average expenses">Москва, средние расходы</span>
-                    </div>
-                    <div class="comparison-rows">
-                        <div class="comparison-row">
-                            <span data-ru="Аренда квартиры" data-en="Apartment rent">Аренда квартиры</span>
-                            <strong>80 000 ₽</strong>
-                        </div>
-                        <div class="comparison-row">
-                            <span data-ru="Продукты" data-en="Groceries">Продукты</span>
-                            <strong>40 000 ₽</strong>
-                        </div>
-                        <div class="comparison-row">
-                            <span data-ru="Транспорт" data-en="Transport">Транспорт</span>
-                            <strong>15 000 ₽</strong>
-                        </div>
-                        <div class="comparison-row">
-                            <span data-ru="Коммунальные" data-en="Utilities">Коммунальные</span>
-                            <strong>12 000 ₽</strong>
-                        </div>
-                        <div class="comparison-row">
-                            <span data-ru="Досуг" data-en="Entertainment">Досуг</span>
-                            <strong>20 000 ₽</strong>
-                        </div>
-                    </div>
-                    <div class="comparison-total">
-                        <span data-ru="Итого / мес" data-en="Total / mo">Итого / мес</span>
-                        <strong>167 000 ₽</strong>
-                    </div>
-                </div>
-
-                <div class="comparison-vs"><span>VS</span></div>
-
-                <div class="comparison-card glass-card comparison-village">
-                    <div class="comparison-header">
-                        <span class="comparison-emoji">🌿</span>
-                        <h3 data-ru="Посёлок" data-en="Village">Посёлок</h3>
-                        <span class="comparison-tag" data-ru="SLOBODA, после постройки" data-en="SLOBODA, after construction">SLOBODA, после постройки</span>
-                    </div>
-                    <div class="comparison-rows">
-                        <div class="comparison-row">
-                            <span data-ru="Жильё" data-en="Housing">Жильё</span>
-                            <strong class="green">0 ₽</strong>
-                        </div>
-                        <div class="comparison-row">
-                            <span data-ru="Продукты" data-en="Groceries">Продукты</span>
-                            <strong>15 000 ₽</strong>
-                        </div>
-                        <div class="comparison-row">
-                            <span data-ru="Транспорт" data-en="Transport">Транспорт</span>
-                            <strong>5 000 ₽</strong>
-                        </div>
-                        <div class="comparison-row">
-                            <span data-ru="Коммунальные" data-en="Utilities">Коммунальные</span>
-                            <strong>6 000 ₽</strong>
-                        </div>
-                        <div class="comparison-row">
-                            <span data-ru="Взнос в кооператив" data-en="Cooperative fee">Взнос в кооператив</span>
-                            <strong>5 000 ₽</strong>
-                        </div>
-                    </div>
-                    <div class="comparison-total comparison-total-green">
-                        <span data-ru="Итого / мес" data-en="Total / mo">Итого / мес</span>
-                        <strong>31 000 ₽</strong>
-                    </div>
-                </div>
-            </div>
-
-            <div class="savings-banner glass-card">
-                <div class="savings-amount">
-                    <span data-ru="Экономия" data-en="You save">Экономия</span>
-                    <strong>136 000 ₽<small data-ru=" / мес" data-en=" / mo"> / мес</small></strong>
-                </div>
-                <p data-ru="Более 1.6 млн ₽ в год — вложите в развитие или просто живите спокойнее" data-en="Over 1.6M ₽ per year — invest in growth or simply live more peacefully">Более 1.6 млн ₽ в год — вложите в развитие или просто живите спокойнее</p>
-            </div>
-
-            <h3 class="tiers-title" data-ru="Уровни участия" data-en="Participation Levels">Уровни участия</h3>
-            <div class="tiers-grid">
-                <div class="tier-card glass-card">
-                    <div class="tier-name" data-ru="Наблюдатель" data-en="Observer">Наблюдатель</div>
-                    <div class="tier-price" data-ru="Бесплатно" data-en="Free">Бесплатно</div>
-                    <ul>
-                        <li data-ru="Доступ к сообществу" data-en="Community access">Доступ к сообществу</li>
-                        <li data-ru="Новости проекта" data-en="Project news">Новости проекта</li>
-                        <li data-ru="Участие в обсуждениях" data-en="Join discussions">Участие в обсуждениях</li>
-                    </ul>
-                </div>
-                <div class="tier-card glass-card tier-popular">
-                    <div class="tier-badge" data-ru="Популярный" data-en="Popular">Популярный</div>
-                    <div class="tier-name" data-ru="Пионер" data-en="Pioneer">Пионер</div>
-                    <div class="tier-price">$10 000</div>
-                    <ul>
-                        <li data-ru="Бронь участка" data-en="Plot reservation">Бронь участка</li>
-                        <li data-ru="Право голоса" data-en="Voting rights">Право голоса</li>
-                        <li data-ru="Доля прибыли фермы" data-en="Farm profit share">Доля прибыли фермы</li>
-                    </ul>
-                </div>
-                <div class="tier-card glass-card">
-                    <div class="tier-name" data-ru="Строитель" data-en="Builder">Строитель</div>
-                    <div class="tier-price">$30 000</div>
-                    <ul>
-                        <li data-ru="Участок + доля дома" data-en="Plot + house share">Участок + доля дома</li>
-                        <li data-ru="Доля в ферме" data-en="Farm share">Доля в ферме</li>
-                        <li data-ru="Приоритет выбора" data-en="Priority selection">Приоритет выбора</li>
-                    </ul>
-                </div>
-                <div class="tier-card glass-card">
-                    <div class="tier-name" data-ru="Основатель" data-en="Founder">Основатель</div>
-                    <div class="tier-price">$50 000+</div>
-                    <ul>
-                        <li data-ru="Участок + полный дом" data-en="Plot + full house">Участок + полный дом</li>
-                        <li data-ru="Доход от аренды" data-en="Rental income">Доход от аренды</li>
-                        <li data-ru="Доля в инфраструктуре" data-en="Infrastructure share">Доля в инфраструктуре</li>
-                    </ul>
-                </div>
-            </div>
-
-            <p class="economics-note" data-ru="* Все цифры — ориентировочные модели. Конкретные условия определяются совместно с участниками." data-en="* All figures are approximate models. Specific terms are determined together with participants.">* Все цифры — ориентировочные модели. Конкретные условия определяются совместно с участниками.</p>
-        </div>
-    </section>
-
-    <!-- Investment Calculator Section -->
-    <section class="section calculator-section">
-        <div class="container">
-            <h2 class="section-title" data-ru="Калькулятор участия" data-en="Investment Calculator">Калькулятор участия</h2>
-            <p class="section-subtitle" data-ru="Подвигайте ползунок, чтобы увидеть, что вы получаете" data-en="Move the slider to see what you get">Подвигайте ползунок, чтобы увидеть, что вы получаете</p>
-
-            <div class="calculator glass-card">
-                <div class="calc-input">
-                    <label data-ru="Ваш вклад" data-en="Your investment">Ваш вклад</label>
-                    <div class="calc-amount" id="calcAmount">$10,000</div>
-                    <input type="range" id="calcSlider" min="0" max="100000" step="1000" value="10000" class="calc-slider" aria-label="Investment amount">
-                    <div class="calc-range-labels">
-                        <span>$0</span>
-                        <span>$100,000</span>
-                    </div>
-                </div>
-
-                <div class="calc-tier" id="calcTier">
-                    <span class="calc-tier-badge" id="calcTierName" data-ru="Пионер" data-en="Pioneer">Пионер</span>
-                </div>
-
-                <div class="calc-results">
-                    <div class="calc-result">
-                        <span class="calc-result-label" data-ru="Участок земли" data-en="Land plot">Участок земли</span>
-                        <span class="calc-result-value" id="calcLand">10 <small data-ru="соток" data-en="sotkas">соток</small></span>
-                    </div>
-                    <div class="calc-result">
-                        <span class="calc-result-label" data-ru="Жильё" data-en="Housing">Жильё</span>
-                        <span class="calc-result-value" id="calcHousing" data-ru="Бронь участка" data-en="Plot reserved">Бронь участка</span>
-                    </div>
-                    <div class="calc-result">
-                        <span class="calc-result-label" data-ru="Доход от аренды (мес)" data-en="Rental income (mo)">Доход от аренды (мес)</span>
-                        <span class="calc-result-value" id="calcRental">—</span>
-                    </div>
-                    <div class="calc-result">
-                        <span class="calc-result-label" data-ru="Доля фермы (год)" data-en="Farm share (year)">Доля фермы (год)</span>
-                        <span class="calc-result-value" id="calcFarm">~$500</span>
-                    </div>
-                    <div class="calc-result calc-result-highlight">
-                        <span class="calc-result-label" data-ru="Экономия vs город (год)" data-en="Savings vs city (year)">Экономия vs город (год)</span>
-                        <span class="calc-result-value" id="calcSavings">1.6 <small data-ru="млн ₽" data-en="M ₽">млн ₽</small></span>
-                    </div>
-                </div>
-
-                <p class="calc-note" data-ru="* Все расчёты ориентировочные. Конкретные условия определяются совместно." data-en="* All calculations are approximate. Specific terms are determined together.">* Все расчёты ориентировочные. Конкретные условия определяются совместно.</p>
-            </div>
-        </div>
-    </section>
-
-    <!-- Roadmap Section -->
-    <section class="section roadmap-section">
-        <div class="container">
-            <h2 class="section-title" data-ru="Дорожная карта" data-en="Roadmap">Дорожная карта</h2>
-            <p class="section-subtitle" data-ru="Где мы сейчас и куда движемся" data-en="Where we are and where we're heading">Где мы сейчас и куда движемся</p>
-
-            <div class="roadmap">
-                <div class="roadmap-line"></div>
-
-                <div class="roadmap-step roadmap-active">
-                    <div class="roadmap-dot"></div>
-                    <div class="roadmap-card glass-card">
-                        <span class="roadmap-now" data-ru="Сейчас" data-en="Now">Сейчас</span>
-                        <h3 data-ru="Сообщество" data-en="Community">Сообщество</h3>
-                        <p data-ru="Собираем команду: инвесторов, специалистов, будущих жителей" data-en="Building a team: investors, specialists, future residents">Собираем команду: инвесторов, специалистов, будущих жителей</p>
-                    </div>
-                </div>
-
-                <div class="roadmap-step">
-                    <div class="roadmap-dot"></div>
-                    <div class="roadmap-card glass-card">
-                        <h3 data-ru="Земля" data-en="Land">Земля</h3>
-                        <p data-ru="Поиск и покупка участка. Выбор региона, оценка, юридическая проверка" data-en="Search and purchase of land. Region selection, evaluation, legal check">Поиск и покупка участка. Выбор региона, оценка, юридическая проверка</p>
-                    </div>
-                </div>
-
-                <div class="roadmap-step">
-                    <div class="roadmap-dot"></div>
-                    <div class="roadmap-card glass-card">
-                        <h3 data-ru="Инфраструктура" data-en="Infrastructure">Инфраструктура</h3>
-                        <p data-ru="Дороги, электричество, вода, интернет. Подготовка участков" data-en="Roads, electricity, water, internet. Preparing plots">Дороги, электричество, вода, интернет. Подготовка участков</p>
-                    </div>
-                </div>
-
-                <div class="roadmap-step">
-                    <div class="roadmap-dot"></div>
-                    <div class="roadmap-card glass-card">
-                        <h3 data-ru="Строительство" data-en="Construction">Строительство</h3>
-                        <p data-ru="Дома, ферма, общественные здания. Выбор проекта дома" data-en="Houses, farm, community buildings. Choosing house designs">Дома, ферма, общественные здания. Выбор проекта дома</p>
-                    </div>
-                </div>
-
-                <div class="roadmap-step">
-                    <div class="roadmap-dot"></div>
-                    <div class="roadmap-card glass-card">
-                        <h3 data-ru="Жизнь" data-en="Living">Жизнь</h3>
-                        <p data-ru="Действующий посёлок. Работающая ферма. Арендный доход. Сообщество" data-en="Operating village. Working farm. Rental income. Community">Действующий посёлок. Работающая ферма. Арендный доход. Сообщество</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Legal Structure Section -->
-    <section class="section legal-section">
-        <div class="container">
-            <h2 class="section-title" data-ru="Юридическая структура" data-en="Legal Structure">Юридическая структура</h2>
-            <p class="section-subtitle" data-ru="Прозрачная и понятная форма кооператива" data-en="Transparent and clear cooperative structure">Прозрачная и понятная форма кооператива</p>
-
-            <div class="legal-grid">
-                <div class="legal-card glass-card">
-                    <span class="legal-icon">📋</span>
-                    <h3 data-ru="Форма собственности" data-en="Ownership Form">Форма собственности</h3>
-                    <p data-ru="Сельскохозяйственный потребительский кооператив (СПоК). Каждый участник — совладелец. Земля оформляется на кооператив, участки закрепляются за членами через паевые доли." data-en="Agricultural Consumer Cooperative. Each participant is a co-owner. Land is registered to the cooperative, plots are assigned to members through equity shares.">Сельскохозяйственный потребительский кооператив (СПоК). Каждый участник — совладелец. Земля оформляется на кооператив, участки закрепляются за членами через паевые доли.</p>
-                </div>
-                <div class="legal-card glass-card">
-                    <span class="legal-icon">🗳️</span>
-                    <h3 data-ru="Принятие решений" data-en="Decision Making">Принятие решений</h3>
-                    <p data-ru="Один человек — один голос на общем собрании. Крупные решения (покупка земли, бюджет, новые участники) требуют большинства голосов. Все протоколы открыты." data-en="One person — one vote at the general meeting. Major decisions (land purchase, budget, new members) require majority vote. All minutes are public.">Один человек — один голос на общем собрании. Крупные решения (покупка земли, бюджет, новые участники) требуют большинства голосов. Все протоколы открыты.</p>
-                </div>
-                <div class="legal-card glass-card">
-                    <span class="legal-icon">💰</span>
-                    <h3 data-ru="Распределение доходов" data-en="Revenue Sharing">Распределение доходов</h3>
-                    <p data-ru="Доходы фермы и аренды распределяются пропорционально паям. 20% дохода идёт в фонд развития кооператива. Финансовая отчётность доступна всем членам." data-en="Farm and rental income is distributed proportionally to shares. 20% of income goes to the cooperative development fund. Financial reports available to all members.">Доходы фермы и аренды распределяются пропорционально паям. 20% дохода идёт в фонд развития кооператива. Финансовая отчётность доступна всем членам.</p>
-                </div>
-                <div class="legal-card glass-card">
-                    <span class="legal-icon">🚪</span>
-                    <h3 data-ru="Выход из кооператива" data-en="Exit Mechanism">Выход из кооператива</h3>
-                    <p data-ru="Можно выйти в любой момент. Ваш пай выкупается кооперативом или передаётся новому участнику по рыночной оценке. Дом — ваша собственность, вы забираете его или продаёте." data-en="You can exit at any time. Your share is bought back by the cooperative or transferred to a new member at market value. The house is your property — keep or sell it.">Можно выйти в любой момент. Ваш пай выкупается кооперативом или передаётся новому участнику по рыночной оценке. Дом — ваша собственность, вы забираете его или продаёте.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- FAQ Section -->
-    <section class="section faq-section">
-        <div class="container">
-            <h2 class="section-title" data-ru="Частые вопросы" data-en="Frequently Asked Questions">Частые вопросы</h2>
-            <div class="faq-list">
-                <details class="faq-item glass-card">
-                    <summary data-ru="Что такое SLOBODA и чем вы занимаетесь?" data-en="What is SLOBODA and what do you do?">Что такое SLOBODA и чем вы занимаетесь?</summary>
-                    <p data-ru="SLOBODA — это платформа для создания сельской инфраструктуры. Мы объединяем людей, которые хотят иметь 'План Б' — возможность жить на земле, в сообществе единомышленников, независимо от городской экономики. Мы не продаём землю — мы создаём инфраструктуру и сообщество." data-en="SLOBODA is a rural infrastructure platform. We unite people who want a 'Plan B' — the ability to live on land, in a community of like-minded people, independent of the urban economy. We don't sell land — we create infrastructure and community.">SLOBODA — это платформа для создания сельской инфраструктуры. Мы объединяем людей, которые хотят иметь 'План Б' — возможность жить на земле, в сообществе единомышленников, независимо от городской экономики. Мы не продаём землю — мы создаём инфраструктуру и сообщество.</p>
-                </details>
-                <details class="faq-item glass-card">
-                    <summary data-ru="Сколько стоит участие?" data-en="How much does participation cost?">Сколько стоит участие?</summary>
-                    <p data-ru="Участие в сообществе бесплатно. Для тех, кто хочет стать соинвестором, существуют разные уровни участия — от $10,000 до $100,000+. Каждый участник получает права, пропорциональные вкладу. Мы также ценим участие временем и навыками." data-en="Community participation is free. For those who want to become co-investors, there are different participation levels — from $10,000 to $100,000+. Each participant receives rights proportional to their contribution. We also value participation through time and skills.">Участие в сообществе бесплатно. Для тех, кто хочет стать соинвестором, существуют разные уровни участия — от $10,000 до $100,000+. Каждый участник получает права, пропорциональные вкладу. Мы также ценим участие временем и навыками.</p>
-                </details>
-                <details class="faq-item glass-card">
-                    <summary data-ru="Где будут располагаться участки?" data-en="Where will the plots be located?">Где будут располагаться участки?</summary>
-                    <p data-ru="Мы рассматриваем несколько регионов с умеренным климатом, хорошей экологией и доступной землёй. Конкретные локации определяются совместно с участниками сообщества. Приоритет — доступность, климат и инфраструктурный потенциал." data-en="We are considering several regions with moderate climate, good ecology, and affordable land. Specific locations are determined together with community members. Priority is accessibility, climate, and infrastructure potential.">Мы рассматриваем несколько регионов с умеренным климатом, хорошей экологией и доступной землёй. Конкретные локации определяются совместно с участниками сообщества. Приоритет — доступность, климат и инфраструктурный потенциал.</p>
-                </details>
-                <details class="faq-item glass-card">
-                    <summary data-ru="Это инвестиция? Какие риски?" data-en="Is this an investment? What are the risks?">Это инвестиция? Какие риски?</summary>
-                    <p data-ru="Мы честны: это не классическая инвестиция с гарантированной доходностью. Это создание реального актива — земли с инфраструктурой. Риски включают: задержки строительства, изменение законодательства, рыночные факторы. Мы не обещаем быстрой прибыли — мы строим долгосрочную альтернативу." data-en="We're honest: this is not a classic investment with guaranteed returns. This is creating a real asset — land with infrastructure. Risks include: construction delays, legislation changes, market factors. We don't promise quick profits — we're building a long-term alternative.">Мы честны: это не классическая инвестиция с гарантированной доходностью. Это создание реального актива — земли с инфраструктурой. Риски включают: задержки строительства, изменение законодательства, рыночные факторы. Мы не обещаем быстрой прибыли — мы строим долгосрочную альтернативу.</p>
-                </details>
-                <details class="faq-item glass-card">
-                    <summary data-ru="Нужно ли переезжать в деревню?" data-en="Do I need to move to the countryside?">Нужно ли переезжать в деревню?</summary>
-                    <p data-ru="Нет. Вы можете участвовать как инвестор, оставаясь в городе. Ваше место будет ждать вас, когда вы решите им воспользоваться. Это именно 'План Б' — запасной вариант, а не обязательство переезжать прямо сейчас." data-en="No. You can participate as an investor while staying in the city. Your place will be waiting for you when you decide to use it. This is exactly a 'Plan B' — a backup option, not an obligation to move right now.">Нет. Вы можете участвовать как инвестор, оставаясь в городе. Ваше место будет ждать вас, когда вы решите им воспользоваться. Это именно 'План Б' — запасной вариант, а не обязательство переезжать прямо сейчас.</p>
-                </details>
-                <details class="faq-item glass-card">
-                    <summary data-ru="Как принимаются решения в сообществе?" data-en="How are decisions made in the community?">Как принимаются решения в сообществе?</summary>
-                    <p data-ru="Демократически. Каждый участник имеет голос, пропорциональный его участию. Крупные решения (выбор земли, распределение бюджета) принимаются голосованием. Мы ценим прозрачность: все финансы и решения открыты для участников." data-en="Democratically. Each participant has a vote proportional to their participation. Major decisions (land selection, budget allocation) are made by voting. We value transparency: all finances and decisions are open to participants.">Демократически. Каждый участник имеет голос, пропорциональный его участию. Крупные решения (выбор земли, распределение бюджета) принимаются голосованием. Мы ценим прозрачность: все финансы и решения открыты для участников.</p>
-                </details>
-            </div>
-        </div>
-    </section>
-
-    <!-- Registration Section -->
-    <section class="section register-section" id="register">
-        <div class="container">
-            <div class="register-card glass-card">
-                <h2 data-ru="Присоединиться к проекту" data-en="Join the project">Присоединиться к проекту</h2>
-                <p class="register-subtitle" data-ru="Заполните анкету, чтобы стать частью сообщества" data-en="Fill out the form to become part of the community">Заполните анкету, чтобы стать частью сообщества</p>
-
-                <form class="register-form" id="registerForm" aria-label="Registration form">
-                    <!-- Step 1: Basic Info -->
-                    <div class="form-step active" data-step="1">
-                        <div class="form-group">
-                            <label data-ru="Имя" data-en="Name">Имя</label>
-                            <input type="text" name="name" required>
-                        </div>
-                        <div class="form-group">
-                            <label data-ru="Email" data-en="Email">Email</label>
-                            <input type="email" name="email" required>
-                        </div>
-                        <div class="form-group">
-                            <label data-ru="Telegram (опционально)" data-en="Telegram (optional)">Telegram (опционально)</label>
-                            <input type="text" name="telegram" placeholder="@username">
-                        </div>
-                        <div class="form-group">
-                            <label data-ru="Город / Страна" data-en="City / Country">Город / Страна</label>
-                            <input type="text" name="location">
-                        </div>
-                        <button type="button" class="glass-btn form-next" data-ru="Далее" data-en="Next">Далее</button>
-                    </div>
-
-                    <!-- Step 2: Motivation -->
-                    <div class="form-step" data-step="2">
-                        <div class="form-group">
-                            <label data-ru="Почему вас заинтересовал этот проект?" data-en="Why are you interested in this project?">Почему вас заинтересовал этот проект?</label>
-                            <div class="radio-group">
-                                <label class="radio-label">
-                                    <input type="radio" name="motivation" value="ai_concern">
-                                    <span data-ru="Переживаю, что AI изменит рынок труда, хочу иметь запасной вариант" data-en="Concerned that AI will change the job market, want a backup plan">Переживаю, что AI изменит рынок труда, хочу иметь запасной вариант</span>
-                                </label>
-                                <label class="radio-label">
-                                    <input type="radio" name="motivation" value="countryside">
-                                    <span data-ru="Хочу иметь своё место за городом — дачу, дом, землю" data-en="Want my own place outside the city — dacha, house, land">Хочу иметь своё место за городом — дачу, дом, землю</span>
-                                </label>
-                                <label class="radio-label">
-                                    <input type="radio" name="motivation" value="investment">
-                                    <span data-ru="Ищу интересный способ вложить деньги" data-en="Looking for an interesting way to invest money">Ищу интересный способ вложить деньги</span>
-                                </label>
-                                <label class="radio-label">
-                                    <input type="radio" name="motivation" value="philosophy">
-                                    <span data-ru="Близка философия — сообщество, ценности, альтернатива городской жизни" data-en="The philosophy resonates — community, values, alternative to city life">Близка философия — сообщество, ценности, альтернатива городской жизни</span>
-                                </label>
-                                <label class="radio-label">
-                                    <input type="radio" name="motivation" value="all">
-                                    <span data-ru="Всё вышеперечисленное" data-en="All of the above">Всё вышеперечисленное</span>
-                                </label>
-                            </div>
-                        </div>
-                        <div class="form-nav">
-                            <button type="button" class="glass-btn form-prev" data-ru="Назад" data-en="Back">Назад</button>
-                            <button type="button" class="glass-btn form-next" data-ru="Далее" data-en="Next">Далее</button>
-                        </div>
-                    </div>
-
-                    <!-- Step 3: Participation Type -->
-                    <div class="form-step" data-step="3">
-                        <div class="form-group">
-                            <label data-ru="Как вы хотите участвовать?" data-en="How would you like to participate?">Как вы хотите участвовать?</label>
-                            <div class="radio-group">
-                                <label class="radio-label">
-                                    <input type="radio" name="participation" value="community">
-                                    <span data-ru="Хочу стать частью сообщества (без финансовых вложений)" data-en="Want to join the community (without financial investment)">Хочу стать частью сообщества (без финансовых вложений)</span>
-                                </label>
-                                <label class="radio-label">
-                                    <input type="radio" name="participation" value="investor">
-                                    <span data-ru="Рассматриваю возможность стать соинвестором" data-en="Considering becoming a co-investor">Рассматриваю возможность стать соинвестором</span>
-                                </label>
-                                <label class="radio-label">
-                                    <input type="radio" name="participation" value="both">
-                                    <span data-ru="И то, и другое" data-en="Both">И то, и другое</span>
-                                </label>
-                                <label class="radio-label">
-                                    <input type="radio" name="participation" value="observer">
-                                    <span data-ru="Пока просто наблюдаю" data-en="Just observing for now">Пока просто наблюдаю</span>
-                                </label>
-                            </div>
-                        </div>
-                        <div class="form-nav">
-                            <button type="button" class="glass-btn form-prev" data-ru="Назад" data-en="Back">Назад</button>
-                            <button type="button" class="glass-btn form-next" data-ru="Далее" data-en="Next">Далее</button>
-                        </div>
-                    </div>
-
-                    <!-- Step 4: Skills -->
-                    <div class="form-step" data-step="4">
-                        <div class="form-group">
-                            <label data-ru="Чем вы можете помочь проекту?" data-en="How can you help the project?">Чем вы можете помочь проекту?</label>
-                            <div class="checkbox-group">
-                                <label class="checkbox-label">
-                                    <input type="checkbox" name="skills" value="farming">
-                                    <span data-ru="Опыт в сельском хозяйстве / фермерстве" data-en="Experience in agriculture / farming">Опыт в сельском хозяйстве / фермерстве</span>
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" name="skills" value="construction">
-                                    <span data-ru="Опыт в строительстве / архитектуре" data-en="Experience in construction / architecture">Опыт в строительстве / архитектуре</span>
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" name="skills" value="legal">
-                                    <span data-ru="Юридические знания" data-en="Legal knowledge">Юридические знания</span>
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" name="skills" value="finance">
-                                    <span data-ru="Финансы / бухгалтерия" data-en="Finance / accounting">Финансы / бухгалтерия</span>
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" name="skills" value="it">
-                                    <span data-ru="IT / разработка" data-en="IT / development">IT / разработка</span>
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" name="skills" value="marketing">
-                                    <span data-ru="Маркетинг / PR / контент" data-en="Marketing / PR / content">Маркетинг / PR / контент</span>
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" name="skills" value="scouting">
-                                    <span data-ru="Готов искать и оценивать земельные участки" data-en="Ready to search and evaluate land plots">Готов искать и оценивать земельные участки</span>
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" name="skills" value="connections">
-                                    <span data-ru="Есть связи с поставщиками / подрядчиками" data-en="Have connections with suppliers / contractors">Есть связи с поставщиками / подрядчиками</span>
-                                </label>
-                            </div>
-                        </div>
-                        <div class="form-nav">
-                            <button type="button" class="glass-btn form-prev" data-ru="Назад" data-en="Back">Назад</button>
-                            <button type="button" class="glass-btn form-next" data-ru="Далее" data-en="Next">Далее</button>
-                        </div>
-                    </div>
-
-                    <!-- Step 5: Investor Details (conditional) -->
-                    <div class="form-step investor-step" data-step="5">
-                        <div class="form-group">
-                            <label data-ru="Какой бюджет вы рассматриваете для участия?" data-en="What budget are you considering for participation?">Какой бюджет вы рассматриваете для участия?</label>
-                            <div class="radio-group">
-                                <label class="radio-label">
-                                    <input type="radio" name="budget" value="under_10k">
-                                    <span data-ru="До $10,000" data-en="Under $10,000">До $10,000</span>
-                                </label>
-                                <label class="radio-label">
-                                    <input type="radio" name="budget" value="10k_30k">
-                                    <span data-ru="$10,000 – $30,000" data-en="$10,000 – $30,000">$10,000 – $30,000</span>
-                                </label>
-                                <label class="radio-label">
-                                    <input type="radio" name="budget" value="30k_100k">
-                                    <span data-ru="$30,000 – $100,000" data-en="$30,000 – $100,000">$30,000 – $100,000</span>
-                                </label>
-                                <label class="radio-label">
-                                    <input type="radio" name="budget" value="over_100k">
-                                    <span data-ru="Более $100,000" data-en="Over $100,000">Более $100,000</span>
-                                </label>
-                                <label class="radio-label">
-                                    <input type="radio" name="budget" value="undecided">
-                                    <span data-ru="Пока не определился" data-en="Not yet decided">Пока не определился</span>
-                                </label>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label data-ru="Когда готовы обсудить участие?" data-en="When are you ready to discuss participation?">Когда готовы обсудить участие?</label>
-                            <div class="radio-group">
-                                <label class="radio-label">
-                                    <input type="radio" name="timeline" value="now">
-                                    <span data-ru="Готов сейчас" data-en="Ready now">Готов сейчас</span>
-                                </label>
-                                <label class="radio-label">
-                                    <input type="radio" name="timeline" value="1_3_months">
-                                    <span data-ru="В ближайшие 1-3 месяца" data-en="In the next 1-3 months">В ближайшие 1-3 месяца</span>
-                                </label>
-                                <label class="radio-label">
-                                    <input type="radio" name="timeline" value="this_year">
-                                    <span data-ru="В этом году" data-en="This year">В этом году</span>
-                                </label>
-                                <label class="radio-label">
-                                    <input type="radio" name="timeline" value="observing">
-                                    <span data-ru="Пока наблюдаю" data-en="Just observing">Пока наблюдаю</span>
-                                </label>
-                            </div>
-                        </div>
-                        <div class="form-nav">
-                            <button type="button" class="glass-btn form-prev" data-ru="Назад" data-en="Back">Назад</button>
-                            <button type="button" class="glass-btn form-next" data-ru="Далее" data-en="Next">Далее</button>
-                        </div>
-                    </div>
-
-                    <!-- Step 6: Final -->
-                    <div class="form-step" data-step="6">
-                        <div class="form-group">
-                            <label data-ru="Расскажите о себе (опционально)" data-en="Tell us about yourself (optional)">Расскажите о себе (опционально)</label>
-                            <textarea name="about" rows="4" data-ru-placeholder="Что вас привело сюда? Чем хотите заниматься?" data-en-placeholder="What brought you here? What do you want to do?" placeholder="Что вас привело сюда? Чем хотите заниматься?"></textarea>
-                        </div>
-                        <div class="form-group checkbox-single">
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="newsletter" checked>
-                                <span data-ru="Согласен получать новости и обновления проекта" data-en="I agree to receive project news and updates">Согласен получать новости и обновления проекта</span>
-                            </label>
-                        </div>
-                        <div class="form-group checkbox-single">
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="privacy" required>
-                                <span data-ru="Согласен с политикой конфиденциальности" data-en="I agree to the privacy policy">Согласен с политикой конфиденциальности</span>
-                            </label>
-                        </div>
-                        <div class="form-nav">
-                            <button type="button" class="glass-btn form-prev" data-ru="Назад" data-en="Back">Назад</button>
-                            <button type="submit" class="glass-btn form-submit" data-ru="Присоединиться к проекту" data-en="Join the project">Присоединиться к проекту</button>
-                        </div>
-                    </div>
-
-                    <!-- Progress Indicator -->
-                    <div class="form-progress">
-                        <div class="progress-bar">
-                            <div class="progress-fill" style="width: 16.66%"></div>
-                        </div>
-                        <span class="progress-text"><span class="current-step">1</span> / 6</span>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </section>
-
-    <!-- Footer -->
+    <!-- 7. Footer -->
     <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-brand">
-                    <h3>SLOBODA</h3>
-                    <p data-ru="План Б, который существует в реальности" data-en="Plan B that exists in reality">План Б, который существует в реальности</p>
-                </div>
-                <div class="footer-links">
-                    <a href="https://t.me/sloboda" target="_blank" rel="noopener" data-ru="Telegram-канал" data-en="Telegram channel">Telegram-канал</a>
-                    <a href="/updates" data-ru="Обновления" data-en="Updates">Обновления</a>
-                    <a href="mailto:info@sloboda.land" data-ru="Связаться" data-en="Contact">Связаться</a>
-                </div>
-            </div>
-            <div class="footer-bottom">
-                <p>© 2026 SLOBODA. <span data-ru="Все права защищены." data-en="All rights reserved.">Все права защищены.</span></p>
-            </div>
+        <p class="footer-tagline">СЛОБОДА — План Б, который существует.</p>
+        <div class="footer-links">
+            <a href="https://t.me/sloboda_land" target="_blank" rel="noopener">Telegram</a>
+            <a href="mailto:info@sloboda.land">info@sloboda.land</a>
         </div>
     </footer>
-
-    <!-- Success Modal -->
-    <div class="modal" id="successModal">
-        <div class="modal-content glass-card">
-            <div class="modal-icon">✓</div>
-            <h2 data-ru="Добро пожаловать!" data-en="Welcome!">Добро пожаловать!</h2>
-            <p data-ru="Вы успешно присоединились к проекту SLOBODA." data-en="You have successfully joined the SLOBODA project.">Вы успешно присоединились к проекту SLOBODA.</p>
-            <p data-ru="Мы свяжемся с вами в ближайшее время." data-en="We will contact you soon.">Мы свяжемся с вами в ближайшее время.</p>
-            <a href="https://t.me/sloboda" class="glass-btn" target="_blank" data-ru="Присоединиться к Telegram" data-en="Join Telegram">Присоединиться к Telegram</a>
-            <button class="modal-close" data-ru="Закрыть" data-en="Close">Закрыть</button>
-        </div>
-    </div>
-
-    <!-- Social Share Buttons -->
-    <div class="share-bar" id="shareBar">
-        <a href="#" class="share-btn share-telegram" target="_blank" rel="noopener" aria-label="Share on Telegram">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
-        </a>
-        <a href="#" class="share-btn share-whatsapp" target="_blank" rel="noopener" aria-label="Share on WhatsApp">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-        </a>
-        <a href="#" class="share-btn share-vk" target="_blank" rel="noopener" aria-label="Share on VK">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M15.684 0H8.316C1.592 0 0 1.592 0 8.316v7.368C0 22.408 1.592 24 8.316 24h7.368C22.408 24 24 22.408 24 15.684V8.316C24 1.592 22.391 0 15.684 0zm3.692 17.123h-1.744c-.66 0-.862-.525-2.049-1.714-1.033-1.01-1.49-1.135-1.744-1.135-.356 0-.458.102-.458.593v1.575c0 .424-.135.678-1.253.678-1.846 0-3.896-1.12-5.335-3.202C4.624 10.857 4.03 8.57 4.03 8.096c0-.254.102-.491.593-.491h1.744c.44 0 .61.203.78.678.863 2.49 2.303 4.675 2.896 4.675.22 0 .322-.102.322-.66V9.721c-.068-1.186-.695-1.287-.695-1.71 0-.203.17-.407.44-.407h2.744c.373 0 .508.203.508.643v3.473c0 .372.17.508.271.508.22 0 .407-.136.814-.542 1.27-1.422 2.168-3.624 2.168-3.624.119-.254.322-.491.763-.491h1.744c.525 0 .644.27.525.643-.22 1.017-2.354 4.031-2.354 4.031-.186.305-.254.44 0 .78.186.254.796.779 1.203 1.253.745.847 1.32 1.558 1.473 2.049.17.49-.085.744-.576.744z"/></svg>
-        </a>
-    </div>
 
     <script src="script.js"></script>
 </body>
