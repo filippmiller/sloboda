@@ -36,6 +36,9 @@ npm-debug.log*
 __pycache__/
 *.py[cod]
 
+# Uploaded files
+server/uploads/
+
 # Testing artifacts
 .temp/
 *.png

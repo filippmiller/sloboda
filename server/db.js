@@ -146,6 +146,156 @@ async function initDatabase() {
             ON CONFLICT (key) DO NOTHING
         `);
 
+        // ============================================
+        // NEW TABLES: Users, Content, Knowledge, Files
+        // ============================================
+
+        // Users table (members who log into the portal)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                registration_id INTEGER REFERENCES registrations(id) ON DELETE SET NULL,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                password_hash VARCHAR(255),
+                name VARCHAR(255) NOT NULL,
+                telegram VARCHAR(255),
+                location VARCHAR(255),
+                status VARCHAR(50) DEFAULT 'active',
+                magic_link_token VARCHAR(255),
+                magic_link_expires TIMESTAMP,
+                invite_token VARCHAR(255),
+                invite_expires TIMESTAMP,
+                last_login TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Content categories
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS categories (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                slug VARCHAR(255) UNIQUE NOT NULL,
+                description TEXT,
+                icon VARCHAR(100),
+                sort_order INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Posts (news, articles, newsletters)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS posts (
+                id SERIAL PRIMARY KEY,
+                title VARCHAR(500) NOT NULL,
+                slug VARCHAR(500) UNIQUE NOT NULL,
+                summary TEXT,
+                body TEXT NOT NULL,
+                type VARCHAR(50) NOT NULL DEFAULT 'news',
+                status VARCHAR(50) DEFAULT 'draft',
+                category_id INTEGER REFERENCES categories(id),
+                author_admin_id INTEGER REFERENCES admins(id),
+                author_user_id INTEGER REFERENCES users(id),
+                featured_image VARCHAR(500),
+                published_at TIMESTAMP,
+                view_count INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Knowledge submissions
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS knowledge_submissions (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                title VARCHAR(500) NOT NULL,
+                description TEXT NOT NULL,
+                body TEXT,
+                suggested_category_id INTEGER REFERENCES categories(id),
+                ai_category_id INTEGER REFERENCES categories(id),
+                final_category_id INTEGER REFERENCES categories(id),
+                ai_tags TEXT[],
+                ai_summary TEXT,
+                ai_confidence DECIMAL(3,2),
+                status VARCHAR(50) DEFAULT 'pending',
+                reviewed_by INTEGER REFERENCES admins(id),
+                reviewed_at TIMESTAMP,
+                review_notes TEXT,
+                published_post_id INTEGER REFERENCES posts(id),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // File attachments
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS files (
+                id SERIAL PRIMARY KEY,
+                filename VARCHAR(500) NOT NULL,
+                original_filename VARCHAR(500) NOT NULL,
+                filepath VARCHAR(1000) NOT NULL,
+                mimetype VARCHAR(255) NOT NULL,
+                size_bytes INTEGER NOT NULL,
+                uploaded_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                uploaded_by_admin_id INTEGER REFERENCES admins(id) ON DELETE SET NULL,
+                knowledge_submission_id INTEGER REFERENCES knowledge_submissions(id) ON DELETE CASCADE,
+                post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // AI processing log
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS ai_processing_log (
+                id SERIAL PRIMARY KEY,
+                knowledge_submission_id INTEGER REFERENCES knowledge_submissions(id) ON DELETE CASCADE,
+                model VARCHAR(100),
+                prompt_tokens INTEGER,
+                completion_tokens INTEGER,
+                total_cost_usd DECIMAL(10,6),
+                processing_time_ms INTEGER,
+                result JSONB,
+                error TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // User invites
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS user_invites (
+                id SERIAL PRIMARY KEY,
+                registration_id INTEGER REFERENCES registrations(id) ON DELETE CASCADE,
+                email VARCHAR(255) NOT NULL,
+                token VARCHAR(255) UNIQUE NOT NULL,
+                expires_at TIMESTAMP NOT NULL,
+                accepted_at TIMESTAMP,
+                created_by INTEGER REFERENCES admins(id),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Add converted_to_user_id column to registrations
+        await client.query(`
+            ALTER TABLE registrations ADD COLUMN IF NOT EXISTS converted_to_user_id INTEGER REFERENCES users(id)
+        `);
+
+        // Seed default categories
+        await client.query(`
+            INSERT INTO categories (name, slug, description, sort_order) VALUES
+                ('Строительство', 'construction', 'Строительные технологии и практики', 1),
+                ('Сельское хозяйство', 'agriculture', 'Земледелие, животноводство, агротехнологии', 2),
+                ('Электрика и инженерные сети', 'electrical', 'Электроснабжение, водоснабжение, отопление', 3),
+                ('Лесное дело', 'forestry', 'Лесоводство, деревообработка', 4),
+                ('Юриспруденция', 'legal', 'Правовые вопросы, земельное право', 5),
+                ('Медицина', 'medical', 'Здоровье, первая помощь, медицинские знания', 6),
+                ('Инженерия', 'engineering', 'Механика, проектирование, технические решения', 7),
+                ('Выживание и автономность', 'survival', 'Автономная жизнь, навыки выживания', 8),
+                ('Общее', 'general', 'Общие знания и обсуждения', 9)
+            ON CONFLICT (slug) DO NOTHING
+        `);
+
         console.log('Database tables initialized');
     } catch (err) {
         console.error('Error initializing database:', err);
@@ -508,10 +658,10 @@ async function getRegistrationsTimeSeries(days = 30) {
         const result = await client.query(`
             SELECT DATE(created_at) as date, COUNT(*) as count
             FROM registrations
-            WHERE created_at > NOW() - INTERVAL '${days} days'
+            WHERE created_at > NOW() - make_interval(days => $1)
             GROUP BY DATE(created_at)
             ORDER BY date
-        `);
+        `, [days]);
         return result.rows;
     } finally {
         client.release();
@@ -744,6 +894,840 @@ async function markEmailSent(id) {
     }
 }
 
+// ============================================
+// USER FUNCTIONS
+// ============================================
+
+async function createUser(data) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `INSERT INTO users
+                (registration_id, email, password_hash, name, telegram, location, status, invite_token, invite_expires)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+             RETURNING *`,
+            [
+                data.registrationId || null,
+                data.email.toLowerCase(),
+                data.passwordHash || null,
+                data.name,
+                data.telegram || null,
+                data.location || null,
+                data.status || 'active',
+                data.inviteToken || null,
+                data.inviteExpires || null
+            ]
+        );
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function getUserByEmail(email) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            'SELECT * FROM users WHERE email = $1',
+            [email.toLowerCase()]
+        );
+        return result.rows[0] || null;
+    } finally {
+        client.release();
+    }
+}
+
+async function getUserById(id) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            'SELECT id, registration_id, email, name, telegram, location, status, last_login, created_at, updated_at FROM users WHERE id = $1',
+            [id]
+        );
+        return result.rows[0] || null;
+    } finally {
+        client.release();
+    }
+}
+
+async function getUserByMagicLinkToken(token) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            'SELECT * FROM users WHERE magic_link_token = $1',
+            [token]
+        );
+        return result.rows[0] || null;
+    } finally {
+        client.release();
+    }
+}
+
+async function getUserByInviteToken(token) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            'SELECT * FROM users WHERE invite_token = $1',
+            [token]
+        );
+        return result.rows[0] || null;
+    } finally {
+        client.release();
+    }
+}
+
+async function updateUser(id, data) {
+    const client = await pool.connect();
+    try {
+        const fields = [];
+        const params = [];
+        let paramIndex = 1;
+
+        const allowedFields = [
+            'name', 'telegram', 'location', 'status', 'password_hash',
+            'magic_link_token', 'magic_link_expires', 'invite_token',
+            'invite_expires', 'last_login', 'email'
+        ];
+
+        for (const [key, value] of Object.entries(data)) {
+            const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+            if (allowedFields.includes(dbKey)) {
+                fields.push(`${dbKey} = $${paramIndex++}`);
+                params.push(value);
+            }
+        }
+
+        if (fields.length === 0) return null;
+
+        fields.push(`updated_at = CURRENT_TIMESTAMP`);
+        params.push(id);
+
+        const result = await client.query(
+            `UPDATE users SET ${fields.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
+            params
+        );
+        return result.rows[0] || null;
+    } finally {
+        client.release();
+    }
+}
+
+async function getUsers(filters = {}) {
+    const client = await pool.connect();
+    try {
+        let query = 'SELECT id, registration_id, email, name, telegram, location, status, last_login, created_at, updated_at FROM users WHERE 1=1';
+        const params = [];
+        let paramIndex = 1;
+
+        if (filters.status) {
+            query += ` AND status = $${paramIndex++}`;
+            params.push(filters.status);
+        }
+
+        if (filters.search) {
+            query += ` AND (name ILIKE $${paramIndex} OR email ILIKE $${paramIndex})`;
+            params.push(`%${filters.search}%`);
+            paramIndex++;
+        }
+
+        query += ' ORDER BY created_at DESC';
+
+        if (filters.limit) {
+            query += ` LIMIT $${paramIndex++}`;
+            params.push(filters.limit);
+        }
+
+        if (filters.offset) {
+            query += ` OFFSET $${paramIndex++}`;
+            params.push(filters.offset);
+        }
+
+        const result = await client.query(query, params);
+        return result.rows;
+    } finally {
+        client.release();
+    }
+}
+
+async function getUserCount() {
+    const client = await pool.connect();
+    try {
+        const result = await client.query("SELECT COUNT(*) as count FROM users WHERE status = 'active'");
+        return parseInt(result.rows[0].count, 10);
+    } finally {
+        client.release();
+    }
+}
+
+// ============================================
+// CATEGORY FUNCTIONS
+// ============================================
+
+async function createCategory(data) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `INSERT INTO categories (name, slug, description, icon, sort_order)
+             VALUES ($1, $2, $3, $4, $5)
+             RETURNING *`,
+            [data.name, data.slug, data.description || null, data.icon || null, data.sortOrder || 0]
+        );
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function getCategories() {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            'SELECT * FROM categories ORDER BY sort_order ASC, name ASC'
+        );
+        return result.rows;
+    } finally {
+        client.release();
+    }
+}
+
+async function getCategoryBySlug(slug) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            'SELECT * FROM categories WHERE slug = $1',
+            [slug]
+        );
+        return result.rows[0] || null;
+    } finally {
+        client.release();
+    }
+}
+
+async function updateCategory(id, data) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `UPDATE categories
+             SET name = COALESCE($1, name),
+                 slug = COALESCE($2, slug),
+                 description = COALESCE($3, description),
+                 icon = COALESCE($4, icon),
+                 sort_order = COALESCE($5, sort_order)
+             WHERE id = $6
+             RETURNING *`,
+            [data.name || null, data.slug || null, data.description || null, data.icon || null, data.sortOrder ?? null, id]
+        );
+        return result.rows[0] || null;
+    } finally {
+        client.release();
+    }
+}
+
+async function deleteCategory(id) {
+    const client = await pool.connect();
+    try {
+        await client.query('DELETE FROM categories WHERE id = $1', [id]);
+    } finally {
+        client.release();
+    }
+}
+
+// ============================================
+// POST FUNCTIONS
+// ============================================
+
+async function createPost(data) {
+    const client = await pool.connect();
+    try {
+        // Generate slug from title
+        let slug = data.slug || data.title
+            .toLowerCase()
+            .replace(/[^a-zа-яё0-9\s-]/gi, '')
+            .replace(/\s+/g, '-')
+            .replace(/-+/g, '-')
+            .substring(0, 200);
+
+        // Ensure slug uniqueness
+        const existing = await client.query('SELECT id FROM posts WHERE slug = $1', [slug]);
+        if (existing.rows.length > 0) {
+            slug = `${slug}-${Date.now()}`;
+        }
+
+        const result = await client.query(
+            `INSERT INTO posts
+                (title, slug, summary, body, type, status, category_id, author_admin_id, author_user_id, featured_image, published_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+             RETURNING *`,
+            [
+                data.title,
+                slug,
+                data.summary || null,
+                data.body,
+                data.type || 'news',
+                data.status || 'draft',
+                data.categoryId || null,
+                data.authorAdminId || null,
+                data.authorUserId || null,
+                data.featuredImage || null,
+                data.status === 'published' ? new Date() : null
+            ]
+        );
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function getPublishedPosts(filters = {}) {
+    const client = await pool.connect();
+    try {
+        let query = `
+            SELECT p.*, c.name as category_name, c.slug as category_slug
+            FROM posts p
+            LEFT JOIN categories c ON p.category_id = c.id
+            WHERE p.status = 'published'
+        `;
+        const params = [];
+        let paramIndex = 1;
+
+        if (filters.type) {
+            query += ` AND p.type = $${paramIndex++}`;
+            params.push(filters.type);
+        }
+
+        if (filters.categoryId) {
+            query += ` AND p.category_id = $${paramIndex++}`;
+            params.push(filters.categoryId);
+        }
+
+        if (filters.search) {
+            query += ` AND (p.title ILIKE $${paramIndex} OR p.summary ILIKE $${paramIndex} OR p.body ILIKE $${paramIndex})`;
+            params.push(`%${filters.search}%`);
+            paramIndex++;
+        }
+
+        query += ' ORDER BY p.published_at DESC';
+
+        if (filters.limit) {
+            query += ` LIMIT $${paramIndex++}`;
+            params.push(filters.limit);
+        }
+
+        if (filters.offset) {
+            query += ` OFFSET $${paramIndex++}`;
+            params.push(filters.offset);
+        }
+
+        const result = await client.query(query, params);
+        return result.rows;
+    } finally {
+        client.release();
+    }
+}
+
+async function getPostBySlug(slug) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `SELECT p.*, c.name as category_name, c.slug as category_slug
+             FROM posts p
+             LEFT JOIN categories c ON p.category_id = c.id
+             WHERE p.slug = $1`,
+            [slug]
+        );
+        return result.rows[0] || null;
+    } finally {
+        client.release();
+    }
+}
+
+async function getPostById(id) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `SELECT p.*, c.name as category_name, c.slug as category_slug
+             FROM posts p
+             LEFT JOIN categories c ON p.category_id = c.id
+             WHERE p.id = $1`,
+            [id]
+        );
+        return result.rows[0] || null;
+    } finally {
+        client.release();
+    }
+}
+
+async function getAllPosts(filters = {}) {
+    const client = await pool.connect();
+    try {
+        let query = `
+            SELECT p.*, c.name as category_name, c.slug as category_slug
+            FROM posts p
+            LEFT JOIN categories c ON p.category_id = c.id
+            WHERE 1=1
+        `;
+        const params = [];
+        let paramIndex = 1;
+
+        if (filters.type) {
+            query += ` AND p.type = $${paramIndex++}`;
+            params.push(filters.type);
+        }
+
+        if (filters.status) {
+            query += ` AND p.status = $${paramIndex++}`;
+            params.push(filters.status);
+        }
+
+        if (filters.categoryId) {
+            query += ` AND p.category_id = $${paramIndex++}`;
+            params.push(filters.categoryId);
+        }
+
+        if (filters.search) {
+            query += ` AND (p.title ILIKE $${paramIndex} OR p.summary ILIKE $${paramIndex})`;
+            params.push(`%${filters.search}%`);
+            paramIndex++;
+        }
+
+        query += ' ORDER BY p.created_at DESC';
+
+        if (filters.limit) {
+            query += ` LIMIT $${paramIndex++}`;
+            params.push(filters.limit);
+        }
+
+        if (filters.offset) {
+            query += ` OFFSET $${paramIndex++}`;
+            params.push(filters.offset);
+        }
+
+        const result = await client.query(query, params);
+        return result.rows;
+    } finally {
+        client.release();
+    }
+}
+
+async function updatePost(id, data) {
+    const client = await pool.connect();
+    try {
+        const fields = [];
+        const params = [];
+        let paramIndex = 1;
+
+        const fieldMap = {
+            title: 'title',
+            slug: 'slug',
+            summary: 'summary',
+            body: 'body',
+            type: 'type',
+            status: 'status',
+            categoryId: 'category_id',
+            featuredImage: 'featured_image',
+            publishedAt: 'published_at'
+        };
+
+        for (const [jsKey, dbKey] of Object.entries(fieldMap)) {
+            if (data[jsKey] !== undefined) {
+                fields.push(`${dbKey} = $${paramIndex++}`);
+                params.push(data[jsKey]);
+            }
+        }
+
+        // Auto-set published_at when publishing
+        if (data.status === 'published' && data.publishedAt === undefined) {
+            fields.push(`published_at = COALESCE(published_at, CURRENT_TIMESTAMP)`);
+        }
+
+        if (fields.length === 0) return null;
+
+        fields.push('updated_at = CURRENT_TIMESTAMP');
+        params.push(id);
+
+        const result = await client.query(
+            `UPDATE posts SET ${fields.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
+            params
+        );
+        return result.rows[0] || null;
+    } finally {
+        client.release();
+    }
+}
+
+async function deletePost(id) {
+    const client = await pool.connect();
+    try {
+        await client.query('DELETE FROM posts WHERE id = $1', [id]);
+    } finally {
+        client.release();
+    }
+}
+
+async function incrementPostViews(id) {
+    const client = await pool.connect();
+    try {
+        await client.query(
+            'UPDATE posts SET view_count = view_count + 1 WHERE id = $1',
+            [id]
+        );
+    } finally {
+        client.release();
+    }
+}
+
+// ============================================
+// KNOWLEDGE SUBMISSION FUNCTIONS
+// ============================================
+
+async function createKnowledgeSubmission(data) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `INSERT INTO knowledge_submissions
+                (user_id, title, description, body, suggested_category_id, status)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING *`,
+            [
+                data.userId || null,
+                data.title,
+                data.description,
+                data.body || null,
+                data.suggestedCategoryId || null,
+                data.status || 'pending'
+            ]
+        );
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function getKnowledgeSubmissionById(id) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `SELECT ks.*, c.name as category_name, u.name as user_name, u.email as user_email
+             FROM knowledge_submissions ks
+             LEFT JOIN categories c ON ks.final_category_id = c.id
+             LEFT JOIN users u ON ks.user_id = u.id
+             WHERE ks.id = $1`,
+            [id]
+        );
+        return result.rows[0] || null;
+    } finally {
+        client.release();
+    }
+}
+
+async function getUserSubmissions(userId, filters = {}) {
+    const client = await pool.connect();
+    try {
+        let query = `
+            SELECT ks.*, c.name as category_name
+            FROM knowledge_submissions ks
+            LEFT JOIN categories c ON ks.final_category_id = c.id
+            WHERE ks.user_id = $1
+        `;
+        const params = [userId];
+        let paramIndex = 2;
+
+        if (filters.status) {
+            query += ` AND ks.status = $${paramIndex++}`;
+            params.push(filters.status);
+        }
+
+        query += ' ORDER BY ks.created_at DESC';
+
+        if (filters.limit) {
+            query += ` LIMIT $${paramIndex++}`;
+            params.push(filters.limit);
+        }
+
+        if (filters.offset) {
+            query += ` OFFSET $${paramIndex++}`;
+            params.push(filters.offset);
+        }
+
+        const result = await client.query(query, params);
+        return result.rows;
+    } finally {
+        client.release();
+    }
+}
+
+async function getPendingSubmissions(filters = {}) {
+    const client = await pool.connect();
+    try {
+        let query = `
+            SELECT ks.*, c.name as category_name, u.name as user_name, u.email as user_email
+            FROM knowledge_submissions ks
+            LEFT JOIN categories c ON ks.final_category_id = c.id
+            LEFT JOIN users u ON ks.user_id = u.id
+            WHERE 1=1
+        `;
+        const params = [];
+        let paramIndex = 1;
+
+        if (filters.status) {
+            query += ` AND ks.status = $${paramIndex++}`;
+            params.push(filters.status);
+        } else {
+            query += ` AND ks.status = 'pending'`;
+        }
+
+        if (filters.search) {
+            query += ` AND (ks.title ILIKE $${paramIndex} OR ks.description ILIKE $${paramIndex})`;
+            params.push(`%${filters.search}%`);
+            paramIndex++;
+        }
+
+        query += ' ORDER BY ks.created_at DESC';
+
+        if (filters.limit) {
+            query += ` LIMIT $${paramIndex++}`;
+            params.push(filters.limit);
+        }
+
+        if (filters.offset) {
+            query += ` OFFSET $${paramIndex++}`;
+            params.push(filters.offset);
+        }
+
+        const result = await client.query(query, params);
+        return result.rows;
+    } finally {
+        client.release();
+    }
+}
+
+async function updateKnowledgeSubmission(id, data) {
+    const client = await pool.connect();
+    try {
+        const fields = [];
+        const params = [];
+        let paramIndex = 1;
+
+        const fieldMap = {
+            status: 'status',
+            aiCategoryId: 'ai_category_id',
+            finalCategoryId: 'final_category_id',
+            aiTags: 'ai_tags',
+            aiSummary: 'ai_summary',
+            aiConfidence: 'ai_confidence',
+            reviewedBy: 'reviewed_by',
+            reviewedAt: 'reviewed_at',
+            reviewNotes: 'review_notes',
+            publishedPostId: 'published_post_id'
+        };
+
+        for (const [jsKey, dbKey] of Object.entries(fieldMap)) {
+            if (data[jsKey] !== undefined) {
+                fields.push(`${dbKey} = $${paramIndex++}`);
+                params.push(data[jsKey]);
+            }
+        }
+
+        if (fields.length === 0) return null;
+
+        fields.push('updated_at = CURRENT_TIMESTAMP');
+        params.push(id);
+
+        const result = await client.query(
+            `UPDATE knowledge_submissions SET ${fields.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
+            params
+        );
+        return result.rows[0] || null;
+    } finally {
+        client.release();
+    }
+}
+
+async function deleteKnowledgeSubmission(id) {
+    const client = await pool.connect();
+    try {
+        await client.query('DELETE FROM knowledge_submissions WHERE id = $1', [id]);
+    } finally {
+        client.release();
+    }
+}
+
+// ============================================
+// FILE FUNCTIONS
+// ============================================
+
+async function createFile(data) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `INSERT INTO files
+                (filename, original_filename, filepath, mimetype, size_bytes, uploaded_by_user_id, uploaded_by_admin_id, knowledge_submission_id, post_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+             RETURNING *`,
+            [
+                data.filename,
+                data.originalFilename,
+                data.filepath,
+                data.mimetype,
+                data.sizeBytes,
+                data.uploadedByUserId || null,
+                data.uploadedByAdminId || null,
+                data.knowledgeSubmissionId || null,
+                data.postId || null
+            ]
+        );
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function getFileById(id) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            'SELECT * FROM files WHERE id = $1',
+            [id]
+        );
+        return result.rows[0] || null;
+    } finally {
+        client.release();
+    }
+}
+
+async function getFilesBySubmission(submissionId) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            'SELECT * FROM files WHERE knowledge_submission_id = $1 ORDER BY created_at ASC',
+            [submissionId]
+        );
+        return result.rows;
+    } finally {
+        client.release();
+    }
+}
+
+async function deleteFile(id) {
+    const client = await pool.connect();
+    try {
+        await client.query('DELETE FROM files WHERE id = $1', [id]);
+    } finally {
+        client.release();
+    }
+}
+
+// ============================================
+// INVITE FUNCTIONS
+// ============================================
+
+async function createUserInvite(data) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `INSERT INTO user_invites (registration_id, email, token, expires_at, created_by)
+             VALUES ($1, $2, $3, $4, $5)
+             RETURNING *`,
+            [
+                data.registrationId,
+                data.email,
+                data.token,
+                data.expiresAt,
+                data.createdBy
+            ]
+        );
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function getUserInviteByToken(token) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            'SELECT * FROM user_invites WHERE token = $1',
+            [token]
+        );
+        return result.rows[0] || null;
+    } finally {
+        client.release();
+    }
+}
+
+async function markInviteAccepted(id) {
+    const client = await pool.connect();
+    try {
+        await client.query(
+            'UPDATE user_invites SET accepted_at = CURRENT_TIMESTAMP WHERE id = $1',
+            [id]
+        );
+    } finally {
+        client.release();
+    }
+}
+
+async function getPendingInvites() {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `SELECT ui.*, r.name as registration_name
+             FROM user_invites ui
+             LEFT JOIN registrations r ON ui.registration_id = r.id
+             WHERE ui.accepted_at IS NULL
+             ORDER BY ui.created_at DESC`
+        );
+        return result.rows;
+    } finally {
+        client.release();
+    }
+}
+
+// ============================================
+// AI PROCESSING LOG FUNCTIONS
+// ============================================
+
+async function logAIProcessing(data) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `INSERT INTO ai_processing_log
+                (knowledge_submission_id, model, prompt_tokens, completion_tokens, total_cost_usd, processing_time_ms, result, error)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+             RETURNING *`,
+            [
+                data.knowledgeSubmissionId,
+                data.model || null,
+                data.promptTokens || null,
+                data.completionTokens || null,
+                data.totalCostUsd || null,
+                data.processingTimeMs || null,
+                data.result ? JSON.stringify(data.result) : null,
+                data.error || null
+            ]
+        );
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+// ============================================
+// REGISTRATION CONVERSION HELPER
+// ============================================
+
+async function updateRegistrationConversion(registrationId, userId) {
+    const client = await pool.connect();
+    try {
+        await client.query(
+            'UPDATE registrations SET converted_to_user_id = $1, status = $2 WHERE id = $3',
+            [userId, 'converted', registrationId]
+        );
+    } finally {
+        client.release();
+    }
+}
+
 module.exports = {
     pool,
     initDatabase,
@@ -789,5 +1773,50 @@ module.exports = {
     createEmailCampaign,
     markCampaignSent,
     createEmailSend,
-    markEmailSent
+    markEmailSent,
+    // User functions
+    createUser,
+    getUserByEmail,
+    getUserById,
+    getUserByMagicLinkToken,
+    getUserByInviteToken,
+    updateUser,
+    getUsers,
+    getUserCount,
+    // Category functions
+    createCategory,
+    getCategories,
+    getCategoryBySlug,
+    updateCategory,
+    deleteCategory,
+    // Post functions
+    createPost,
+    getPublishedPosts,
+    getPostBySlug,
+    getPostById,
+    getAllPosts,
+    updatePost,
+    deletePost,
+    incrementPostViews,
+    // Knowledge submission functions
+    createKnowledgeSubmission,
+    getKnowledgeSubmissionById,
+    getUserSubmissions,
+    getPendingSubmissions,
+    updateKnowledgeSubmission,
+    deleteKnowledgeSubmission,
+    // File functions
+    createFile,
+    getFileById,
+    getFilesBySubmission,
+    deleteFile,
+    // Invite functions
+    createUserInvite,
+    getUserInviteByToken,
+    markInviteAccepted,
+    getPendingInvites,
+    // AI log functions
+    logAIProcessing,
+    // Registration conversion
+    updateRegistrationConversion
 };

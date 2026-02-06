@@ -10,8 +10,12 @@ const bcrypt = require('bcrypt');
 
 const db = require('./db');
 const { router: authRouter, setDb: setAuthDb } = require('./routes/auth');
+const { router: userAuthRouter, setDb: setUserAuthDb, setEmailService: setUserAuthEmailService } = require('./routes/userAuth');
+const { router: userPortalRouter, setDb: setUserPortalDb } = require('./routes/userPortal');
+const { router: adminContentRouter, setDb: setAdminContentDb, setEmailService: setAdminContentEmailService } = require('./routes/adminContent');
 const { requireAuth, requireSuperAdmin } = require('./middleware/auth');
 const emailService = require('./services/email');
+const { setDb: setAiQueueDb } = require('./services/ai/queue');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -48,16 +52,58 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Serve static files from src directory
+// React client build detection (must register before express.static)
+const clientBuildPath = path.join(__dirname, '../dist/client');
+const clientIndexPath = path.join(clientBuildPath, 'index.html');
+const fs = require('fs');
+const hasClientBuild = fs.existsSync(clientIndexPath);
+
+if (hasClientBuild) {
+    // Serve React static assets
+    app.use('/assets', express.static(path.join(clientBuildPath, 'assets')));
+
+    // React app routes - user portal
+    const reactRoutes = ['/login', '/register', '/dashboard', '/news', '/library', '/submit', '/profile'];
+    reactRoutes.forEach(route => {
+        app.get(route, (req, res) => res.sendFile(clientIndexPath));
+        app.get(route + '/*', (req, res) => res.sendFile(clientIndexPath));
+    });
+
+    // React app routes - admin panel
+    app.get('/admin', (req, res) => res.sendFile(clientIndexPath));
+    app.get('/admin/*', (req, res) => res.sendFile(clientIndexPath));
+}
+
+// Serve static files from src directory (landing page assets)
 app.use(express.static(path.join(__dirname, '../src')));
 
-// Inject database into auth routes
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Inject database and services into route modules
 setAuthDb(db);
+setUserAuthDb(db);
+setUserAuthEmailService(emailService);
+setUserPortalDb(db);
+setAdminContentDb(db);
+setAdminContentEmailService(emailService);
+setAiQueueDb(db);
 
 // ============================================
 // AUTH ROUTES
 // ============================================
 app.use('/api/auth', authRouter);
+
+// ============================================
+// USER AUTH & PORTAL ROUTES
+// ============================================
+app.use('/api/user/auth', userAuthRouter);
+app.use('/api/user', userPortalRouter);
+
+// ============================================
+// ADMIN CONTENT ROUTES
+// ============================================
+app.use('/api/admin', adminContentRouter);
 
 // ============================================
 // PUBLIC API ROUTES
@@ -493,19 +539,6 @@ app.post('/api/email/send', requireAuth, async (req, res) => {
 });
 
 // ============================================
-// ADMIN SPA ROUTES
-// ============================================
-
-// Serve admin pages
-app.get('/admin', (req, res) => {
-    res.sendFile(path.join(__dirname, '../src/admin/index.html'));
-});
-
-app.get('/admin/*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../src/admin/index.html'));
-});
-
-// ============================================
 // CLI: Create first super admin
 // ============================================
 
@@ -528,6 +561,16 @@ async function createSuperAdmin(email, password, name) {
     return admin;
 }
 
+// Fallback to old vanilla admin if React build not available
+if (!hasClientBuild) {
+    app.get('/admin', (req, res) => {
+        res.sendFile(path.join(__dirname, '../src/admin/index.html'));
+    });
+    app.get('/admin/*', (req, res) => {
+        res.sendFile(path.join(__dirname, '../src/admin/index.html'));
+    });
+}
+
 // ============================================
 // SPA FALLBACK
 // ============================================
@@ -537,7 +580,7 @@ app.get('/updates', (req, res) => {
     res.sendFile(path.join(__dirname, '../src/updates.html'));
 });
 
-// SPA fallback - serve index.html for all other routes
+// Landing page fallback for all other routes
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../src/index.html'));
 });
@@ -617,7 +660,9 @@ async function start() {
         app.listen(PORT, () => {
             console.log(`Server running on port ${PORT}`);
             console.log(`Static files served from: ${path.join(__dirname, '../src')}`);
-            console.log(`Admin panel available at: /admin`);
+            console.log(`React client build: ${hasClientBuild ? 'available' : 'not found (using vanilla admin)'}`);
+            console.log(`Admin panel: /admin`);
+            console.log(`User portal: /dashboard`);
         });
     } catch (err) {
         console.error('Failed to start server:', err);

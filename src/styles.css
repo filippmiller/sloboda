@@ -92,10 +92,33 @@ a {
    ============================================ */
 
 .hero {
-    max-width: var(--max-w);
-    margin: 0 auto;
-    padding: 6rem 1.5rem 4rem;
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
     border-bottom: 1px solid var(--border);
+}
+
+.hero-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background:
+        linear-gradient(180deg,
+            rgba(10, 10, 10, 0.35) 0%,
+            rgba(10, 10, 10, 0.6) 50%,
+            rgba(10, 10, 10, 0.95) 100%
+        ),
+        url('https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1920&q=80') center/cover no-repeat;
+}
+
+.hero-content {
+    position: relative;
+    z-index: 1;
+    max-width: var(--max-w);
+    padding: 6rem 1.5rem 4rem;
 }
 
 .hero h1 {
@@ -440,7 +463,7 @@ input[type="radio"] {
         font-size: 1.3rem;
     }
 
-    .hero {
+    .hero-content {
         padding: 4rem 1.2rem 3rem;
     }
 
