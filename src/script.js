@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
             email: formData.get('email'),
             telegram: formData.get('telegram') || '',
             location: formData.get('city') || '',
-            skills: skills.join(', '),
+            skills: skills,
             about: formData.get('about') || '',
             participation: participationMap[donateValue] || 'observer',
             newsletter: true,
