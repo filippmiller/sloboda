@@ -7,7 +7,10 @@ export const ROUTES = {
   DASHBOARD: '/dashboard',
   NEWS: '/news',
   LIBRARY: '/library',
+  LIBRARIAN: '/librarian',
   SUBMIT: '/submit',
+  BOOKMARKS: '/bookmarks',
+  NOTIFICATIONS: '/notifications',
   PROFILE: '/profile',
 
   // Admin
@@ -18,6 +21,8 @@ export const ROUTES = {
   ADMIN_POSTS: '/admin/posts',
   ADMIN_KNOWLEDGE: '/admin/knowledge',
   ADMIN_CATEGORIES: '/admin/categories',
+  ADMIN_CAMPAIGNS: '/admin/campaigns',
+  ADMIN_ADMINS: '/admin/admins',
   ADMIN_SETTINGS: '/admin/settings',
   ADMIN_ANALYTICS: '/admin/analytics',
 } as const

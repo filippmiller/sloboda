@@ -16,6 +16,8 @@ import {
   Mail,
   Briefcase,
   DollarSign,
+  Download,
+  CheckSquare,
 } from 'lucide-react'
 import type { Registration, RegistrationNote } from '@/types'
 
@@ -46,6 +48,14 @@ const STATUS_COLORS: Record<string, string> = {
 
 const PAGE_SIZE = 20
 
+function escapeCSV(val: string): string {
+  if (!val) return ''
+  if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+    return `"${val.replace(/"/g, '""')}"`
+  }
+  return val
+}
+
 export default function Registrations() {
   const [registrations, setRegistrations] = useState<Registration[]>([])
   const [total, setTotal] = useState(0)
@@ -54,6 +64,11 @@ export default function Registrations() {
   const [statusFilter, setStatusFilter] = useState('')
   const [search, setSearch] = useState('')
   const [searchDebounced, setSearchDebounced] = useState('')
+
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [bulkStatus, setBulkStatus] = useState('')
+  const [bulkUpdating, setBulkUpdating] = useState(false)
 
   // Detail modal
   const [selected, setSelected] = useState<Registration | null>(null)
@@ -97,6 +112,7 @@ export default function Registrations() {
   // Reset page on filter change
   useEffect(() => {
     setPage(0)
+    setSelectedIds(new Set())
   }, [statusFilter, searchDebounced])
 
   const openDetail = async (reg: Registration) => {
@@ -156,13 +172,86 @@ export default function Registrations() {
     }
   }
 
+  // Bulk selection handlers
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === registrations.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(registrations.map(r => r.id)))
+    }
+  }
+
+  const handleBulkStatusChange = async () => {
+    if (!bulkStatus || selectedIds.size === 0) return
+    setBulkUpdating(true)
+    let success = 0
+    let failed = 0
+    for (const id of selectedIds) {
+      try {
+        await adminApi.patch(`/registrations/${id}`, { status: bulkStatus })
+        success++
+      } catch {
+        failed++
+      }
+    }
+    setBulkUpdating(false)
+    setSelectedIds(new Set())
+    setBulkStatus('')
+    if (success > 0) toast.success(`Обновлено: ${success}`)
+    if (failed > 0) toast.error(`Ошибок: ${failed}`)
+    fetchRegistrations()
+  }
+
+  // CSV Export
+  const handleExportCSV = () => {
+    const headers = ['ID', 'Имя', 'Email', 'Телефон', 'Локация', 'Мотивация', 'Участие', 'Навыки', 'Бюджет', 'Статус', 'Дата']
+    const rows = registrations.map(r => [
+      String(r.id),
+      escapeCSV(r.name),
+      escapeCSV(r.email),
+      escapeCSV(r.phone ?? ''),
+      escapeCSV(r.location ?? ''),
+      escapeCSV(r.motivation ?? ''),
+      escapeCSV(r.participation ?? ''),
+      escapeCSV((r.skills ?? []).join('; ')),
+      escapeCSV(r.budget_range ?? ''),
+      escapeCSV(STATUS_LABELS[r.status] ?? r.status),
+      new Date(r.created_at).toLocaleDateString('ru-RU'),
+    ])
+
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `registrations-${new Date().toISOString().split('T')[0]}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success('CSV скачан')
+  }
+
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold font-display">Заявки</h1>
-        <span className="text-sm text-text-secondary">{total} всего</span>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" size="sm" onClick={handleExportCSV} disabled={registrations.length === 0}>
+            <Download size={14} />
+            CSV
+          </Button>
+          <span className="text-sm text-text-secondary">{total} всего</span>
+        </div>
       </div>
 
       {/* Filters */}
@@ -193,6 +282,37 @@ export default function Registrations() {
         </select>
       </div>
 
+      {/* Bulk Actions Bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 mb-3 p-3 bg-accent/5 border border-accent/20 rounded-lg">
+          <CheckSquare size={16} className="text-accent" />
+          <span className="text-sm text-text-secondary">
+            Выбрано: <strong className="text-text">{selectedIds.size}</strong>
+          </span>
+          <select
+            value={bulkStatus}
+            onChange={e => setBulkStatus(e.target.value)}
+            className="px-2 py-1 rounded bg-bg-card border border-border text-text text-sm"
+          >
+            <option value="">Изменить статус...</option>
+            {STATUS_OPTIONS.filter(o => o.value).map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+          <Button
+            size="sm"
+            disabled={!bulkStatus}
+            loading={bulkUpdating}
+            onClick={handleBulkStatusChange}
+          >
+            Применить
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
+            Снять выделение
+          </Button>
+        </div>
+      )}
+
       {/* Table */}
       <Card padding="none">
         {loading ? (
@@ -208,6 +328,14 @@ export default function Registrations() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
+                  <th className="p-3 w-10">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.size === registrations.length && registrations.length > 0}
+                      onChange={toggleSelectAll}
+                      className="w-4 h-4 rounded border-border bg-bg-card text-accent focus:ring-accent/30"
+                    />
+                  </th>
                   <th className="text-left p-3 text-text-secondary font-medium">Имя</th>
                   <th className="text-left p-3 text-text-secondary font-medium">Email</th>
                   <th className="text-left p-3 text-text-secondary font-medium">Статус</th>
@@ -219,19 +347,26 @@ export default function Registrations() {
                 {registrations.map((reg) => (
                   <tr
                     key={reg.id}
-                    onClick={() => openDetail(reg)}
                     className="border-b border-border/50 hover:bg-bg-elevated/50
                       transition-colors cursor-pointer"
                   >
-                    <td className="p-3 font-medium">{reg.name}</td>
-                    <td className="p-3 text-text-secondary">{reg.email}</td>
-                    <td className="p-3">
+                    <td className="p-3" onClick={e => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(reg.id)}
+                        onChange={() => toggleSelect(reg.id)}
+                        className="w-4 h-4 rounded border-border bg-bg-card text-accent focus:ring-accent/30"
+                      />
+                    </td>
+                    <td className="p-3 font-medium" onClick={() => openDetail(reg)}>{reg.name}</td>
+                    <td className="p-3 text-text-secondary" onClick={() => openDetail(reg)}>{reg.email}</td>
+                    <td className="p-3" onClick={() => openDetail(reg)}>
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[reg.status] ?? ''}`}>
                         {STATUS_LABELS[reg.status] ?? reg.status}
                       </span>
                     </td>
-                    <td className="p-3 text-text-secondary">{reg.location || '--'}</td>
-                    <td className="p-3 text-text-muted">
+                    <td className="p-3 text-text-secondary" onClick={() => openDetail(reg)}>{reg.location || '--'}</td>
+                    <td className="p-3 text-text-muted" onClick={() => openDetail(reg)}>
                       {new Date(reg.created_at).toLocaleDateString('ru-RU')}
                     </td>
                   </tr>

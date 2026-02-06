@@ -31,6 +31,7 @@ export interface Post {
   author_admin_id?: number
   author_user_id?: number
   featured_image?: string
+  is_pinned?: boolean
   views?: number
   published_at?: string
   created_at: string
@@ -140,6 +141,21 @@ export interface AnalyticsBreakdown {
   budget: BreakdownItem[]
 }
 
+export interface Notification {
+  id: number
+  user_id: number
+  type: string
+  title: string
+  message?: string
+  link?: string
+  is_read: boolean
+  created_at: string
+}
+
+export interface BookmarkedPost extends Post {
+  bookmarked_at: string
+}
+
 export interface InviteInfo {
   email: string
   name?: string
@@ -157,6 +173,40 @@ export interface PaginatedResponse<T> {
   page: number
   limit: number
   totalPages: number
+}
+
+export interface EmailTemplate {
+  id: number
+  name: string
+  subject: string
+  body: string
+  created_by?: number
+  created_at: string
+  updated_at: string
+}
+
+export interface EmailCampaign {
+  id: number
+  template_id?: number
+  subject: string
+  body: string
+  filters?: Record<string, string>
+  recipient_count: number
+  sent_count?: number
+  failed_count?: number
+  status: 'draft' | 'sending' | 'sent' | 'failed'
+  created_by?: number
+  created_at: string
+  sent_at?: string
+}
+
+export interface AdminUser {
+  id: number
+  email: string
+  name: string
+  role: 'admin' | 'super_admin'
+  created_at: string
+  last_login_at?: string
 }
 
 export interface AuthState {

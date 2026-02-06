@@ -220,7 +220,7 @@ router.post('/posts', requireAuth, async (req, res) => {
 router.patch('/posts/:id', requireAuth, async (req, res) => {
     try {
         const postId = parseInt(req.params.id);
-        const { title, slug, summary, body, type, status, categoryId, featuredImage } = req.body;
+        const { title, slug, summary, body, type, status, categoryId, featuredImage, isPinned } = req.body;
 
         const updates = {};
         if (title !== undefined) updates.title = title;
@@ -241,6 +241,7 @@ router.patch('/posts/:id', requireAuth, async (req, res) => {
         }
         if (categoryId !== undefined) updates.categoryId = categoryId ? parseInt(categoryId) : null;
         if (featuredImage !== undefined) updates.featuredImage = featuredImage;
+        if (isPinned !== undefined) updates.isPinned = !!isPinned;
 
         if (Object.keys(updates).length === 0) {
             return res.status(400).json({ success: false, error: 'No fields to update' });
@@ -446,6 +447,28 @@ router.patch('/knowledge/:id', requireAuth, async (req, res) => {
         const submission = await db.updateKnowledgeSubmission(submissionId, updates);
         if (!submission) {
             return res.status(404).json({ success: false, error: 'Submission not found' });
+        }
+
+        // Create notifications for submission status changes
+        if (submission.user_id) {
+            if (status === 'approved' || status === 'published') {
+                db.createNotification({
+                    userId: submission.user_id,
+                    type: 'submission_approved',
+                    title: 'Ваш материал одобрен',
+                    message: `Материал "${submission.title}" одобрен и скоро появится в библиотеке`,
+                    link: '/library'
+                }).catch(err => console.error('Notification error:', err));
+            }
+            if (status === 'rejected') {
+                db.createNotification({
+                    userId: submission.user_id,
+                    type: 'submission_rejected',
+                    title: 'Материал отклонён',
+                    message: `Материал "${submission.title}" был отклонён${reviewNotes ? ': ' + reviewNotes : ''}`,
+                    link: '/submit'
+                }).catch(err => console.error('Notification error:', err));
+            }
         }
 
         res.json({ success: true, data: submission });

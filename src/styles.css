@@ -87,6 +87,79 @@ a {
     border-bottom: 1px solid var(--border);
 }
 
+.section-intro {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
+}
+
+/* ============================================
+   Sticky Header
+   ============================================ */
+
+.sticky-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: rgba(10, 10, 10, 0.95);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+    transform: translateY(-100%);
+    transition: transform 0.3s ease;
+}
+
+.sticky-header.visible {
+    transform: translateY(0);
+}
+
+.sticky-inner {
+    max-width: var(--max-w);
+    margin: 0 auto;
+    padding: 0.7rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sticky-logo {
+    font-family: var(--font-display);
+    font-size: 0.9rem;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    color: var(--text);
+}
+
+.sticky-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.sticky-tg {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.sticky-tg:hover {
+    color: var(--text);
+}
+
+.sticky-cta {
+    font-family: var(--font-display);
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #fff;
+    background: var(--accent);
+    padding: 0.45rem 1.2rem;
+    letter-spacing: 0.04em;
+}
+
+.sticky-cta:hover {
+    background: #a82010;
+}
+
 /* ============================================
    1. Hero
    ============================================ */
@@ -141,6 +214,13 @@ a {
     max-width: 700px;
 }
 
+.hero-actions {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
 .cta-btn {
     display: inline-block;
     font-family: var(--font-display);
@@ -154,6 +234,17 @@ a {
 
 .cta-btn:hover {
     background: #a82010;
+}
+
+.social-counter {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+
+.social-counter.visible {
+    opacity: 1;
 }
 
 /* ============================================
@@ -184,6 +275,33 @@ a {
     font-size: 1rem;
     line-height: 1.8;
     color: var(--text-secondary);
+}
+
+.about-points {
+    list-style: none;
+    margin-bottom: 1.5rem;
+}
+
+.about-points li {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--border);
+    line-height: 1.5;
+}
+
+.about-points li:last-child {
+    border-bottom: none;
+}
+
+.about-points strong {
+    color: var(--text);
+}
+
+.about-note {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    font-style: italic;
 }
 
 /* ============================================
@@ -262,14 +380,181 @@ a {
     color: var(--text-secondary);
     padding: 0.35rem 0;
     border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.5rem;
 }
 
 .need-block li:last-child {
     border-bottom: none;
 }
 
+.cost-tag {
+    font-family: var(--font-display);
+    font-size: 0.75rem;
+    color: var(--green);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
 /* ============================================
-   6. Signup Form
+   6. Finance Transparency
+   ============================================ */
+
+.finance-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+}
+
+.finance-item {
+    padding: 0;
+}
+
+.finance-bar {
+    height: 4px;
+    background: var(--border);
+    position: relative;
+    margin-bottom: 0.5rem;
+}
+
+.finance-bar::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: var(--pct);
+    background: var(--green);
+    transition: width 0.8s ease;
+}
+
+.finance-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.2rem;
+}
+
+.finance-name {
+    font-size: 0.9rem;
+    color: var(--text);
+    font-weight: 500;
+}
+
+.finance-pct {
+    font-family: var(--font-display);
+    font-size: 0.8rem;
+    color: var(--green);
+}
+
+.finance-detail {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+/* ============================================
+   7. FAQ
+   ============================================ */
+
+.faq-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.faq-item {
+    border-bottom: 1px solid var(--border);
+    padding: 0;
+}
+
+.faq-item summary {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text);
+    cursor: pointer;
+    padding: 1rem 0;
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.faq-item summary::after {
+    content: '+';
+    font-family: var(--font-display);
+    font-size: 1rem;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+    transition: transform 0.2s ease;
+}
+
+.faq-item[open] summary::after {
+    content: '-';
+}
+
+.faq-item summary::-webkit-details-marker {
+    display: none;
+}
+
+.faq-item p {
+    font-size: 0.9rem;
+    line-height: 1.7;
+    color: var(--text-secondary);
+    padding: 0 0 1rem;
+}
+
+/* ============================================
+   8. Founder
+   ============================================ */
+
+.founder-block {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    padding: 1.5rem;
+}
+
+.founder-info h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.3rem;
+}
+
+.founder-role {
+    font-family: var(--font-display);
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 1rem;
+}
+
+.founder-bio {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+}
+
+.founder-contacts {
+    display: flex;
+    gap: 1.5rem;
+}
+
+.founder-contacts a {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.1rem;
+}
+
+.founder-contacts a:hover {
+    color: var(--text);
+    border-color: var(--text-secondary);
+}
+
+/* ============================================
+   9. Signup Form
    ============================================ */
 
 .form-intro {
@@ -280,6 +565,20 @@ a {
 
 .signup-form {
     max-width: 700px;
+}
+
+.form-step-2 {
+    display: none;
+    animation: fadeIn 0.3s ease;
+}
+
+.form-step-2.visible {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .form-row {
@@ -372,6 +671,27 @@ a {
     gap: 0.4rem;
 }
 
+.expand-btn {
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #fff;
+    background: var(--accent);
+    border: none;
+    padding: 0.8rem 2.5rem;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    margin-top: 0.5rem;
+}
+
+.expand-btn:hover {
+    background: #a82010;
+}
+
+.expand-btn.hidden {
+    display: none;
+}
+
 .submit-btn {
     font-family: var(--font-display);
     font-size: 0.85rem;
@@ -408,7 +728,7 @@ a {
 }
 
 /* ============================================
-   7. Footer
+   10. Footer
    ============================================ */
 
 .footer {
@@ -439,6 +759,33 @@ a {
 
 .footer-links a:hover {
     color: var(--text);
+}
+
+/* ============================================
+   Floating Telegram Button
+   ============================================ */
+
+.floating-tg {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 90;
+    width: 48px;
+    height: 48px;
+    background: #2AABEE;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    box-shadow: 0 2px 12px rgba(42, 171, 238, 0.3);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.floating-tg:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 20px rgba(42, 171, 238, 0.4);
+    color: #fff;
 }
 
 /* ============================================
@@ -500,5 +847,27 @@ input[type="radio"] {
         flex-direction: column;
         gap: 1rem;
         text-align: center;
+    }
+
+    .footer-links {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .hero-actions {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .sticky-inner {
+        padding: 0.6rem 1.2rem;
+    }
+
+    .floating-tg {
+        bottom: 1rem;
+        right: 1rem;
+        width: 44px;
+        height: 44px;
     }
 }

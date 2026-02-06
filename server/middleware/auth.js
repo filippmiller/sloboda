@@ -16,7 +16,7 @@ function requireAuth(req, res, next) {
     }
 
     const decoded = verifyToken(token);
-    if (!decoded) {
+    if (!decoded || !decoded.role) {
         return res.status(401).json({
             success: false,
             error: 'Invalid or expired token'

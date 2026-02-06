@@ -11,7 +11,10 @@ import Register from '@/pages/auth/Register'
 import UserDashboard from '@/pages/user/Dashboard'
 import News from '@/pages/user/News'
 import Library from '@/pages/user/Library'
+import Librarian from '@/pages/user/Librarian'
 import KnowledgeSubmit from '@/pages/user/KnowledgeSubmit'
+import Bookmarks from '@/pages/user/Bookmarks'
+import Notifications from '@/pages/user/Notifications'
 import Profile from '@/pages/user/Profile'
 
 import AdminLogin from '@/pages/admin/Login'
@@ -21,6 +24,8 @@ import Users from '@/pages/admin/Users'
 import Posts from '@/pages/admin/Posts'
 import Knowledge from '@/pages/admin/Knowledge'
 import Categories from '@/pages/admin/Categories'
+import Campaigns from '@/pages/admin/Campaigns'
+import Admins from '@/pages/admin/Admins'
 import Settings from '@/pages/admin/Settings'
 import Analytics from '@/pages/admin/Analytics'
 
@@ -41,7 +46,10 @@ function App() {
         <Route path={ROUTES.DASHBOARD} element={<UserDashboard />} />
         <Route path={ROUTES.NEWS} element={<News />} />
         <Route path={ROUTES.LIBRARY} element={<Library />} />
+        <Route path={ROUTES.LIBRARIAN} element={<Librarian />} />
         <Route path={ROUTES.SUBMIT} element={<KnowledgeSubmit />} />
+        <Route path={ROUTES.BOOKMARKS} element={<Bookmarks />} />
+        <Route path={ROUTES.NOTIFICATIONS} element={<Notifications />} />
         <Route path={ROUTES.PROFILE} element={<Profile />} />
       </Route>
 
@@ -56,6 +64,8 @@ function App() {
         <Route path={ROUTES.ADMIN_POSTS} element={<Posts />} />
         <Route path={ROUTES.ADMIN_KNOWLEDGE} element={<Knowledge />} />
         <Route path={ROUTES.ADMIN_CATEGORIES} element={<Categories />} />
+        <Route path={ROUTES.ADMIN_CAMPAIGNS} element={<Campaigns />} />
+        <Route path={ROUTES.ADMIN_ADMINS} element={<Admins />} />
         <Route path={ROUTES.ADMIN_SETTINGS} element={<Settings />} />
         <Route path={ROUTES.ADMIN_ANALYTICS} element={<Analytics />} />
       </Route>

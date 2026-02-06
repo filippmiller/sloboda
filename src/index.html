@@ -14,20 +14,60 @@
     <meta property="og:url" content="https://sloboda.land/">
     <meta property="og:title" content="СЛОБОДА — План Б, который существует">
     <meta property="og:description" content="Исход из города. Сообщество людей, которые строят альтернативу вместе.">
+    <meta property="og:image" content="https://sloboda.land/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
     <meta property="og:locale" content="ru_RU">
 
-    <meta name="twitter:card" content="summary">
+    <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="СЛОБОДА — План Б, который существует">
     <meta name="twitter:description" content="Исход из города. Сообщество людей, которые строят альтернативу вместе.">
+    <meta name="twitter:image" content="https://sloboda.land/og-image.png">
 
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>S</text></svg>">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preload" as="image" href="https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1920&q=80">
     <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "СЛОБОДА",
+        "alternateName": "SLOBODA",
+        "url": "https://sloboda.land",
+        "description": "Некоммерческая организация, создающая инфраструктуру для жизни вне города.",
+        "foundingDate": "2026",
+        "founder": {
+            "@type": "Person",
+            "name": "Phillip Miller"
+        },
+        "contactPoint": {
+            "@type": "ContactPoint",
+            "email": "info@sloboda.land",
+            "contactType": "general"
+        },
+        "sameAs": [
+            "https://t.me/sloboda_land"
+        ]
+    }
+    </script>
 </head>
 <body>
+
+    <!-- Sticky header (appears on scroll) -->
+    <header class="sticky-header" id="stickyHeader">
+        <div class="sticky-inner">
+            <span class="sticky-logo">СЛОБОДА</span>
+            <div class="sticky-actions">
+                <a href="https://t.me/sloboda_land" target="_blank" rel="noopener" class="sticky-tg">Telegram</a>
+                <a href="#signup" class="sticky-cta">Заявить о себе</a>
+            </div>
+        </div>
+    </header>
 
     <!-- 1. Hero -->
     <section class="hero">
@@ -36,7 +76,10 @@
             <h1>СЛОБОДА</h1>
             <p class="hero-subtitle">Исход из города. План Б, который существует.</p>
             <p class="hero-text">Мы не продаём мечты про экопоселения. Мы создаём юридическую структуру, собираем людей с нужными навыками и строим инфраструктуру для жизни вне города. Это долгий, честный процесс. Если вы думаете на шаг вперёд — вам сюда.</p>
-            <a href="#signup" class="cta-btn">Заявить о себе</a>
+            <div class="hero-actions">
+                <a href="#signup" class="cta-btn">Заявить о себе</a>
+                <p class="social-counter" id="socialCounter"></p>
+            </div>
         </div>
     </section>
 
@@ -59,7 +102,14 @@
     <section class="section" id="about">
         <h2>Что такое СЛОБОДА</h2>
         <div class="text-block">
-            <p>СЛОБОДА — это некоммерческая организация и сообщество людей, которые строят инфраструктуру для жизни вне города. Мы не продаём участки и не обещаем доходность. Мы создаём юридическую структуру (НКО), собираем базу знаний, формируем сообщество специалистов и шаг за шагом движемся к реальному проекту: земля, дома, ферма, мастерские. Всё прозрачно, все решения коллективные, все финансы открыты.</p>
+            <ul class="about-points">
+                <li><strong>НКО</strong> — некоммерческая организация с прозрачной отчётностью</li>
+                <li><strong>Сообщество специалистов</strong> — люди с реальными навыками, а не подписчики</li>
+                <li><strong>База знаний</strong> — строительство, сельское хозяйство, юридика, инженерия</li>
+                <li><strong>Коллективные решения</strong> — все финансы открыты, все решения голосуются</li>
+                <li><strong>Реальный план</strong> — земля, дома, ферма, мастерские. Шаг за шагом.</li>
+            </ul>
+            <p class="about-note">Мы не продаём участки и не обещаем доходность. Мы создаём инфраструктуру для тех, кто думает на шаг вперёд.</p>
         </div>
     </section>
 
@@ -112,91 +162,191 @@
             <div class="need-block">
                 <h3>Поддержка</h3>
                 <p>Деньги идут на конкретные вещи. Не на «развитие проекта», а на то, что можно потрогать.</p>
-                <ul>
-                    <li>Регистрация и содержание НКО</li>
-                    <li>Создание и поддержка базы знаний</li>
-                    <li>Сид-фонд на оборудование</li>
-                    <li>Покупка техники и материалов</li>
+                <ul class="support-items">
+                    <li>Регистрация и содержание НКО <span class="cost-tag">~15 000 ₽</span></li>
+                    <li>Юридическая консультация <span class="cost-tag">~30 000 ₽</span></li>
+                    <li>Хостинг и платформа <span class="cost-tag">~5 000 ₽/мес</span></li>
+                    <li>Создание и поддержка базы знаний <span class="cost-tag">~20 000 ₽</span></li>
+                    <li>Сид-фонд на оборудование и технику</li>
                     <li>Покупка земли</li>
                 </ul>
             </div>
         </div>
     </section>
 
-    <!-- 6. Signup Form -->
+    <!-- 6. Where The Money Goes -->
+    <section class="section" id="transparency">
+        <h2>Куда идут деньги</h2>
+        <p class="section-intro">Каждый рубль — на конкретное дело. Никаких «на развитие проекта».</p>
+        <div class="finance-grid">
+            <div class="finance-item">
+                <div class="finance-bar" style="--pct: 35%"></div>
+                <div class="finance-label">
+                    <span class="finance-name">Юридическая работа</span>
+                    <span class="finance-pct">35%</span>
+                </div>
+                <p class="finance-detail">Регистрация НКО, договоры, консультации</p>
+            </div>
+            <div class="finance-item">
+                <div class="finance-bar" style="--pct: 25%"></div>
+                <div class="finance-label">
+                    <span class="finance-name">База знаний и платформа</span>
+                    <span class="finance-pct">25%</span>
+                </div>
+                <p class="finance-detail">Сайт, хостинг, разработка, документация</p>
+            </div>
+            <div class="finance-item">
+                <div class="finance-bar" style="--pct: 25%"></div>
+                <div class="finance-label">
+                    <span class="finance-name">Операционные расходы</span>
+                    <span class="finance-pct">25%</span>
+                </div>
+                <p class="finance-detail">Связь, поездки, организация встреч</p>
+            </div>
+            <div class="finance-item">
+                <div class="finance-bar" style="--pct: 15%"></div>
+                <div class="finance-label">
+                    <span class="finance-name">Резервный фонд</span>
+                    <span class="finance-pct">15%</span>
+                </div>
+                <p class="finance-detail">Непредвиденные расходы, страховка</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- 7. FAQ -->
+    <section class="section" id="faq">
+        <h2>Вопросы и ответы</h2>
+        <div class="faq-list">
+            <details class="faq-item">
+                <summary>Это не мошенничество?</summary>
+                <p>СЛОБОДА — это НКО (некоммерческая организация) с открытой отчётностью. Мы не обещаем доходность, не продаём участки и не берём деньги «на развитие». Каждый рубль расходуется на конкретные, проверяемые вещи: юридическая работа, платформа, документация. Все финансы будут публичны.</p>
+            </details>
+            <details class="faq-item">
+                <summary>Что будет с моими деньгами?</summary>
+                <p>Пожертвования идут на регистрацию НКО (~15 000 ₽), юридические консультации (~30 000 ₽), хостинг платформы (~5 000 ₽/мес) и создание базы знаний. Вы получаете отчёт о каждой трате. НКО обязана отчитываться перед Минюстом.</p>
+            </details>
+            <details class="faq-item">
+                <summary>А если ничего не получится?</summary>
+                <p>Даже если масштабный проект не состоится — база знаний, юридические шаблоны, сообщество специалистов и разведанная информация о земле останутся. Это не деньги в пустоту — это инвестиция в инфраструктуру знаний, которая полезна в любом сценарии.</p>
+            </details>
+            <details class="faq-item">
+                <summary>Мне нужно переезжать?</summary>
+                <p>Нет. На первой фазе мы собираем людей, навыки и ресурсы. Вы участвуете удалённо: вносите знания, помогаете с экспертизой, поддерживаете финансово. Переезд — это Фаза 2+, и только для тех, кто сам этого захочет.</p>
+            </details>
+            <details class="faq-item">
+                <summary>Чем вы отличаетесь от экопоселений?</summary>
+                <p>Экопоселения обычно строятся на идеологии и энтузиазме одного человека. СЛОБОДА — это юридическая структура (НКО), коллективное управление, открытые финансы и фокус на инфраструктуре, а не на образе жизни. Мы строим систему, а не коммуну.</p>
+            </details>
+        </div>
+    </section>
+
+    <!-- 8. Who's Behind This -->
+    <section class="section" id="founder">
+        <h2>Кто за этим стоит</h2>
+        <div class="founder-block">
+            <div class="founder-info">
+                <h3>Phillip Miller</h3>
+                <p class="founder-role">Основатель СЛОБОДА</p>
+                <p class="founder-bio">Предприниматель, инженер, человек, который верит, что лучшая страховка от будущего — это земля, навыки и сообщество. Не продаю мечты. Строю инфраструктуру.</p>
+                <div class="founder-contacts">
+                    <a href="https://t.me/sloboda_land" target="_blank" rel="noopener">Telegram</a>
+                    <a href="mailto:info@sloboda.land">info@sloboda.land</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 9. Signup Form -->
     <section class="section" id="signup">
         <h2>Заявить о себе</h2>
         <p class="form-intro">Заполните форму. Мы свяжемся с теми, кто нам подходит.</p>
 
         <form class="signup-form" id="signupForm">
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="f-name">Имя *</label>
-                    <input type="text" id="f-name" name="name" required autocomplete="name">
+            <!-- Step 1: Essential info (always visible) -->
+            <div class="form-step form-step-1">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="f-name">Имя *</label>
+                        <input type="text" id="f-name" name="name" required autocomplete="name">
+                    </div>
+                    <div class="form-group">
+                        <label for="f-email">Email *</label>
+                        <input type="email" id="f-email" name="email" required autocomplete="email">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="f-email">Email *</label>
-                    <input type="email" id="f-email" name="email" required autocomplete="email">
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="f-telegram">Telegram</label>
-                    <input type="text" id="f-telegram" name="telegram" placeholder="@username" autocomplete="off">
-                </div>
-                <div class="form-group">
-                    <label for="f-city">Город</label>
-                    <input type="text" id="f-city" name="city" autocomplete="address-level2">
-                </div>
+                <button type="button" class="expand-btn" id="expandForm">Продолжить</button>
             </div>
 
-            <fieldset class="form-fieldset">
-                <legend>Навыки (отметьте все подходящие)</legend>
-                <div class="checkbox-grid">
-                    <label><input type="checkbox" name="skills" value="construction"> Строительство</label>
-                    <label><input type="checkbox" name="skills" value="agriculture"> Сельское хозяйство</label>
-                    <label><input type="checkbox" name="skills" value="electrical"> Электрика</label>
-                    <label><input type="checkbox" name="skills" value="forestry"> Лесное дело</label>
-                    <label><input type="checkbox" name="skills" value="seeds"> Семеноводство</label>
-                    <label><input type="checkbox" name="skills" value="legal"> Юриспруденция</label>
-                    <label><input type="checkbox" name="skills" value="medical"> Медицина</label>
-                    <label><input type="checkbox" name="skills" value="engineering"> Инженерия</label>
-                    <label><input type="checkbox" name="skills" value="survival"> Выживание</label>
+            <!-- Step 2: Details (expand on click) -->
+            <div class="form-step form-step-2" id="formStep2">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="f-telegram">Telegram</label>
+                        <input type="text" id="f-telegram" name="telegram" placeholder="@username" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="f-city">Город</label>
+                        <input type="text" id="f-city" name="city" autocomplete="address-level2">
+                    </div>
                 </div>
-            </fieldset>
 
-            <div class="form-group">
-                <label for="f-about">Что вас интересует в проекте?</label>
-                <textarea id="f-about" name="about" rows="3" placeholder="Чем хотите заниматься, что умеете, зачем вам это"></textarea>
-            </div>
+                <fieldset class="form-fieldset">
+                    <legend>Навыки (отметьте все подходящие)</legend>
+                    <div class="checkbox-grid">
+                        <label><input type="checkbox" name="skills" value="construction"> Строительство</label>
+                        <label><input type="checkbox" name="skills" value="agriculture"> Сельское хозяйство</label>
+                        <label><input type="checkbox" name="skills" value="electrical"> Электрика</label>
+                        <label><input type="checkbox" name="skills" value="forestry"> Лесное дело</label>
+                        <label><input type="checkbox" name="skills" value="seeds"> Семеноводство</label>
+                        <label><input type="checkbox" name="skills" value="legal"> Юриспруденция</label>
+                        <label><input type="checkbox" name="skills" value="medical"> Медицина</label>
+                        <label><input type="checkbox" name="skills" value="engineering"> Инженерия</label>
+                        <label><input type="checkbox" name="skills" value="survival"> Выживание</label>
+                    </div>
+                </fieldset>
 
-            <fieldset class="form-fieldset">
-                <legend>Готовы поддержать финансово?</legend>
-                <div class="radio-row">
-                    <label><input type="radio" name="donate" value="yes"> Да</label>
-                    <label><input type="radio" name="donate" value="no"> Нет</label>
-                    <label><input type="radio" name="donate" value="later" checked> Позже</label>
+                <div class="form-group">
+                    <label for="f-about">Что вас интересует в проекте?</label>
+                    <textarea id="f-about" name="about" rows="3" placeholder="Чем хотите заниматься, что умеете, зачем вам это"></textarea>
                 </div>
-            </fieldset>
 
-            <div class="form-group form-privacy">
-                <label><input type="checkbox" name="privacy" required> Согласен с обработкой персональных данных</label>
+                <fieldset class="form-fieldset">
+                    <legend>Готовы поддержать финансово?</legend>
+                    <div class="radio-row">
+                        <label><input type="radio" name="donate" value="yes"> Да</label>
+                        <label><input type="radio" name="donate" value="no"> Нет</label>
+                        <label><input type="radio" name="donate" value="later" checked> Позже</label>
+                    </div>
+                </fieldset>
+
+                <div class="form-group form-privacy">
+                    <label><input type="checkbox" name="privacy" required> Согласен с обработкой <a href="/privacy" target="_blank" style="color: var(--text-secondary); text-decoration: underline;">персональных данных</a></label>
+                </div>
+
+                <button type="submit" class="submit-btn" id="submitBtn">Отправить</button>
             </div>
-
-            <button type="submit" class="submit-btn" id="submitBtn">Отправить</button>
 
             <div class="form-status" id="formStatus"></div>
         </form>
     </section>
 
-    <!-- 7. Footer -->
+    <!-- 10. Footer -->
     <footer class="footer">
         <p class="footer-tagline">СЛОБОДА — План Б, который существует.</p>
         <div class="footer-links">
             <a href="https://t.me/sloboda_land" target="_blank" rel="noopener">Telegram</a>
             <a href="mailto:info@sloboda.land">info@sloboda.land</a>
+            <a href="/privacy">Политика конфиденциальности</a>
         </div>
     </footer>
+
+    <!-- Floating Telegram button -->
+    <a href="https://t.me/sloboda_land" target="_blank" rel="noopener" class="floating-tg" title="Наш Telegram">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z" fill="currentColor"/>
+        </svg>
+    </a>
 
     <script src="script.js"></script>
 </body>

@@ -63,7 +63,7 @@ if (hasClientBuild) {
     app.use('/assets', express.static(path.join(clientBuildPath, 'assets')));
 
     // React app routes - user portal
-    const reactRoutes = ['/login', '/register', '/dashboard', '/news', '/library', '/submit', '/profile'];
+    const reactRoutes = ['/login', '/register', '/dashboard', '/news', '/library', '/librarian', '/submit', '/profile', '/bookmarks', '/notifications'];
     reactRoutes.forEach(route => {
         app.get(route, (req, res) => res.sendFile(clientIndexPath));
         app.get(route + '/*', (req, res) => res.sendFile(clientIndexPath));
@@ -73,6 +73,11 @@ if (hasClientBuild) {
     app.get('/admin', (req, res) => res.sendFile(clientIndexPath));
     app.get('/admin/*', (req, res) => res.sendFile(clientIndexPath));
 }
+
+// Privacy policy page
+app.get('/privacy', (req, res) => {
+    res.sendFile(path.join(__dirname, '../src/privacy.html'));
+});
 
 // Serve static files from src directory (landing page assets)
 app.use(express.static(path.join(__dirname, '../src')));

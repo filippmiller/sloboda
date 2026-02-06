@@ -11,6 +11,8 @@ import {
   Edit3,
   Trash2,
   Eye,
+  Pin,
+  PinOff,
   Bold,
   Italic,
   Heading2,
@@ -213,6 +215,16 @@ export default function Posts() {
     }
   }
 
+  const handleTogglePin = async (post: Post) => {
+    try {
+      await adminApi.patch(`/admin/posts/${post.id}`, { isPinned: !post.is_pinned })
+      toast.success(post.is_pinned ? 'Откреплено' : 'Закреплено')
+      fetchPosts()
+    } catch {
+      toast.error('Ошибка')
+    }
+  }
+
   const handleDelete = async () => {
     if (!deleteId) return
     setDeleting(true)
@@ -302,7 +314,10 @@ export default function Posts() {
               <tbody>
                 {posts.map((post) => (
                   <tr key={post.id} className="border-b border-border/50 hover:bg-bg-elevated/50 transition-colors">
-                    <td className="p-3 font-medium max-w-xs truncate">{post.title}</td>
+                    <td className="p-3 font-medium max-w-xs truncate">
+                      {post.is_pinned && <Pin size={12} className="inline mr-1 text-accent" />}
+                      {post.title}
+                    </td>
                     <td className="p-3 text-text-secondary">{typeLabels[post.type] ?? post.type}</td>
                     <td className="p-3">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[post.status] ?? ''}`}>
@@ -315,6 +330,17 @@ export default function Posts() {
                     </td>
                     <td className="p-3">
                       <div className="flex gap-1">
+                        <button
+                          onClick={() => handleTogglePin(post)}
+                          title={post.is_pinned ? 'Открепить' : 'Закрепить'}
+                          className={`p-1.5 rounded transition-colors ${
+                            post.is_pinned
+                              ? 'text-accent hover:text-text hover:bg-bg-elevated'
+                              : 'text-text-secondary hover:text-accent hover:bg-accent/10'
+                          }`}
+                        >
+                          {post.is_pinned ? <PinOff size={14} /> : <Pin size={14} />}
+                        </button>
                         <button
                           onClick={() => openEdit(post)}
                           className="p-1.5 rounded text-text-secondary hover:text-text hover:bg-bg-elevated transition-colors"

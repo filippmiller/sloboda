@@ -198,6 +198,7 @@ async function initDatabase() {
                 author_admin_id INTEGER REFERENCES admins(id),
                 author_user_id INTEGER REFERENCES users(id),
                 featured_image VARCHAR(500),
+                is_pinned BOOLEAN DEFAULT FALSE,
                 published_at TIMESTAMP,
                 view_count INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -276,9 +277,39 @@ async function initDatabase() {
             )
         `);
 
+        // User bookmarks
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS user_bookmarks (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, post_id)
+            )
+        `);
+
+        // Notifications
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS notifications (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                type VARCHAR(50) NOT NULL,
+                title VARCHAR(500) NOT NULL,
+                message TEXT,
+                link VARCHAR(500),
+                is_read BOOLEAN DEFAULT false,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
         // Add converted_to_user_id column to registrations
         await client.query(`
             ALTER TABLE registrations ADD COLUMN IF NOT EXISTS converted_to_user_id INTEGER REFERENCES users(id)
+        `);
+
+        // Add is_pinned column to posts
+        await client.query(`
+            ALTER TABLE posts ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN DEFAULT FALSE
         `);
 
         // Seed default categories
@@ -1206,7 +1237,7 @@ async function getPublishedPosts(filters = {}) {
             paramIndex++;
         }
 
-        query += ' ORDER BY p.published_at DESC';
+        query += ' ORDER BY p.is_pinned DESC NULLS LAST, p.published_at DESC';
 
         if (filters.limit) {
             query += ` LIMIT $${paramIndex++}`;
@@ -1290,7 +1321,7 @@ async function getAllPosts(filters = {}) {
             paramIndex++;
         }
 
-        query += ' ORDER BY p.created_at DESC';
+        query += ' ORDER BY p.is_pinned DESC NULLS LAST, p.created_at DESC';
 
         if (filters.limit) {
             query += ` LIMIT $${paramIndex++}`;
@@ -1325,6 +1356,7 @@ async function updatePost(id, data) {
             status: 'status',
             categoryId: 'category_id',
             featuredImage: 'featured_image',
+            isPinned: 'is_pinned',
             publishedAt: 'published_at'
         };
 
@@ -1728,6 +1760,141 @@ async function updateRegistrationConversion(registrationId, userId) {
     }
 }
 
+// ============================================
+// BOOKMARK FUNCTIONS
+// ============================================
+
+async function getUserBookmarks(userId, filters = {}) {
+    const client = await pool.connect();
+    try {
+        let query = `
+            SELECT p.*, c.name as category_name, ub.created_at as bookmarked_at
+            FROM user_bookmarks ub
+            JOIN posts p ON ub.post_id = p.id
+            LEFT JOIN categories c ON p.category_id = c.id
+            WHERE ub.user_id = $1 AND p.status = 'published'
+        `;
+        const params = [userId];
+        let paramIndex = 2;
+
+        query += ' ORDER BY ub.created_at DESC';
+
+        if (filters.limit) {
+            query += ` LIMIT $${paramIndex++}`;
+            params.push(filters.limit);
+        }
+        if (filters.offset) {
+            query += ` OFFSET $${paramIndex++}`;
+            params.push(filters.offset);
+        }
+
+        const result = await client.query(query, params);
+        return result.rows;
+    } finally {
+        client.release();
+    }
+}
+
+async function toggleBookmark(userId, postId) {
+    const client = await pool.connect();
+    try {
+        const existing = await client.query(
+            'SELECT id FROM user_bookmarks WHERE user_id = $1 AND post_id = $2',
+            [userId, postId]
+        );
+        if (existing.rows.length > 0) {
+            await client.query('DELETE FROM user_bookmarks WHERE user_id = $1 AND post_id = $2', [userId, postId]);
+            return { bookmarked: false };
+        } else {
+            await client.query('INSERT INTO user_bookmarks (user_id, post_id) VALUES ($1, $2)', [userId, postId]);
+            return { bookmarked: true };
+        }
+    } finally {
+        client.release();
+    }
+}
+
+async function getUserBookmarkIds(userId) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            'SELECT post_id FROM user_bookmarks WHERE user_id = $1',
+            [userId]
+        );
+        return result.rows.map(r => r.post_id);
+    } finally {
+        client.release();
+    }
+}
+
+// ============================================
+// NOTIFICATION FUNCTIONS
+// ============================================
+
+async function createNotification(data) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `INSERT INTO notifications (user_id, type, title, message, link)
+             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+            [data.userId, data.type, data.title, data.message || null, data.link || null]
+        );
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function getUserNotifications(userId, limit = 20) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2`,
+            [userId, limit]
+        );
+        return result.rows;
+    } finally {
+        client.release();
+    }
+}
+
+async function getUnreadNotificationCount(userId) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            'SELECT COUNT(*) as count FROM notifications WHERE user_id = $1 AND is_read = false',
+            [userId]
+        );
+        return parseInt(result.rows[0].count, 10);
+    } finally {
+        client.release();
+    }
+}
+
+async function markNotificationsRead(userId) {
+    const client = await pool.connect();
+    try {
+        await client.query(
+            'UPDATE notifications SET is_read = true WHERE user_id = $1 AND is_read = false',
+            [userId]
+        );
+    } finally {
+        client.release();
+    }
+}
+
+async function markNotificationRead(id, userId) {
+    const client = await pool.connect();
+    try {
+        await client.query(
+            'UPDATE notifications SET is_read = true WHERE id = $1 AND user_id = $2',
+            [id, userId]
+        );
+    } finally {
+        client.release();
+    }
+}
+
 module.exports = {
     pool,
     initDatabase,
@@ -1818,5 +1985,15 @@ module.exports = {
     // AI log functions
     logAIProcessing,
     // Registration conversion
-    updateRegistrationConversion
+    updateRegistrationConversion,
+    // Bookmark functions
+    getUserBookmarks,
+    toggleBookmark,
+    getUserBookmarkIds,
+    // Notification functions
+    createNotification,
+    getUserNotifications,
+    getUnreadNotificationCount,
+    markNotificationsRead,
+    markNotificationRead
 };

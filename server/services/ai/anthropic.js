@@ -51,4 +51,4 @@ async function callClaude({ model, maxTokens, systemPrompt, userPrompt }) {
     return { content, usage };
 }
 
-module.exports = { callClaude };
+module.exports = { callClaude, getClient };

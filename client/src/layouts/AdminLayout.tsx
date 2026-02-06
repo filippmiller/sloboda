@@ -11,6 +11,8 @@ import {
   Tags,
   Settings,
   BarChart3,
+  Mail,
+  ShieldCheck,
   LogOut,
   Shield,
   Loader2,
@@ -23,7 +25,9 @@ const navItems = [
   { to: ROUTES.ADMIN_POSTS, label: 'Публикации', icon: FileText },
   { to: ROUTES.ADMIN_KNOWLEDGE, label: 'Знания', icon: Lightbulb },
   { to: ROUTES.ADMIN_CATEGORIES, label: 'Категории', icon: Tags },
+  { to: ROUTES.ADMIN_CAMPAIGNS, label: 'Рассылки', icon: Mail },
   { to: ROUTES.ADMIN_ANALYTICS, label: 'Аналитика', icon: BarChart3 },
+  { to: ROUTES.ADMIN_ADMINS, label: 'Администраторы', icon: ShieldCheck },
   { to: ROUTES.ADMIN_SETTINGS, label: 'Настройки', icon: Settings },
 ]
 

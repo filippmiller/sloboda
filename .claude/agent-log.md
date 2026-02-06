@@ -65,3 +65,30 @@ Built the complete member portal platform from scratch. React SPA with user auth
 → `.claude/sessions/2026-02-06-213000.md`
 
 ---
+
+## 2026-02-07 — Landing page conversion optimization
+
+**Area:** Landing Page / Frontend
+**Type:** feature
+
+### Files Changed
+- `src/index.html` — Major restructure: added sticky header, social counter, FAQ section, transparency section, founder section, progressive form, floating Telegram button, OG image meta, JSON-LD structured data, hero image preload, privacy policy link
+- `src/styles.css` — New styles: sticky header, floating TG button, FAQ accordion, finance bars, founder card, progressive form disclosure, about bullet points, cost tags, mobile responsive adjustments
+- `src/script.js` — Added: social proof counter fetch, IntersectionObserver for sticky header, progressive form disclosure logic, form reset to step 1 on success
+- `src/privacy.html` — New: privacy policy page (Russian, 152-FZ compliant)
+- `server/index.js` — Added `/privacy` route for clean URL
+
+### Functions/Symbols Modified
+- `DOMContentLoaded` handler in `script.js` — expanded from 1 feature (form submit) to 4 features (counter, sticky header, form expand, form submit)
+- Express route `/privacy` — new route mapping to `src/privacy.html`
+
+### Database Tables
+- N/A
+
+### Summary
+Comprehensive landing page overhaul focused on conversion optimization. Added 9 new features: (1) social proof counter on hero, (2) sticky CTA header on scroll, (3) floating Telegram button, (4) FAQ section with 5 key objection-handlers, (5) transparent finances breakdown with visual bars, (6) founder section for trust building, (7) progressive form disclosure (2-step), (8) concrete ruble amounts on support items, (9) privacy policy page. Also added SEO improvements: OG image meta tags, JSON-LD Organization schema, hero image preload.
+
+### Session Notes
+→ `.claude/sessions/2026-02-07-landing-optimization.md`
+
+---

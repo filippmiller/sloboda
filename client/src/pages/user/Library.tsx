@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
-import { Search, BookOpen, X } from 'lucide-react'
+import { Search, BookOpen, X, Clock, Bookmark, BookmarkCheck } from 'lucide-react'
 import api from '@/services/api'
 import type { Post, KnowledgeSubmission, Category } from '@/types'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
+import { estimateReadingTime, formatReadingTime } from '@/utils/readingTime'
 
 interface ArticleItem extends Post {
   _type: 'article'
@@ -30,6 +31,7 @@ export default function Library() {
   const [total, setTotal] = useState(0)
   const [offset, setOffset] = useState(0)
   const [expandedId, setExpandedId] = useState<number | null>(null)
+  const [bookmarkedIds, setBookmarkedIds] = useState<Set<number>>(new Set())
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Debounce search
@@ -55,6 +57,37 @@ export default function Library() {
     }
     fetchCategories()
   }, [])
+
+  // Fetch bookmark IDs
+  useEffect(() => {
+    async function fetchBookmarkIds() {
+      try {
+        const res = await api.get('/user/bookmarks/ids')
+        setBookmarkedIds(new Set(res.data.data ?? []))
+      } catch {
+        // Non-critical
+      }
+    }
+    fetchBookmarkIds()
+  }, [])
+
+  const handleToggleBookmark = async (e: React.MouseEvent, postId: number) => {
+    e.stopPropagation()
+    try {
+      const res = await api.post('/user/bookmarks/toggle', { postId })
+      setBookmarkedIds((prev) => {
+        const next = new Set(prev)
+        if (res.data.data?.bookmarked) {
+          next.add(postId)
+        } else {
+          next.delete(postId)
+        }
+        return next
+      })
+    } catch {
+      // Non-critical
+    }
+  }
 
   // Fetch content
   const fetchContent = useCallback(
@@ -242,24 +275,39 @@ export default function Library() {
                 }
               >
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    {getItemCategoryName(item) && (
-                      <span className="px-2 py-0.5 rounded bg-bg-elevated text-text-secondary text-xs">
-                        {getItemCategoryName(item)}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      {getItemCategoryName(item) && (
+                        <span className="px-2 py-0.5 rounded bg-bg-elevated text-text-secondary text-xs">
+                          {getItemCategoryName(item)}
+                        </span>
+                      )}
+                      <span
+                        className={`
+                          px-2 py-0.5 rounded text-xs
+                          ${
+                            item._type === 'article'
+                              ? 'bg-green/10 text-green'
+                              : 'bg-accent/10 text-accent'
+                          }
+                        `}
+                      >
+                        {item._type === 'article' ? 'Статья' : 'Знания'}
                       </span>
+                    </div>
+                    {item._type === 'article' && (
+                      <button
+                        onClick={(e) => handleToggleBookmark(e, item.id)}
+                        className="flex-shrink-0 p-1 rounded text-text-muted hover:text-accent transition-colors"
+                        title={bookmarkedIds.has(item.id) ? 'Убрать из закладок' : 'В закладки'}
+                      >
+                        {bookmarkedIds.has(item.id) ? (
+                          <BookmarkCheck size={16} className="text-accent" />
+                        ) : (
+                          <Bookmark size={16} />
+                        )}
+                      </button>
                     )}
-                    <span
-                      className={`
-                        px-2 py-0.5 rounded text-xs
-                        ${
-                          item._type === 'article'
-                            ? 'bg-green/10 text-green'
-                            : 'bg-accent/10 text-accent'
-                        }
-                      `}
-                    >
-                      {item._type === 'article' ? 'Статья' : 'Знания'}
-                    </span>
                   </div>
 
                   <h3 className="font-medium text-text leading-snug">
@@ -279,11 +327,17 @@ export default function Library() {
                     />
                   )}
 
-                  <time className="block text-xs text-text-muted pt-1">
-                    {format(new Date(item.created_at), 'd MMM yyyy', {
-                      locale: ru,
-                    })}
-                  </time>
+                  <div className="flex items-center gap-3 text-xs text-text-muted pt-1">
+                    <time>
+                      {format(new Date(item.created_at), 'd MMM yyyy', {
+                        locale: ru,
+                      })}
+                    </time>
+                    <span className="flex items-center gap-1">
+                      <Clock size={12} />
+                      {formatReadingTime(estimateReadingTime(getItemBody(item)))}
+                    </span>
+                  </div>
                 </div>
               </Card>
             ))}

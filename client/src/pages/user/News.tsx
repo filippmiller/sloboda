@@ -2,13 +2,20 @@ import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
-import { Eye, Newspaper } from 'lucide-react'
+import { Eye, Newspaper, Pin, Clock } from 'lucide-react'
 import api from '@/services/api'
 import type { Post } from '@/types'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 
 const PAGE_SIZE = 10
+
+function estimateReadingTime(html?: string): number {
+  if (!html) return 0
+  const text = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+  const words = text.split(' ').filter(Boolean).length
+  return Math.max(1, Math.ceil(words / 200))
+}
 
 export default function News() {
   const [posts, setPosts] = useState<Post[]>([])
@@ -81,6 +88,7 @@ export default function News() {
                 <div className="space-y-2">
                   <div className="flex items-start justify-between gap-4">
                     <h2 className="font-medium text-text leading-snug">
+                      {post.is_pinned && <Pin size={12} className="inline mr-1 text-accent" />}
                       {post.title}
                     </h2>
                     <time className="text-xs text-text-muted whitespace-nowrap flex-shrink-0 mt-0.5">
@@ -102,6 +110,12 @@ export default function News() {
                     {post.category_name && (
                       <span className="px-2 py-0.5 rounded bg-bg-elevated text-text-secondary">
                         {post.category_name}
+                      </span>
+                    )}
+                    {post.body && (
+                      <span className="flex items-center gap-1">
+                        <Clock size={12} />
+                        {estimateReadingTime(post.body)} мин
                       </span>
                     )}
                     {post.views != null && (
