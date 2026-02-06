@@ -93,53 +93,59 @@ Comprehensive landing page overhaul focused on conversion optimization. Added 9 
 
 ---
 
-## 2026-02-07 14:00 — Platform improvements: admin tools, donation, drafts, librarian
+## 2026-02-07 14:00 — Platform improvements: 5 major features + admin tools
 
-**Area:** Admin Panel / Member Portal / Landing Page
+**Area:** Full Stack / Member Portal / Admin Panel / Landing Page
 **Type:** feature
 
 ### Files Changed
-- `client/src/pages/admin/Campaigns.tsx` — new: email campaigns & templates management with tabs, CRUD, campaign creator
-- `client/src/pages/admin/Admins.tsx` — new: admin user management, invite system, role-gated access
-- `client/src/pages/admin/Registrations.tsx` — added CSV export (UTF-8 BOM), bulk select checkboxes, bulk status change
-- `client/src/pages/admin/Posts.tsx` — added pin/unpin toggle button
-- `client/src/pages/user/Librarian.tsx` — new: AI chat interface with SSE streaming, source citations, markdown rendering
-- `client/src/pages/user/Dashboard.tsx` — added reading time display on recent news cards
-- `client/src/pages/user/News.tsx` — refactored to shared readingTime utility
+- `server/services/ai/librarian.js` — new: AI librarian service with context search and SSE streaming via Claude Haiku
+- `server/services/ai/anthropic.js` — exported `getClient()` for direct SDK access (streaming)
+- `server/routes/userPortal.js` — added: librarian chat, bookmarks (CRUD+toggle), notifications (list/read/mark-all)
+- `server/routes/adminContent.js` — added notification creation on submission approve/reject
+- `server/db.js` — 2 new tables (user_bookmarks, notifications), 8 new functions, is_pinned migration
+- `server/index.js` — added /librarian, /bookmarks, /notifications to React routes
+- `client/src/pages/user/Librarian.tsx` — new: streaming AI chat with source citations, typing indicator, suggestions
+- `client/src/pages/user/Bookmarks.tsx` — new: saved articles list with unbookmark toggle and reading time
+- `client/src/pages/user/Notifications.tsx` — new: notification center with mark-all-read and relative timestamps
+- `client/src/pages/user/Library.tsx` — added bookmark icons on article cards with toggle API
 - `client/src/pages/user/KnowledgeSubmit.tsx` — added draft auto-save (localStorage, 30s), restore/discard banner
-- `client/src/utils/readingTime.ts` — new: shared reading time estimation utility
-- `client/src/types/index.ts` — added EmailTemplate, EmailCampaign, AdminUser interfaces
-- `client/src/config/routes.ts` — added ADMIN_CAMPAIGNS, ADMIN_ADMINS, LIBRARIAN routes
-- `client/src/App.tsx` — wired new page imports and route definitions
-- `client/src/layouts/AdminLayout.tsx` — added Campaigns (Mail), Admins (ShieldCheck) nav items
-- `client/src/layouts/DashboardLayout.tsx` — added Librarian (Sparkles) nav item
-- `server/db.js` — added is_pinned column + migration, updated ORDER BY for pinned-first
-- `server/routes/adminContent.js` — added isPinned to PATCH /posts/:id handler
+- `client/src/pages/user/Dashboard.tsx` — added reading time on recent news cards
+- `client/src/pages/user/News.tsx` — added reading time display
+- `client/src/utils/readingTime.ts` — new: shared reading time utility (word count / 200 wpm)
+- `client/src/types/index.ts` — added Notification, BookmarkedPost, EmailTemplate, EmailCampaign, AdminUser
+- `client/src/config/routes.ts` — added LIBRARIAN, BOOKMARKS, NOTIFICATIONS routes
+- `client/src/App.tsx` — wired all 3 new page imports and routes
+- `client/src/layouts/DashboardLayout.tsx` — added Sparkles (Librarian), Bookmark, Bell (with unread badge) nav items
+- `client/src/pages/admin/Campaigns.tsx` — new: email campaigns/templates management
+- `client/src/pages/admin/Admins.tsx` — new: admin user management with invites
+- `client/src/pages/admin/Registrations.tsx` — added CSV export, bulk select, bulk status change
+- `client/src/pages/admin/Posts.tsx` — added pin/unpin toggle
 - `src/index.html` — added donation section with preset amounts and modal
-- `src/styles.css` — donation section styles (grid, buttons, modal, custom input)
-- `src/script.js` — donation interactive JS (amount selection, custom input, modal)
+- `src/styles.css` — donation section styles
+- `src/script.js` — donation interactive JS
 
 ### Functions/Symbols Modified
-- `Campaigns` component — new: email campaigns/templates page with tab UI
-- `Admins` component — new: admin management with invite modal
-- `escapeCSV()` in Registrations.tsx — new: CSV field escaping
-- `handleExportCSV()` in Registrations.tsx — new: CSV download with BOM
-- `handleTogglePin()` in Posts.tsx — new: pin/unpin via PATCH
-- `Librarian` component — new: streaming AI chat
-- `sendMessage()` in Librarian.tsx — new: SSE streaming handler
-- `renderContent()` in Librarian.tsx — new: simple markdown renderer
-- `estimateReadingTime()` in readingTime.ts — new: HTML word count / 200 wpm
-- `formatReadingTime()` in readingTime.ts — new: Russian "X мин чтения"
+- `streamLibrarianResponse()` in librarian.js — new: context search + Claude streaming + logging
+- `searchContext()` in librarian.js — new: PostgreSQL ILIKE search across posts + knowledge
+- `getClient()` in anthropic.js — newly exported (was internal only)
+- `getUserBookmarks()`, `toggleBookmark()`, `getUserBookmarkIds()` in db.js — new: bookmark CRUD
+- `createNotification()`, `getUserNotifications()`, `getUnreadNotificationCount()`, `markNotificationsRead()`, `markNotificationRead()` in db.js — new: notification system
+- `Librarian` component — new: streaming chat with SSE reader, markdown rendering, source display
+- `Bookmarks` component — new: saved articles page with unbookmark
+- `Notifications` component — new: notification list with icons, relative time, mark-read
+- `DashboardLayout` — added notification polling (60s interval), unread badge on Bell icon
+- `estimateReadingTime()` / `formatReadingTime()` in readingTime.ts — new: HTML-aware word count
 - `restoreDraft()` / `discardDraft()` in KnowledgeSubmit.tsx — new: localStorage draft management
-- `updateDonateLabel()` / `formatAmount()` in script.js — new: donation amount UI logic
-- `initializeTables()` in db.js — added is_pinned column migration
-- `getPublishedPosts()` / `getAllPosts()` in db.js — updated ORDER BY
+- Rate limiter in userPortal.js — new: per-user 20 req/hr for librarian chat
 
 ### Database Tables
-- `posts` — schema change: added `is_pinned BOOLEAN DEFAULT FALSE`, updated ORDER BY clauses
+- `user_bookmarks` — new table (id, user_id, post_id, created_at, UNIQUE(user_id, post_id))
+- `notifications` — new table (id, user_id, type, title, message, link, is_read, created_at)
+- `posts` — schema change: added `is_pinned BOOLEAN DEFAULT FALSE`
 
 ### Summary
-Implemented 9 platform improvements from a prioritized backlog of 30 ideas. Admin panel gained: email campaigns/templates UI (connecting to existing backend), admin user management with invite links, CSV export and bulk operations for registrations, and post pinning. Member portal gained: AI librarian chat with streaming responses, reading time on all content cards, and draft auto-save for knowledge submissions. Landing page gained a donation section with preset amounts and a placeholder modal for pre-NKO status.
+Evaluated 30 improvement ideas, rejected 12 with reasons, and implemented the top 5 from the surviving 18. (1) **AI Librarian Chat** — streaming conversational assistant that searches the knowledge base and answers questions using Claude Haiku, with source citations. (2) **Bookmarks** — save/unsave articles with dedicated page and toggle icons in Library. (3) **Notification Center** — in-app notifications for submission status changes, with unread badge in sidebar. (4) **Draft Auto-Save** — knowledge submission form auto-saves to localStorage every 30s with restore banner. (5) **Reading Time** — word-count based estimates displayed on all content cards. Also added admin tools (campaigns, admin management, CSV export, post pinning) and a landing page donation section.
 
 ### Session Notes
 → `.claude/sessions/2026-02-07-platform-improvements.md`
