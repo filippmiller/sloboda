@@ -140,3 +140,50 @@
 - Get Resend API key and set RESEND_API_KEY on Railway
 - Replace founder photo placeholder with real photo
 - Verify domain with Resend for sending from sloboda.land
+
+## 2026-02-07 - Platform Improvements: Admin Tools, Donation, Drafts
+
+**Status**: Completed
+**Commits**: e53953b, 7b1f077, 1c10086, 45c104c
+
+### What was done
+Brainstormed 30 improvement ideas, critically evaluated each, implemented top 9:
+
+**Admin Panel (3 new pages):**
+1. **Email Campaigns & Templates** (`/admin/campaigns`) — Full UI for managing templates (CRUD) and sending bulk campaigns with recipient filtering. Connects to existing backend.
+2. **Admin User Management** (`/admin/admins`) — List admins, invite new ones (48h link), delete. Super_admin role gate.
+3. **Enhanced Registrations** — CSV export (UTF-8 BOM for Excel), bulk selection checkboxes, bulk status change.
+
+**Content Management:**
+4. **Post Pinning** — Pin/unpin from admin, pinned posts sort first in feeds. New `is_pinned` DB column.
+
+**Member Portal:**
+5. **AI Librarian Chat** (`/librarian`) — SSE streaming chat with source citations, markdown rendering.
+6. **Reading Time** — Shared utility, displayed on news/library/dashboard cards.
+7. **Draft Auto-Save** — Knowledge submissions save to localStorage every 30s, restore/discard banner.
+
+**Landing Page:**
+8. **Donation Section** — 6 preset amounts (500-10,000 RUB), custom input, contextual descriptions.
+9. **Donation Modal** — Placeholder for pre-NKO status, Telegram/email contact.
+
+### Decisions made
+- Frontend-only for Campaigns/Admins (backend already existed)
+- UTF-8 BOM in CSV for Windows Excel Cyrillic support
+- localStorage for drafts (simple, no server dependency)
+- Donation modal is honest placeholder (NKO not registered yet)
+
+### Deployment verification
+- Landing page: all sections render correctly
+- Donation section: amounts, custom input, modal all work
+- API auth gates: properly return 401 without token
+- Admin login: password mismatch (likely changed via Railway env vars — needs investigation)
+
+### Issues encountered
+- Admin password in MEMORY.md rejected by production — password was likely changed via Railway env vars since last recorded
+
+### Next steps
+- Verify/update admin password in Railway
+- Implement code-splitting (bundle at 1,414 KB)
+- Remaining ideas: library tag filtering, image upload for articles, email analytics, content tags
+
+**Session notes**: `.claude/sessions/2026-02-07-platform-improvements.md`
