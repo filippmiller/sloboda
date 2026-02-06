@@ -17,7 +17,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   isLoading: true,
 
   login: async (email: string, password: string) => {
-    const response = await api.post('/auth/login', { email, password })
+    const response = await api.post('/user/auth/login', { email, password })
     set({
       user: response.data.user,
       isAuthenticated: true,
@@ -26,7 +26,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
-    await api.post('/auth/logout')
+    await api.post('/user/auth/logout')
     set({
       user: null,
       isAuthenticated: false,
@@ -36,7 +36,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   checkAuth: async () => {
     try {
-      const response = await api.get('/auth/me')
+      const response = await api.get('/user/auth/me')
       set({
         user: response.data.user,
         isAuthenticated: true,
