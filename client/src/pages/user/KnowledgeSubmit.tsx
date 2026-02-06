@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -83,6 +83,9 @@ export default function KnowledgeSubmit() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [mySubmissions, setMySubmissions] = useState<KnowledgeSubmission[]>([])
   const [loadingSubmissions, setLoadingSubmissions] = useState(true)
+  const [hasDraft, setHasDraft] = useState(false)
+  const [draftSaved, setDraftSaved] = useState(false)
+  const draftTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const form = useForm<SubmitForm>({
     resolver: zodResolver(submitSchema),
@@ -146,6 +149,49 @@ export default function KnowledgeSubmit() {
     fetchMySubmissions()
   }, [fetchMySubmissions])
 
+  // Check for saved draft on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('knowledge_draft')
+    if (saved) setHasDraft(true)
+  }, [])
+
+  // Auto-save draft every 30 seconds
+  useEffect(() => {
+    draftTimerRef.current = setInterval(() => {
+      const values = form.getValues()
+      if (values.title || values.description || values.body) {
+        localStorage.setItem('knowledge_draft', JSON.stringify(values))
+        setDraftSaved(true)
+        setTimeout(() => setDraftSaved(false), 2000)
+      }
+    }, 30000)
+    return () => {
+      if (draftTimerRef.current) clearInterval(draftTimerRef.current)
+    }
+  }, [form])
+
+  const restoreDraft = () => {
+    const saved = localStorage.getItem('knowledge_draft')
+    if (saved) {
+      try {
+        const data = JSON.parse(saved)
+        form.setValue('title', data.title || '')
+        form.setValue('description', data.description || '')
+        form.setValue('category_id', data.category_id || '')
+        form.setValue('body', data.body || '')
+        if (editor && data.body) editor.commands.setContent(data.body)
+      } catch {
+        // Ignore malformed draft
+      }
+    }
+    setHasDraft(false)
+  }
+
+  const discardDraft = () => {
+    localStorage.removeItem('knowledge_draft')
+    setHasDraft(false)
+  }
+
   // File drop
   const onDrop = useCallback(
     (accepted: File[]) => {
@@ -200,6 +246,7 @@ export default function KnowledgeSubmit() {
       })
 
       toast.success('Ваши знания отправлены на модерацию')
+      localStorage.removeItem('knowledge_draft')
       form.reset()
       editor?.commands.clearContent()
       setFiles([])
@@ -234,6 +281,19 @@ export default function KnowledgeSubmit() {
           Поделитесь знаниями с сообществом. Материал будет проверен перед публикацией.
         </p>
       </div>
+
+      {/* Draft banner */}
+      {hasDraft && (
+        <Card className="border-accent/30 bg-accent/5">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-text-secondary">У вас есть сохранённый черновик</p>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={restoreDraft}>Восстановить</Button>
+              <Button size="sm" variant="secondary" onClick={discardDraft}>Удалить</Button>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Submission form */}
       <Card padding="lg">
@@ -419,10 +479,15 @@ export default function KnowledgeSubmit() {
             )}
           </div>
 
-          <Button type="submit" loading={isSubmitting} className="w-full">
-            <Upload size={16} />
-            Отправить на модерацию
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button type="submit" loading={isSubmitting} className="flex-1">
+              <Upload size={16} />
+              Отправить на модерацию
+            </Button>
+            {draftSaved && (
+              <span className="text-xs text-text-muted whitespace-nowrap">Черновик сохранён</span>
+            )}
+          </div>
         </form>
       </Card>
 

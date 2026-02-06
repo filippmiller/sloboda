@@ -9,12 +9,14 @@ import {
   Upload,
   ArrowRight,
   Loader2,
+  Clock,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import api from '@/services/api'
 import type { Post } from '@/types'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
+import { estimateReadingTime, formatReadingTime } from '@/utils/readingTime'
 
 interface DashboardStats {
   newsCount: number
@@ -157,12 +159,20 @@ export default function Dashboard() {
                           {post.summary}
                         </p>
                       )}
+                      <div className="flex items-center gap-3 text-xs text-text-muted mt-1">
+                        <time>
+                          {format(new Date(post.published_at ?? post.created_at), 'd MMM yyyy', {
+                            locale: ru,
+                          })}
+                        </time>
+                        {post.body && (
+                          <span className="flex items-center gap-1">
+                            <Clock size={12} />
+                            {formatReadingTime(estimateReadingTime(post.body))}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <time className="text-xs text-text-muted whitespace-nowrap flex-shrink-0">
-                      {format(new Date(post.published_at ?? post.created_at), 'd MMM yyyy', {
-                        locale: ru,
-                      })}
-                    </time>
                   </div>
                 </Card>
               </Link>

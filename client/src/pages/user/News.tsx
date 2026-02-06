@@ -7,15 +7,9 @@ import api from '@/services/api'
 import type { Post } from '@/types'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
+import { estimateReadingTime, formatReadingTime } from '@/utils/readingTime'
 
 const PAGE_SIZE = 10
-
-function estimateReadingTime(html?: string): number {
-  if (!html) return 0
-  const text = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
-  const words = text.split(' ').filter(Boolean).length
-  return Math.max(1, Math.ceil(words / 200))
-}
 
 export default function News() {
   const [posts, setPosts] = useState<Post[]>([])
@@ -115,7 +109,7 @@ export default function News() {
                     {post.body && (
                       <span className="flex items-center gap-1">
                         <Clock size={12} />
-                        {estimateReadingTime(post.body)} мин
+                        {formatReadingTime(estimateReadingTime(post.body))}
                       </span>
                     )}
                     {post.views != null && (
