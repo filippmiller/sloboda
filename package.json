@@ -5,6 +5,7 @@
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
+    "build": "cd client && npm install && npx vite build",
     "dev": "node server/index.js",
     "create-admin": "node server/index.js create-admin",
     "test": "npx playwright test",
