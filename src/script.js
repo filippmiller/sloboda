@@ -21,6 +21,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ----------------------------------------
+    // 1.5. Live Finance Counter
+    // ----------------------------------------
+    const liveFinanceEl = document.getElementById('liveFinance');
+    if (liveFinanceEl) {
+        fetch('/api/public/finance/summary')
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success) return;
+                const d = data.data;
+                const totalRaisedEl = document.getElementById('totalRaised');
+                const totalSpentEl = document.getElementById('totalSpent');
+                const balanceEl = document.getElementById('currentBalance');
+
+                function fmtRub(n) {
+                    return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ₽';
+                }
+
+                if (totalRaisedEl) totalRaisedEl.textContent = fmtRub(d.totalIncome || 0);
+                if (totalSpentEl) totalSpentEl.textContent = fmtRub(d.totalExpenses || 0);
+                if (balanceEl) balanceEl.textContent = fmtRub(d.balance || 0);
+            })
+            .catch(() => {}); // Silent fail
+    }
+
+    // ----------------------------------------
     // 2. Sticky Header on Scroll
     // ----------------------------------------
     const stickyHeader = document.getElementById('stickyHeader');

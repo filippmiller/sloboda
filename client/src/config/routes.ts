@@ -9,6 +9,7 @@ export const ROUTES = {
   LIBRARY: '/library',
   LIBRARIAN: '/librarian',
   SUBMIT: '/submit',
+  FINANCE: '/finance',
   BOOKMARKS: '/bookmarks',
   NOTIFICATIONS: '/notifications',
   PROFILE: '/profile',
@@ -25,6 +26,7 @@ export const ROUTES = {
   ADMIN_ADMINS: '/admin/admins',
   ADMIN_SETTINGS: '/admin/settings',
   ADMIN_ANALYTICS: '/admin/analytics',
+  ADMIN_FINANCE: '/admin/finance',
 } as const
 
 export type RoutePath = (typeof ROUTES)[keyof typeof ROUTES]

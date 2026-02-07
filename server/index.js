@@ -13,6 +13,7 @@ const { router: authRouter, setDb: setAuthDb } = require('./routes/auth');
 const { router: userAuthRouter, setDb: setUserAuthDb, setEmailService: setUserAuthEmailService } = require('./routes/userAuth');
 const { router: userPortalRouter, setDb: setUserPortalDb } = require('./routes/userPortal');
 const { router: adminContentRouter, setDb: setAdminContentDb, setEmailService: setAdminContentEmailService } = require('./routes/adminContent');
+const { router: financeRouter, setDb: setFinanceDb } = require('./routes/finance');
 const { requireAuth, requireSuperAdmin } = require('./middleware/auth');
 const emailService = require('./services/email');
 const { setDb: setAiQueueDb } = require('./services/ai/queue');
@@ -64,7 +65,7 @@ if (hasClientBuild) {
     app.use('/assets', express.static(path.join(clientBuildPath, 'assets')));
 
     // React app routes - user portal
-    const reactRoutes = ['/login', '/register', '/dashboard', '/news', '/library', '/librarian', '/submit', '/profile', '/bookmarks', '/notifications'];
+    const reactRoutes = ['/login', '/register', '/dashboard', '/news', '/library', '/librarian', '/submit', '/profile', '/bookmarks', '/notifications', '/finance'];
     reactRoutes.forEach(route => {
         app.get(route, (req, res) => res.sendFile(clientIndexPath));
         app.get(route + '/*', (req, res) => res.sendFile(clientIndexPath));
@@ -94,6 +95,7 @@ setUserPortalDb(db);
 setAdminContentDb(db);
 setAdminContentEmailService(emailService);
 setAiQueueDb(db);
+setFinanceDb(db);
 
 // ============================================
 // AUTH ROUTES
@@ -110,6 +112,11 @@ app.use('/api/user', userPortalRouter);
 // ADMIN CONTENT ROUTES
 // ============================================
 app.use('/api/admin', adminContentRouter);
+
+// ============================================
+// FINANCE ROUTES (admin, user, public)
+// ============================================
+app.use('/api', financeRouter);
 
 // ============================================
 // IMAGE UPLOAD ROUTE (authenticated)

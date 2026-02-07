@@ -17,6 +17,7 @@ const News = lazy(() => import('@/pages/user/News'))
 const Library = lazy(() => import('@/pages/user/Library'))
 const Librarian = lazy(() => import('@/pages/user/Librarian'))
 const KnowledgeSubmit = lazy(() => import('@/pages/user/KnowledgeSubmit'))
+const Finance = lazy(() => import('@/pages/user/Finance'))
 const Bookmarks = lazy(() => import('@/pages/user/Bookmarks'))
 const Notifications = lazy(() => import('@/pages/user/Notifications'))
 const Profile = lazy(() => import('@/pages/user/Profile'))
@@ -32,6 +33,7 @@ const Campaigns = lazy(() => import('@/pages/admin/Campaigns'))
 const Admins = lazy(() => import('@/pages/admin/Admins'))
 const Settings = lazy(() => import('@/pages/admin/Settings'))
 const Analytics = lazy(() => import('@/pages/admin/Analytics'))
+const AdminFinance = lazy(() => import('@/pages/admin/Finance'))
 
 function LoadingSpinner() {
   return (
@@ -61,6 +63,7 @@ function App() {
           <Route path={ROUTES.LIBRARY} element={<Library />} />
           <Route path={ROUTES.LIBRARIAN} element={<Librarian />} />
           <Route path={ROUTES.SUBMIT} element={<KnowledgeSubmit />} />
+          <Route path={ROUTES.FINANCE} element={<Finance />} />
           <Route path={ROUTES.BOOKMARKS} element={<Bookmarks />} />
           <Route path={ROUTES.NOTIFICATIONS} element={<Notifications />} />
           <Route path={ROUTES.PROFILE} element={<Profile />} />
@@ -81,6 +84,7 @@ function App() {
           <Route path={ROUTES.ADMIN_ADMINS} element={<Admins />} />
           <Route path={ROUTES.ADMIN_SETTINGS} element={<Settings />} />
           <Route path={ROUTES.ADMIN_ANALYTICS} element={<Analytics />} />
+          <Route path={ROUTES.ADMIN_FINANCE} element={<AdminFinance />} />
         </Route>
 
         {/* Catch all */}

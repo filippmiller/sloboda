@@ -212,3 +212,47 @@ Fixed critical missing endpoint: Register.tsx called `GET /api/user/auth/invite/
 → `.claude/sessions/2026-02-07-backlog-features-e2e.md`
 
 ---
+
+## 2026-02-07 16:00 — AI philosophy messaging & financial transparency system
+
+**Area:** Landing Page / User Portal / Admin Panel / Backend / Database
+**Type:** feature
+
+### Files Changed
+- `src/index.html` — AI badge in hero, new "Футуристы-реалисты" section (4 manifesto cards), live finance counter in transparency section
+- `src/styles.css` — ~120 lines: ai-badge with pulse animation, manifesto grid + cards, live counter + stats, mobile responsive
+- `src/script.js` — Live finance counter: fetches /api/public/finance/summary, formats rubles, silent fail
+- `server/db.js` — 2 new tables (transactions, bank_statements), 8 new functions (CRUD + summary + breakdown), exports
+- `server/routes/finance.js` — New: 7 API endpoints (admin CRUD, user read-only, public cached summary)
+- `server/index.js` — Registered finance routes at /api, added /finance to React route list
+- `client/src/config/routes.ts` — Added FINANCE and ADMIN_FINANCE route constants
+- `client/src/App.tsx` — Lazy imports + route definitions for both Finance pages
+- `client/src/layouts/DashboardLayout.tsx` — Added "Финансы" nav item with Wallet icon
+- `client/src/layouts/AdminLayout.tsx` — Added "Финансы" nav item with Wallet icon
+- `client/src/pages/user/Finance.tsx` — New: read-only finance dashboard (summary cards, donut chart, bar chart, transaction list, pagination)
+- `client/src/pages/admin/Finance.tsx` — New: full transaction management (CRUD modals, search, filters, pagination)
+
+### Functions/Symbols Modified
+- `getFinanceSummary()` in db.js — new: aggregate income/expenses/balance
+- `getTransactions()` in db.js — new: paginated list with filters
+- `getPublicTransactions()` in db.js — new: strips counterparty for privacy
+- `createTransaction()` in db.js — new: insert with admin tracking
+- `updateTransaction()` in db.js — new: dynamic field update
+- `deleteTransaction()` in db.js — new: hard delete
+- `getTransactionById()` in db.js — new: single record with admin join
+- `getExpenseBreakdown()` in db.js — new: category aggregation
+- Finance router in finance.js — new: 7 endpoints across 3 auth levels
+- `Finance` component — new: user read-only finance page
+- `AdminFinance` component — new: admin CRUD finance page
+
+### Database Tables
+- `transactions` — new table (type, category, amount, description, counterparty, date, source, is_verified, created_by)
+- `bank_statements` — new table (filename, uploaded_by, parsed, total_transactions) — reserved for Phase 2
+
+### Summary
+Implemented AI philosophy positioning and financial transparency system. Landing page now features an "AI-powered" badge, a "Футуристы-реалисты" manifesto section with 4 cards, and a live finance counter. Backend has full transaction management (income/expense categories including ai_tools). User cabinet shows read-only finance dashboard with charts. Admin panel has full CRUD for transactions. All registered users see finances (no counterparty data). 20-iteration brainstorm with 5 team members preceded implementation. Code review found and fixed 2 issues (PATCH validation, float precision).
+
+### Session Notes
+→ `.claude/sessions/2026-02-07-ai-philosophy-finance.md`
+
+---

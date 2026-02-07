@@ -302,6 +302,38 @@ async function initDatabase() {
             )
         `);
 
+        // Financial transactions
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS transactions (
+                id SERIAL PRIMARY KEY,
+                type VARCHAR(20) NOT NULL CHECK (type IN ('income', 'expense')),
+                category VARCHAR(100) NOT NULL,
+                amount DECIMAL(12,2) NOT NULL,
+                description TEXT NOT NULL,
+                counterparty VARCHAR(255),
+                date DATE NOT NULL,
+                source VARCHAR(50) DEFAULT 'manual',
+                bank_statement_id INTEGER,
+                receipt_url VARCHAR(500),
+                created_by INTEGER REFERENCES admins(id),
+                is_verified BOOLEAN DEFAULT true,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Bank statements (for future CSV upload)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS bank_statements (
+                id SERIAL PRIMARY KEY,
+                filename VARCHAR(500) NOT NULL,
+                uploaded_by INTEGER REFERENCES admins(id),
+                parsed BOOLEAN DEFAULT false,
+                total_transactions INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
         // Add converted_to_user_id column to registrations
         await client.query(`
             ALTER TABLE registrations ADD COLUMN IF NOT EXISTS converted_to_user_id INTEGER REFERENCES users(id)
@@ -1902,6 +1934,198 @@ async function markNotificationRead(id, userId) {
     }
 }
 
+// ============================================
+// FINANCE FUNCTIONS
+// ============================================
+
+async function getFinanceSummary() {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(`
+            SELECT
+                COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) AS "totalIncome",
+                COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) AS "totalExpenses",
+                COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0)
+                - COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) AS "balance",
+                COUNT(*) AS "transactionCount"
+            FROM transactions
+        `);
+        const row = result.rows[0];
+        return {
+            totalIncome: parseFloat(row.totalIncome),
+            totalExpenses: parseFloat(row.totalExpenses),
+            balance: parseFloat(row.balance),
+            transactionCount: parseInt(row.transactionCount, 10)
+        };
+    } finally {
+        client.release();
+    }
+}
+
+async function getTransactions(filters = {}) {
+    const client = await pool.connect();
+    try {
+        const conditions = [];
+        const params = [];
+        let idx = 1;
+
+        if (filters.type) {
+            conditions.push(`t.type = $${idx++}`);
+            params.push(filters.type);
+        }
+        if (filters.category) {
+            conditions.push(`t.category = $${idx++}`);
+            params.push(filters.category);
+        }
+        if (filters.dateFrom) {
+            conditions.push(`t.date >= $${idx++}`);
+            params.push(filters.dateFrom);
+        }
+        if (filters.dateTo) {
+            conditions.push(`t.date <= $${idx++}`);
+            params.push(filters.dateTo);
+        }
+        if (filters.search) {
+            conditions.push(`(t.description ILIKE $${idx} OR t.counterparty ILIKE $${idx})`);
+            params.push(`%${filters.search}%`);
+            idx++;
+        }
+
+        const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+        const limit = filters.limit || 50;
+        const offset = filters.offset || 0;
+
+        const countResult = await client.query(
+            `SELECT COUNT(*) as count FROM transactions t ${where}`,
+            params
+        );
+
+        const dataResult = await client.query(
+            `SELECT t.*, a.name as created_by_name
+             FROM transactions t
+             LEFT JOIN admins a ON t.created_by = a.id
+             ${where}
+             ORDER BY t.date DESC, t.created_at DESC
+             LIMIT $${idx} OFFSET $${idx + 1}`,
+            [...params, limit, offset]
+        );
+
+        return {
+            data: dataResult.rows,
+            total: parseInt(countResult.rows[0].count, 10)
+        };
+    } finally {
+        client.release();
+    }
+}
+
+async function getPublicTransactions(filters = {}) {
+    const result = await getTransactions(filters);
+    // Strip counterparty from public view
+    result.data = result.data.map(t => {
+        const { counterparty, created_by, created_by_name, ...rest } = t;
+        return rest;
+    });
+    return result;
+}
+
+async function createTransaction(data, adminId) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `INSERT INTO transactions (type, category, amount, description, counterparty, date, source, receipt_url, created_by, is_verified)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+             RETURNING *`,
+            [
+                data.type,
+                data.category,
+                data.amount,
+                data.description,
+                data.counterparty || null,
+                data.date,
+                data.source || 'manual',
+                data.receipt_url || null,
+                adminId,
+                data.is_verified !== false
+            ]
+        );
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function updateTransaction(id, data) {
+    const client = await pool.connect();
+    try {
+        const fields = [];
+        const params = [];
+        let idx = 1;
+
+        const allowedFields = ['type', 'category', 'amount', 'description', 'counterparty', 'date', 'is_verified'];
+        for (const field of allowedFields) {
+            if (data[field] !== undefined) {
+                fields.push(`${field} = $${idx++}`);
+                params.push(data[field]);
+            }
+        }
+
+        if (fields.length === 0) return null;
+
+        fields.push(`updated_at = CURRENT_TIMESTAMP`);
+        params.push(id);
+
+        const result = await client.query(
+            `UPDATE transactions SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`,
+            params
+        );
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function deleteTransaction(id) {
+    const client = await pool.connect();
+    try {
+        await client.query('DELETE FROM transactions WHERE id = $1', [id]);
+    } finally {
+        client.release();
+    }
+}
+
+async function getTransactionById(id) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `SELECT t.*, a.name as created_by_name
+             FROM transactions t
+             LEFT JOIN admins a ON t.created_by = a.id
+             WHERE t.id = $1`,
+            [id]
+        );
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function getExpenseBreakdown() {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(`
+            SELECT category, SUM(amount) as total
+            FROM transactions
+            WHERE type = 'expense'
+            GROUP BY category
+            ORDER BY total DESC
+        `);
+        return result.rows.map(r => ({ category: r.category, total: parseFloat(r.total) }));
+    } finally {
+        client.release();
+    }
+}
+
 module.exports = {
     pool,
     initDatabase,
@@ -2002,5 +2226,14 @@ module.exports = {
     getUserNotifications,
     getUnreadNotificationCount,
     markNotificationsRead,
-    markNotificationRead
+    markNotificationRead,
+    // Finance functions
+    getFinanceSummary,
+    getTransactions,
+    getPublicTransactions,
+    createTransaction,
+    updateTransaction,
+    deleteTransaction,
+    getTransactionById,
+    getExpenseBreakdown
 };
