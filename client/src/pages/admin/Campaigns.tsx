@@ -14,8 +14,6 @@ import {
   FileText,
   Mail,
   AlertTriangle,
-  CheckCircle2,
-  Clock,
   Users,
   MailOpen,
   MousePointerClick,

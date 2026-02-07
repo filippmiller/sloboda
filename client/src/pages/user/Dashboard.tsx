@@ -1,14 +1,14 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
+import { motion } from 'motion/react'
 import {
   Newspaper,
   BookOpen,
   FileText,
   Upload,
   ArrowRight,
-  Loader2,
   Clock,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
@@ -16,12 +16,48 @@ import api from '@/services/api'
 import type { Post } from '@/types'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
+import { SkeletonCard } from '@/components/ui/Skeleton'
 import { estimateReadingTime, formatReadingTime } from '@/utils/readingTime'
 
 interface DashboardStats {
   newsCount: number
   articlesCount: number
   mySubmissionsCount: number
+}
+
+function AnimatedNumber({ value }: { value: number }) {
+  const [display, setDisplay] = useState(0)
+  const prevRef = useRef(0)
+
+  useEffect(() => {
+    const start = prevRef.current
+    const diff = value - start
+    if (diff === 0) return
+    const duration = 600
+    const startTime = performance.now()
+
+    function step(now: number) {
+      const elapsed = now - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      const eased = 1 - Math.pow(1 - progress, 3)
+      setDisplay(Math.round(start + diff * eased))
+      if (progress < 1) requestAnimationFrame(step)
+    }
+
+    requestAnimationFrame(step)
+    prevRef.current = value
+  }, [value])
+
+  return <>{display}</>
+}
+
+const staggerItem = {
+  hidden: { opacity: 0, y: 16 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.06, duration: 0.35, ease: [0.4, 0, 0.2, 1] as const },
+  }),
 }
 
 export default function Dashboard() {
@@ -76,6 +112,7 @@ export default function Dashboard() {
       to: '/news',
       color: 'text-accent',
       bg: 'bg-accent/10',
+      glow: 'shadow-[0_0_12px_var(--color-accent-glow)]',
     },
     {
       label: 'Статьи',
@@ -84,6 +121,7 @@ export default function Dashboard() {
       to: '/library',
       color: 'text-green',
       bg: 'bg-green/10',
+      glow: 'shadow-[0_0_12px_rgba(74,124,89,0.15)]',
     },
     {
       label: 'Мои заявки',
@@ -92,46 +130,67 @@ export default function Dashboard() {
       to: '/submit',
       color: 'text-blue-400',
       bg: 'bg-blue-400/10',
+      glow: 'shadow-[0_0_12px_rgba(96,165,250,0.15)]',
     },
   ]
 
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
+      <motion.div
+        custom={0}
+        variants={staggerItem}
+        initial="hidden"
+        animate="visible"
+      >
         <h1 className="text-2xl font-bold font-display mb-2">
           {user?.name ? `Привет, ${user.name}!` : 'Добро пожаловать!'}
         </h1>
         <p className="text-text-secondary text-sm">
           Обзор активности сообщества SLOBODA
         </p>
-      </div>
+      </motion.div>
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {statCards.map((stat) => (
-          <Link key={stat.label} to={stat.to}>
-            <Card className="hover:border-border-hover transition-colors cursor-pointer">
-              <div className="flex items-center gap-4">
-                <div className={`w-10 h-10 rounded-lg ${stat.bg} flex items-center justify-center`}>
-                  <stat.icon className={stat.color} size={20} />
+        {statCards.map((stat, i) => (
+          <motion.div
+            key={stat.label}
+            custom={i + 1}
+            variants={staggerItem}
+            initial="hidden"
+            animate="visible"
+          >
+            <Link to={stat.to}>
+              <Card variant="interactive">
+                <div className="flex items-center gap-4">
+                  <div className={`w-10 h-10 rounded-lg ${stat.bg} ${stat.glow} flex items-center justify-center`}>
+                    <stat.icon className={stat.color} size={20} />
+                  </div>
+                  <div>
+                    {loading ? (
+                      <div className="h-7 w-8 bg-bg-elevated rounded animate-shimmer bg-gradient-to-r from-bg-elevated via-border/40 to-bg-elevated bg-[length:200%_100%]" />
+                    ) : (
+                      <p className="text-2xl font-bold font-display">
+                        <AnimatedNumber value={stat.value} />
+                      </p>
+                    )}
+                    <p className="text-xs text-text-secondary">{stat.label}</p>
+                  </div>
                 </div>
-                <div>
-                  {loading ? (
-                    <Loader2 className="animate-spin text-text-muted" size={16} />
-                  ) : (
-                    <p className="text-2xl font-bold font-display">{stat.value}</p>
-                  )}
-                  <p className="text-xs text-text-secondary">{stat.label}</p>
-                </div>
-              </div>
-            </Card>
-          </Link>
+              </Card>
+            </Link>
+          </motion.div>
         ))}
       </div>
 
       {/* Recent news */}
-      <div>
+      <motion.div
+        custom={4}
+        variants={staggerItem}
+        initial="hidden"
+        animate="visible"
+      >
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold font-display">Последние новости</h2>
           <Link to="/news" className="text-sm text-accent hover:text-accent-hover transition-colors flex items-center gap-1">
@@ -141,41 +200,51 @@ export default function Dashboard() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="animate-spin text-text-muted" size={24} />
+          <div className="grid gap-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
           </div>
         ) : recentNews.length > 0 ? (
           <div className="grid gap-4">
-            {recentNews.map((post) => (
-              <Link key={post.id} to={`/news/${post.slug}`}>
-                <Card className="hover:border-border-hover transition-colors cursor-pointer">
-                  <div className="flex justify-between items-start gap-4">
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-medium text-text mb-1 truncate">
-                        {post.title}
-                      </h3>
-                      {post.summary && (
-                        <p className="text-sm text-text-secondary line-clamp-2">
-                          {post.summary}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-3 text-xs text-text-muted mt-1">
-                        <time>
-                          {format(new Date(post.published_at ?? post.created_at), 'd MMM yyyy', {
-                            locale: ru,
-                          })}
-                        </time>
-                        {post.body && (
-                          <span className="flex items-center gap-1">
-                            <Clock size={12} />
-                            {formatReadingTime(estimateReadingTime(post.body))}
-                          </span>
+            {recentNews.map((post, i) => (
+              <motion.div
+                key={post.id}
+                custom={5 + i}
+                variants={staggerItem}
+                initial="hidden"
+                animate="visible"
+              >
+                <Link to={`/news/${post.slug}`}>
+                  <Card variant="interactive">
+                    <div className="flex justify-between items-start gap-4">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-medium text-text mb-1 truncate">
+                          {post.title}
+                        </h3>
+                        {post.summary && (
+                          <p className="text-sm text-text-secondary line-clamp-2">
+                            {post.summary}
+                          </p>
                         )}
+                        <div className="flex items-center gap-3 text-xs text-text-muted mt-1">
+                          <time>
+                            {format(new Date(post.published_at ?? post.created_at), 'd MMM yyyy', {
+                              locale: ru,
+                            })}
+                          </time>
+                          {post.body && (
+                            <span className="flex items-center gap-1">
+                              <Clock size={12} />
+                              {formatReadingTime(estimateReadingTime(post.body))}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </Card>
-              </Link>
+                  </Card>
+                </Link>
+              </motion.div>
             ))}
           </div>
         ) : (
@@ -185,41 +254,45 @@ export default function Dashboard() {
             </p>
           </Card>
         )}
-      </div>
+      </motion.div>
 
       {/* Quick links */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Link to="/submit">
-          <Card className="hover:border-border-hover transition-colors cursor-pointer">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
-                <Upload className="text-accent" size={20} />
+        <motion.div custom={8} variants={staggerItem} initial="hidden" animate="visible">
+          <Link to="/submit">
+            <Card variant="interactive">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-accent/10 shadow-[0_0_12px_var(--color-accent-glow)] flex items-center justify-center">
+                  <Upload className="text-accent" size={20} />
+                </div>
+                <div>
+                  <p className="font-medium text-sm">Подать знания</p>
+                  <p className="text-xs text-text-secondary">
+                    Предложите материал для библиотеки
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="font-medium text-sm">Подать знания</p>
-                <p className="text-xs text-text-secondary">
-                  Предложите материал для библиотеки
-                </p>
-              </div>
-            </div>
-          </Card>
-        </Link>
+            </Card>
+          </Link>
+        </motion.div>
 
-        <Link to="/library">
-          <Card className="hover:border-border-hover transition-colors cursor-pointer">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-green/10 flex items-center justify-center">
-                <BookOpen className="text-green" size={20} />
+        <motion.div custom={9} variants={staggerItem} initial="hidden" animate="visible">
+          <Link to="/library">
+            <Card variant="interactive">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-green/10 shadow-[0_0_12px_rgba(74,124,89,0.15)] flex items-center justify-center">
+                  <BookOpen className="text-green" size={20} />
+                </div>
+                <div>
+                  <p className="font-medium text-sm">Библиотека</p>
+                  <p className="text-xs text-text-secondary">
+                    Материалы и знания сообщества
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="font-medium text-sm">Библиотека</p>
-                <p className="text-xs text-text-secondary">
-                  Материалы и знания сообщества
-                </p>
-              </div>
-            </div>
-          </Card>
-        </Link>
+            </Card>
+          </Link>
+        </motion.div>
       </div>
 
       {/* Action button on mobile */}

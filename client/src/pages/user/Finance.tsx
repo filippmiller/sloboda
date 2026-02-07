@@ -203,7 +203,7 @@ export default function Finance() {
                 <Tooltip
                   contentStyle={{ background: '#141414', border: '1px solid #222', borderRadius: 8 }}
                   labelStyle={{ color: '#e0e0e0' }}
-                  formatter={(value: number) => formatRubles(value)}
+                  formatter={(value) => formatRubles(value as number)}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -234,7 +234,7 @@ export default function Finance() {
                 <YAxis tick={{ fill: '#888', fontSize: 12 }} />
                 <Tooltip
                   contentStyle={{ background: '#141414', border: '1px solid #222', borderRadius: 8 }}
-                  formatter={(value: number) => formatRubles(value)}
+                  formatter={(value) => formatRubles(value as number)}
                 />
                 <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
                   <Cell fill="#4a7c59" />

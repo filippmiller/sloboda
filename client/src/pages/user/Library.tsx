@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
+import { motion, AnimatePresence } from 'motion/react'
 import { Search, BookOpen, X, Clock, Bookmark, BookmarkCheck } from 'lucide-react'
 import api from '@/services/api'
 import type { Post, KnowledgeSubmission, Category } from '@/types'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
+import Badge from '@/components/ui/Badge'
+import { SkeletonCard } from '@/components/ui/Skeleton'
 import { estimateReadingTime, formatReadingTime } from '@/utils/readingTime'
 import { sanitizeHtml } from '@/utils/sanitize'
 
@@ -20,6 +23,15 @@ interface KnowledgeItem extends KnowledgeSubmission {
 type ContentItem = ArticleItem | KnowledgeItem
 
 const PAGE_SIZE = 10
+
+const staggerItem = {
+  hidden: { opacity: 0, y: 16 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.04, duration: 0.3, ease: [0.4, 0, 0.2, 1] as const },
+  }),
+}
 
 export default function Library() {
   const [items, setItems] = useState<ContentItem[]>([])
@@ -198,10 +210,22 @@ export default function Library() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold font-display">Библиотека</h1>
+      <motion.h1
+        className="text-2xl font-bold font-display"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        Библиотека
+      </motion.h1>
 
       {/* Search */}
-      <div className="relative">
+      <motion.div
+        className="relative"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.05 }}
+      >
         <Search
           className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
           size={16}
@@ -215,8 +239,9 @@ export default function Library() {
             w-full pl-9 pr-9 py-2.5 rounded-lg
             bg-bg-card border border-border
             text-text placeholder:text-text-muted
-            focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30
-            transition-colors duration-150 text-sm
+            focus:outline-none focus:border-accent
+            focus:shadow-[0_0_0_3px_var(--color-accent-glow)]
+            transition-all duration-200 text-sm
           "
         />
         {search && (
@@ -228,19 +253,24 @@ export default function Library() {
             <X size={14} />
           </button>
         )}
-      </div>
+      </motion.div>
 
       {/* Categories */}
       {categories.length > 0 && (
-        <div className="flex flex-wrap gap-2">
+        <motion.div
+          className="flex flex-wrap gap-2 relative"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+        >
           <button
             type="button"
             onClick={() => handleCategoryClick(null)}
             className={`
-              px-3 py-1.5 rounded-lg text-xs font-medium transition-colors
+              relative px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200
               ${
                 selectedCategory === null
-                  ? 'bg-accent text-white'
+                  ? 'bg-accent text-white shadow-[0_0_12px_var(--color-accent-glow)]'
                   : 'bg-bg-card border border-border text-text-secondary hover:text-text hover:border-border-hover'
               }
             `}
@@ -253,10 +283,10 @@ export default function Library() {
               type="button"
               onClick={() => handleCategoryClick(String(cat.id))}
               className={`
-                px-3 py-1.5 rounded-lg text-xs font-medium transition-colors
+                relative px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200
                 ${
                   selectedCategory === String(cat.id)
-                    ? 'bg-accent text-white'
+                    ? 'bg-accent text-white shadow-[0_0_12px_var(--color-accent-glow)]'
                     : 'bg-bg-card border border-border text-text-secondary hover:text-text hover:border-border-hover'
                 }
               `}
@@ -264,7 +294,7 @@ export default function Library() {
               {cat.name}
             </button>
           ))}
-        </div>
+        </motion.div>
       )}
 
       {/* Tags */}
@@ -274,7 +304,7 @@ export default function Library() {
             type="button"
             onClick={() => setSelectedTag(null)}
             className={`
-              px-2.5 py-1 rounded-md text-xs font-medium transition-colors
+              px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-200
               ${
                 selectedTag === null
                   ? 'bg-accent/20 text-accent border border-accent/30'
@@ -290,7 +320,7 @@ export default function Library() {
               type="button"
               onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
               className={`
-                px-2.5 py-1 rounded-md text-xs font-medium transition-colors
+                px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-200
                 ${
                   selectedTag === tag
                     ? 'bg-accent/20 text-accent border border-accent/30'
@@ -308,105 +338,105 @@ export default function Library() {
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i}>
-              <div className="animate-pulse space-y-3">
-                <div className="h-4 bg-bg-elevated rounded w-1/4" />
-                <div className="h-5 bg-bg-elevated rounded w-3/4" />
-                <div className="h-4 bg-bg-elevated rounded w-full" />
-              </div>
-            </Card>
+            <SkeletonCard key={i} />
           ))}
         </div>
       ) : filteredItems.length > 0 ? (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredItems.map((item) => (
-              <Card
+            {filteredItems.map((item, i) => (
+              <motion.div
                 key={`${item._type}-${item.id}`}
-                className="hover:border-border-hover transition-colors cursor-pointer"
-                onClick={() =>
-                  setExpandedId(expandedId === item.id ? null : item.id)
-                }
+                custom={i}
+                variants={staggerItem}
+                initial="hidden"
+                animate="visible"
               >
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      {getItemCategoryName(item) && (
-                        <span className="px-2 py-0.5 rounded bg-bg-elevated text-text-secondary text-xs">
-                          {getItemCategoryName(item)}
-                        </span>
+                <Card
+                  variant="interactive"
+                  onClick={() =>
+                    setExpandedId(expandedId === item.id ? null : item.id)
+                  }
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        {getItemCategoryName(item) && (
+                          <Badge>{getItemCategoryName(item)}</Badge>
+                        )}
+                        <Badge variant={item._type === 'article' ? 'success' : 'danger'}>
+                          {item._type === 'article' ? 'Статья' : 'Знания'}
+                        </Badge>
+                      </div>
+                      {item._type === 'article' && (
+                        <button
+                          onClick={(e) => handleToggleBookmark(e, item.id)}
+                          className="flex-shrink-0 p-1 rounded text-text-muted hover:text-accent transition-colors"
+                          title={bookmarkedIds.has(item.id) ? 'Убрать из закладок' : 'В закладки'}
+                        >
+                          {bookmarkedIds.has(item.id) ? (
+                            <BookmarkCheck size={16} className="text-accent" />
+                          ) : (
+                            <Bookmark size={16} />
+                          )}
+                        </button>
                       )}
-                      <span
-                        className={`
-                          px-2 py-0.5 rounded text-xs
-                          ${
-                            item._type === 'article'
-                              ? 'bg-green/10 text-green'
-                              : 'bg-accent/10 text-accent'
-                          }
-                        `}
-                      >
-                        {item._type === 'article' ? 'Статья' : 'Знания'}
+                    </div>
+
+                    <h3 className="font-medium text-text leading-snug">
+                      {getItemTitle(item)}
+                    </h3>
+
+                    {getItemSummary(item) && (
+                      <p className="text-sm text-text-secondary line-clamp-2">
+                        {getItemSummary(item)}
+                      </p>
+                    )}
+
+                    {getItemTags(item).length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {getItemTags(item).map((tag) => (
+                          <span
+                            key={tag}
+                            className="px-1.5 py-0.5 rounded bg-bg-elevated text-text-muted text-[10px] transition-colors hover:text-text-secondary"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <AnimatePresence>
+                      {expandedId === item.id && getItemBody(item) && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+                          className="overflow-hidden"
+                        >
+                          <div
+                            className="text-sm text-text-secondary pt-2 border-t border-border prose prose-invert prose-sm max-w-none"
+                            dangerouslySetInnerHTML={{ __html: sanitizeHtml(getItemBody(item)!) }}
+                          />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    <div className="flex items-center gap-3 text-xs text-text-muted pt-1">
+                      <time>
+                        {format(new Date(item.created_at), 'd MMM yyyy', {
+                          locale: ru,
+                        })}
+                      </time>
+                      <span className="flex items-center gap-1">
+                        <Clock size={12} />
+                        {formatReadingTime(estimateReadingTime(getItemBody(item)))}
                       </span>
                     </div>
-                    {item._type === 'article' && (
-                      <button
-                        onClick={(e) => handleToggleBookmark(e, item.id)}
-                        className="flex-shrink-0 p-1 rounded text-text-muted hover:text-accent transition-colors"
-                        title={bookmarkedIds.has(item.id) ? 'Убрать из закладок' : 'В закладки'}
-                      >
-                        {bookmarkedIds.has(item.id) ? (
-                          <BookmarkCheck size={16} className="text-accent" />
-                        ) : (
-                          <Bookmark size={16} />
-                        )}
-                      </button>
-                    )}
                   </div>
-
-                  <h3 className="font-medium text-text leading-snug">
-                    {getItemTitle(item)}
-                  </h3>
-
-                  {getItemSummary(item) && (
-                    <p className="text-sm text-text-secondary line-clamp-2">
-                      {getItemSummary(item)}
-                    </p>
-                  )}
-
-                  {getItemTags(item).length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {getItemTags(item).map((tag) => (
-                        <span
-                          key={tag}
-                          className="px-1.5 py-0.5 rounded bg-bg-elevated text-text-muted text-[10px]"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {expandedId === item.id && getItemBody(item) && (
-                    <div
-                      className="text-sm text-text-secondary pt-2 border-t border-border prose prose-invert prose-sm max-w-none"
-                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(getItemBody(item)!) }}
-                    />
-                  )}
-
-                  <div className="flex items-center gap-3 text-xs text-text-muted pt-1">
-                    <time>
-                      {format(new Date(item.created_at), 'd MMM yyyy', {
-                        locale: ru,
-                      })}
-                    </time>
-                    <span className="flex items-center gap-1">
-                      <Clock size={12} />
-                      {formatReadingTime(estimateReadingTime(getItemBody(item)))}
-                    </span>
-                  </div>
-                </div>
-              </Card>
+                </Card>
+              </motion.div>
             ))}
           </div>
 
