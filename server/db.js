@@ -349,6 +349,28 @@ async function initDatabase() {
             ALTER TABLE posts ADD COLUMN IF NOT EXISTS tags TEXT[]
         `);
 
+        // Admin audit log
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS audit_log (
+                id SERIAL PRIMARY KEY,
+                admin_id INTEGER REFERENCES admins(id) ON DELETE SET NULL,
+                action VARCHAR(100) NOT NULL,
+                entity_type VARCHAR(100),
+                entity_id INTEGER,
+                details JSONB,
+                ip_address VARCHAR(45),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Add password reset columns to users
+        await client.query(`
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_token VARCHAR(255)
+        `);
+        await client.query(`
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires TIMESTAMP
+        `);
+
         // Seed default categories
         await client.query(`
             INSERT INTO categories (name, slug, description, sort_order) VALUES
@@ -1044,6 +1066,19 @@ async function getUserByInviteToken(token) {
     }
 }
 
+async function getUserByResetToken(token) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            'SELECT * FROM users WHERE password_reset_token = $1',
+            [token]
+        );
+        return result.rows[0] || null;
+    } finally {
+        client.release();
+    }
+}
+
 async function updateUser(id, data) {
     const client = await pool.connect();
     try {
@@ -1054,7 +1089,8 @@ async function updateUser(id, data) {
         const allowedFields = [
             'name', 'telegram', 'location', 'status', 'password_hash',
             'magic_link_token', 'magic_link_expires', 'invite_token',
-            'invite_expires', 'last_login', 'email'
+            'invite_expires', 'last_login', 'email',
+            'password_reset_token', 'password_reset_expires'
         ];
 
         for (const [key, value] of Object.entries(data)) {
@@ -2126,6 +2162,88 @@ async function getExpenseBreakdown() {
     }
 }
 
+// ============================================
+// AUDIT LOG FUNCTIONS
+// ============================================
+
+async function createAuditLog({ adminId, action, entityType, entityId, details, ipAddress }) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `INSERT INTO audit_log (admin_id, action, entity_type, entity_id, details, ip_address)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING *`,
+            [adminId, action, entityType || null, entityId || null, details ? JSON.stringify(details) : null, ipAddress || null]
+        );
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function getAuditLogs(filters = {}) {
+    const client = await pool.connect();
+    try {
+        let query = `
+            SELECT al.*, a.email as admin_email, a.name as admin_name
+            FROM audit_log al
+            LEFT JOIN admins a ON al.admin_id = a.id
+            WHERE 1=1
+        `;
+        const params = [];
+        let paramIndex = 1;
+
+        if (filters.adminId) {
+            query += ` AND al.admin_id = $${paramIndex++}`;
+            params.push(filters.adminId);
+        }
+        if (filters.action) {
+            query += ` AND al.action = $${paramIndex++}`;
+            params.push(filters.action);
+        }
+        if (filters.entityType) {
+            query += ` AND al.entity_type = $${paramIndex++}`;
+            params.push(filters.entityType);
+        }
+
+        query += ` ORDER BY al.created_at DESC`;
+        query += ` LIMIT $${paramIndex++}`;
+        params.push(filters.limit || 100);
+        query += ` OFFSET $${paramIndex++}`;
+        params.push(filters.offset || 0);
+
+        const result = await client.query(query, params);
+        return result.rows;
+    } finally {
+        client.release();
+    }
+}
+
+async function healthCheck() {
+    const start = Date.now();
+    const client = await pool.connect();
+    try {
+        const result = await client.query('SELECT 1 AS ok');
+        return {
+            status: 'healthy',
+            responseTimeMs: Date.now() - start,
+            pool: {
+                total: pool.totalCount,
+                idle: pool.idleCount,
+                waiting: pool.waitingCount
+            }
+        };
+    } catch (err) {
+        return {
+            status: 'unhealthy',
+            error: err.message,
+            responseTimeMs: Date.now() - start
+        };
+    } finally {
+        client.release();
+    }
+}
+
 module.exports = {
     pool,
     initDatabase,
@@ -2177,6 +2295,7 @@ module.exports = {
     getUserByEmail,
     getUserById,
     getUserByMagicLinkToken,
+    getUserByResetToken,
     getUserByInviteToken,
     updateUser,
     getUsers,
@@ -2235,5 +2354,12 @@ module.exports = {
     updateTransaction,
     deleteTransaction,
     getTransactionById,
-    getExpenseBreakdown
+    getExpenseBreakdown,
+    // Audit log
+    createAuditLog,
+    getAuditLogs,
+    // Health check
+    healthCheck,
+    // Pool reference for graceful shutdown
+    pool
 };

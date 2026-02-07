@@ -348,6 +348,13 @@ router.post('/accept-invite', async (req, res) => {
             });
         }
 
+        if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Password must contain at least one uppercase letter, one lowercase letter, and one number'
+            });
+        }
+
         // Check user_invites table first
         const invite = await db.getUserInviteByToken(token);
         if (!invite) {
@@ -417,6 +424,135 @@ router.post('/accept-invite', async (req, res) => {
     } catch (err) {
         console.error('Accept invite error:', err);
         res.status(500).json({ success: false, error: 'Failed to accept invitation' });
+    }
+});
+
+/**
+ * POST /api/user/auth/forgot-password
+ * Request a password reset email
+ */
+router.post('/forgot-password', async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({
+                success: false,
+                error: 'Email is required'
+            });
+        }
+
+        const emailLower = email.toLowerCase();
+
+        // Rate limit
+        if (!checkLoginRateLimit(`reset:${emailLower}`)) {
+            return res.status(429).json({
+                success: false,
+                error: 'Too many requests. Please try again in 15 minutes.'
+            });
+        }
+
+        recordLoginAttempt(`reset:${emailLower}`);
+
+        const user = await db.getUserByEmail(emailLower);
+
+        // Always return success to prevent email enumeration
+        if (!user || user.status !== 'active') {
+            return res.json({
+                success: true,
+                message: 'If an account with that email exists, a password reset link has been sent.'
+            });
+        }
+
+        // Generate reset token
+        const resetToken = crypto.randomUUID();
+        const expires = new Date();
+        expires.setMinutes(expires.getMinutes() + 30); // 30 minute expiry
+
+        await db.updateUser(user.id, {
+            passwordResetToken: resetToken,
+            passwordResetExpires: expires
+        });
+
+        // Send reset email
+        if (emailService) {
+            const resetLink = `${req.protocol}://${req.get('host')}/login?reset=${resetToken}`;
+            emailService.sendEmail({
+                to: user.email,
+                subject: 'SLOBODA - Password Reset',
+                body: `Hello ${user.name},\n\nYou requested a password reset. Click the link below to set a new password:\n\n${resetLink}\n\nThis link expires in 30 minutes.\n\nIf you did not request this, please ignore this email. Your password will not be changed.`
+            }).catch(err => console.error('Password reset email error:', err));
+        }
+
+        res.json({
+            success: true,
+            message: 'If an account with that email exists, a password reset link has been sent.'
+        });
+    } catch (err) {
+        console.error('Forgot password error:', err);
+        res.status(500).json({ success: false, error: 'Failed to process request' });
+    }
+});
+
+/**
+ * POST /api/user/auth/reset-password
+ * Reset password with token
+ */
+router.post('/reset-password', async (req, res) => {
+    try {
+        const { token, password } = req.body;
+
+        if (!token || !password) {
+            return res.status(400).json({
+                success: false,
+                error: 'Token and password are required'
+            });
+        }
+
+        if (password.length < 8) {
+            return res.status(400).json({
+                success: false,
+                error: 'Password must be at least 8 characters'
+            });
+        }
+
+        if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Password must contain at least one uppercase letter, one lowercase letter, and one number'
+            });
+        }
+
+        const user = await db.getUserByResetToken(token);
+        if (!user) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid or expired reset link'
+            });
+        }
+
+        if (new Date() > new Date(user.password_reset_expires)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Reset link has expired. Please request a new one.'
+            });
+        }
+
+        const passwordHash = await bcrypt.hash(password, 12);
+
+        await db.updateUser(user.id, {
+            passwordHash,
+            passwordResetToken: null,
+            passwordResetExpires: null
+        });
+
+        res.json({
+            success: true,
+            message: 'Password has been reset. You can now log in.'
+        });
+    } catch (err) {
+        console.error('Reset password error:', err);
+        res.status(500).json({ success: false, error: 'Failed to reset password' });
     }
 });
 

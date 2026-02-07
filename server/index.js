@@ -4,6 +4,7 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const helmet = require('helmet');
+const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
 const bcrypt = require('bcrypt');
@@ -22,6 +23,32 @@ const { upload: fileUpload } = require('./services/fileStorage');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ============================================
+// ENVIRONMENT VALIDATION
+// ============================================
+function validateEnvironment() {
+    const warnings = [];
+
+    if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'sloboda-admin-secret-change-in-production') {
+        warnings.push('JWT_SECRET is not set or uses the default value. Set a strong random secret in production.');
+    }
+
+    if (!process.env.RESEND_API_KEY) {
+        warnings.push('RESEND_API_KEY is not set. Email features will be disabled.');
+    }
+
+    if (!process.env.ANTHROPIC_API_KEY) {
+        warnings.push('ANTHROPIC_API_KEY is not set. AI features (librarian, classifier) will be disabled.');
+    }
+
+    if (warnings.length > 0) {
+        console.warn('=== Environment Warnings ===');
+        warnings.forEach(w => console.warn(`  ⚠ ${w}`));
+        console.warn('============================');
+    }
+}
+validateEnvironment();
+
 // Security headers
 app.use(helmet({
     contentSecurityPolicy: {
@@ -37,6 +64,9 @@ app.use(helmet({
     crossOriginEmbedderPolicy: false
 }));
 
+// Gzip/deflate compression for all responses
+app.use(compression());
+
 // Rate limiting for registration endpoint
 const registrationLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
@@ -50,8 +80,8 @@ const registrationLimiter = rateLimit({
 });
 
 // Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(cookieParser());
 
 // React client build detection (must register before express.static)
@@ -61,8 +91,11 @@ const fs = require('fs');
 const hasClientBuild = fs.existsSync(clientIndexPath);
 
 if (hasClientBuild) {
-    // Serve React static assets
-    app.use('/assets', express.static(path.join(clientBuildPath, 'assets')));
+    // Serve React static assets (Vite hashes filenames, so cache forever)
+    app.use('/assets', express.static(path.join(clientBuildPath, 'assets'), {
+        maxAge: '1y',
+        immutable: true
+    }));
 
     // React app routes - user portal
     const reactRoutes = ['/login', '/register', '/dashboard', '/news', '/library', '/librarian', '/submit', '/profile', '/bookmarks', '/notifications', '/finance'];
@@ -232,9 +265,23 @@ app.get('/api/stats', async (req, res) => {
     }
 });
 
-// Health check
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+// Health check (pings database)
+app.get('/api/health', async (req, res) => {
+    try {
+        const dbHealth = await db.healthCheck();
+        const status = dbHealth.status === 'healthy' ? 200 : 503;
+        res.status(status).json({
+            status: dbHealth.status === 'healthy' ? 'ok' : 'degraded',
+            timestamp: new Date().toISOString(),
+            database: dbHealth
+        });
+    } catch (err) {
+        res.status(503).json({
+            status: 'degraded',
+            timestamp: new Date().toISOString(),
+            database: { status: 'unreachable' }
+        });
+    }
 });
 
 // ============================================
@@ -286,6 +333,7 @@ app.patch('/api/registrations/:id', requireAuth, async (req, res) => {
         }
 
         await db.updateRegistrationStatus(parseInt(req.params.id), status);
+        auditLog(req, 'update_registration_status', 'registration', parseInt(req.params.id), { status });
         res.json({ success: true });
     } catch (err) {
         console.error('Error updating registration:', err);
@@ -297,6 +345,7 @@ app.patch('/api/registrations/:id', requireAuth, async (req, res) => {
 app.delete('/api/registrations/:id', requireAuth, async (req, res) => {
     try {
         await db.deleteRegistration(parseInt(req.params.id));
+        auditLog(req, 'delete_registration', 'registration', parseInt(req.params.id));
         res.json({ success: true });
     } catch (err) {
         console.error('Error deleting registration:', err);
@@ -397,6 +446,7 @@ app.get('/api/settings', requireAuth, async (req, res) => {
 app.patch('/api/settings', requireAuth, requireSuperAdmin, async (req, res) => {
     try {
         await db.updateSettings(req.body, req.admin.id);
+        auditLog(req, 'update_settings', 'settings', null, { keys: Object.keys(req.body) });
         res.json({ success: true });
     } catch (err) {
         console.error('Error updating settings:', err);
@@ -428,6 +478,7 @@ app.delete('/api/admins/:id', requireAuth, requireSuperAdmin, async (req, res) =
         }
 
         await db.deleteAdmin(adminId);
+        auditLog(req, 'delete_admin', 'admin', adminId);
         res.json({ success: true });
     } catch (err) {
         console.error('Error deleting admin:', err);
@@ -542,12 +593,46 @@ app.post('/api/campaigns', requireAuth, async (req, res) => {
             console.error(`Campaign ${campaign.id} send error:`, err);
         });
 
+        auditLog(req, 'send_campaign', 'campaign', campaign.id, { subject, recipientCount });
         res.json({ success: true, data: campaign, recipientCount });
     } catch (err) {
         console.error('Error creating campaign:', err);
         res.status(500).json({ success: false, error: 'Failed to create campaign' });
     }
 });
+
+// ============================================
+// AUDIT LOG ROUTES
+// ============================================
+
+app.get('/api/audit-log', requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+        const filters = {
+            adminId: req.query.adminId ? parseInt(req.query.adminId) : undefined,
+            action: req.query.action,
+            entityType: req.query.entityType,
+            limit: req.query.limit ? parseInt(req.query.limit) : 100,
+            offset: req.query.offset ? parseInt(req.query.offset) : 0
+        };
+        const logs = await db.getAuditLogs(filters);
+        res.json({ success: true, data: logs });
+    } catch (err) {
+        console.error('Error fetching audit logs:', err);
+        res.status(500).json({ success: false, error: 'Failed to fetch audit logs' });
+    }
+});
+
+// Helper to log admin actions
+function auditLog(req, action, entityType, entityId, details) {
+    db.createAuditLog({
+        adminId: req.admin?.id,
+        action,
+        entityType,
+        entityId,
+        details,
+        ipAddress: req.ip
+    }).catch(err => console.error('Audit log error:', err));
+}
 
 // ============================================
 // EMAIL STATUS ROUTE
@@ -724,13 +809,36 @@ async function start() {
         // Auto-seed admin if none exists
         await seedDefaultAdmin();
 
-        app.listen(PORT, () => {
+        const server = app.listen(PORT, () => {
             console.log(`Server running on port ${PORT}`);
             console.log(`Static files served from: ${path.join(__dirname, '../src')}`);
             console.log(`React client build: ${hasClientBuild ? 'available' : 'not found (using vanilla admin)'}`);
             console.log(`Admin panel: /admin`);
             console.log(`User portal: /dashboard`);
         });
+
+        // Graceful shutdown
+        function shutdown(signal) {
+            console.log(`\n${signal} received. Shutting down gracefully...`);
+            server.close(() => {
+                console.log('HTTP server closed');
+                db.pool.end().then(() => {
+                    console.log('Database pool closed');
+                    process.exit(0);
+                }).catch(err => {
+                    console.error('Error closing database pool:', err);
+                    process.exit(1);
+                });
+            });
+            // Force exit after 10s if graceful shutdown hangs
+            setTimeout(() => {
+                console.error('Forced shutdown after timeout');
+                process.exit(1);
+            }, 10000);
+        }
+
+        process.on('SIGTERM', () => shutdown('SIGTERM'));
+        process.on('SIGINT', () => shutdown('SIGINT'));
     } catch (err) {
         console.error('Failed to start server:', err);
         process.exit(1);

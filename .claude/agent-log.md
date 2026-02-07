@@ -342,3 +342,44 @@ Complete UI/UX transformation of the SLOBODA React platform from flat dark theme
 → `.claude/sessions/2026-02-07-ui-ux-overhaul.md`
 
 ---
+
+## 2026-02-07 23:00 — Wizzard: 10 server hardening, security & UX improvements
+
+**Area:** Full Stack / Security / Performance / Auth / Admin
+**Type:** feature + security
+
+### Files Changed
+- `server/index.js` — compression, body limits, env validation, health check, cache headers, graceful shutdown, audit log routes
+- `server/db.js` — healthCheck(), audit log table + functions, password reset columns, getUserByResetToken(), pool export
+- `server/routes/userAuth.js` — password strength validation, forgot-password + reset-password endpoints
+- `client/src/main.tsx` — ErrorBoundary wrapper
+- `client/src/components/ErrorBoundary.tsx` — new: React error boundary with Russian fallback UI
+- `client/src/pages/auth/Login.tsx` — forgot password form, reset password form, "Forgot password?" link
+- `client/src/pages/auth/Register.tsx` — Zod password strength validation (uppercase + lowercase + number)
+- `package.json` — added `compression` dependency
+
+### Functions/Symbols Modified
+- `validateEnvironment()` in index.js — new: checks JWT_SECRET, RESEND_API_KEY, ANTHROPIC_API_KEY
+- `shutdown()` in index.js — new: SIGTERM/SIGINT handler, closes server + DB pool
+- `auditLog()` in index.js — new: fire-and-forget admin action logging helper
+- `healthCheck()` in db.js — new: pings DB, returns pool stats
+- `createAuditLog()` in db.js — new: INSERT into audit_log
+- `getAuditLogs()` in db.js — new: filtered query with admin join
+- `getUserByResetToken()` in db.js — new: SELECT by password_reset_token
+- `POST /forgot-password` in userAuth.js — new: generates reset token, emails link
+- `POST /reset-password` in userAuth.js — new: validates token, sets new password
+- `ErrorBoundary` class component — new: catches render errors with retry/reload
+- `handleForgotPassword()` in Login.tsx — new: forgot password form handler
+- `handleResetPassword()` in Login.tsx — new: reset password form handler
+
+### Database Tables
+- `audit_log` — new table (admin_id, action, entity_type, entity_id, details JSONB, ip_address, created_at)
+- `users` — schema change: added password_reset_token, password_reset_expires
+
+### Summary
+Generated 30 improvement ideas, critically evaluated each (rejected 15 with reasons), implemented the top 10. Quick wins: (1) gzip compression for 60-80% smaller responses, (2) graceful shutdown preventing connection leaks on deploy, (3) 1MB request body limits against DOS, (4) env var validation with startup warnings, (5) real DB health check returning 503 when unhealthy, (6) React ErrorBoundary preventing white-screen crashes, (7) 1-year cache headers on Vite-hashed assets. Major features: (8) full password reset flow (forgot password form, email with reset link, new password form with strength validation), (9) password strength requirements (uppercase + lowercase + number), (10) admin audit log tracking all mutations with JSONB details and super_admin API.
+
+### Session Notes
+→ `.claude/sessions/2026-02-07-wizzard-improvements.md`
+
+---

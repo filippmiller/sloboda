@@ -13,7 +13,11 @@ import Input from '@/components/ui/Input'
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Минимум 2 символа'),
-  password: z.string().min(8, 'Минимум 8 символов'),
+  password: z.string()
+    .min(8, 'Минимум 8 символов')
+    .regex(/[A-Z]/, 'Нужна хотя бы одна заглавная буква')
+    .regex(/[a-z]/, 'Нужна хотя бы одна строчная буква')
+    .regex(/[0-9]/, 'Нужна хотя бы одна цифра'),
   confirmPassword: z.string().min(1, 'Подтвердите пароль'),
 }).refine((data) => data.password === data.confirmPassword, {
   message: 'Пароли не совпадают',
@@ -167,7 +171,7 @@ export default function Register() {
         <Input
           label="Пароль"
           type="password"
-          placeholder="Минимум 8 символов"
+          placeholder="Буквы верхнего/нижнего регистра + цифра"
           {...form.register('password')}
           error={form.formState.errors.password?.message}
         />
