@@ -7,6 +7,7 @@ import type { Post, KnowledgeSubmission, Category } from '@/types'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import { estimateReadingTime, formatReadingTime } from '@/utils/readingTime'
+import { sanitizeHtml } from '@/utils/sanitize'
 
 interface ArticleItem extends Post {
   _type: 'article'
@@ -389,7 +390,7 @@ export default function Library() {
                   {expandedId === item.id && getItemBody(item) && (
                     <div
                       className="text-sm text-text-secondary pt-2 border-t border-border prose prose-invert prose-sm max-w-none"
-                      dangerouslySetInnerHTML={{ __html: getItemBody(item)! }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(getItemBody(item)!) }}
                     />
                   )}
 

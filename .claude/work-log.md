@@ -231,3 +231,89 @@ Implemented 4 remaining backlog features from the plan, then ran comprehensive E
 - Clean up login page autocomplete defaults
 
 **Session notes**: `.claude/sessions/2026-02-07-backlog-features-e2e.md`
+
+## 2026-02-07 - Security Testing, Bug Fixes & Visual UI Testing
+
+**Status**: Completed
+**Commits**: pending
+
+### What was done
+
+**Part 1 — Security (picked up from crashed agent):**
+
+Verified 3 bug fixes and completed 12-point security test suite.
+
+**Bugs fixed:**
+1. **JSON parse error info leak** (Medium) — Invalid JSON now returns clean JSON 400 instead of HTML stack trace with file paths. Added error middleware in `server/index.js` catching `entity.parse.failed`.
+2. **XSS via dangerouslySetInnerHTML** (High) — Created `client/src/utils/sanitize.ts` — browser-based HTML sanitizer using DOMParser with tag/attribute whitelist. Applied to Library.tsx and Knowledge.tsx.
+3. **XSS data in DB** (Low, accepted risk) — React auto-escapes by default. Sanitizer covers explicit innerHTML cases.
+
+**Security tests (12/12 pass):**
+- Invalid JSON (both "not json" and "{bad") → clean JSON 400
+- SQL injection in search → parameterized queries safe
+- Tampered JWT → 401 rejection
+- Missing/empty fields → proper validation errors
+- Invalid email format → proper validation error
+- Unauthenticated admin API → 401
+- Wrong password → generic error, no info leak
+- Path traversal → SPA fallback, no file access
+- Client build → compiles clean with sanitizer
+
+**Part 2 — Visual UI Testing (Playwright, 24 screenshots):**
+
+Comprehensive end-to-end visual testing of the entire application using Playwright browser automation.
+
+**Landing page (4 screenshots):**
+- Full page render with all sections
+- Registration form step 1: name + email filled
+- Registration form step 2: telegram, city, skills, budget, privacy
+- Registration success message confirmed
+
+**Admin panel (10 screenshots):**
+- Login page + successful authentication
+- Dashboard with stats cards and time-series chart
+- Registrations table with search and filters
+- Registration detail modal — added note + changed status to "Связались"
+- Sent invite → status auto-changed to "Принят"
+- Users management page
+- Analytics page with breakdowns
+- Posts page + created new post via Tiptap editor
+- Finance page with transaction management
+- Settings page (super_admin)
+
+**User portal (8 screenshots):**
+- Login as testuser-e2e (password reset via script for testing)
+- Dashboard: "Привет, Test User E2E!" with reading time on cards
+- News feed with both existing and newly created posts
+- Library with category filters and tag chips
+- Finance (read-only) with donut chart and bar chart
+- Profile page — edited name and location, saved successfully
+- Knowledge submission — filled and submitted, appears as "На модерации"
+- Logout → redirect to login
+
+**Logout (2 screenshots):**
+- Knowledge submission success showing "Мои материалы"
+- Logout redirect back to login page
+
+### Issues found during testing
+1. **User password unknown** (test blocker) — resolved with bcrypt reset script
+2. **Email not sent** (expected) — RESEND_API_KEY not set, graceful degradation works
+3. **AI classification skipped** (expected) — ANTHROPIC_API_KEY not set locally
+4. **Tiptap duplicate extension warning** (cosmetic) — console warning, no functional impact
+
+### Files modified
+- `server/index.js` — JSON parse error handler middleware (+11 lines)
+- `client/src/utils/sanitize.ts` — new HTML sanitizer utility
+- `client/src/pages/user/Library.tsx` — sanitizer applied to dangerouslySetInnerHTML
+- `client/src/pages/admin/Knowledge.tsx` — sanitizer applied to dangerouslySetInnerHTML
+
+### Test artifacts
+- 24 screenshots in `.temp/ui-test/` (01-landing-full.png through 24-user-logout.png)
+- Server log in `.temp/ui-test/server.log`
+
+### Next steps
+- Set RESEND_API_KEY on Railway for actual email delivery
+- Persistent file storage for uploads (S3/R2)
+- Fix Tiptap duplicate extension warning
+
+**Session notes**: `.claude/sessions/2026-02-07-visual-ui-testing.md`

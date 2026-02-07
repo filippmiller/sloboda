@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import adminApi from '@/services/adminApi'
+import { sanitizeHtml } from '@/utils/sanitize'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
@@ -223,7 +224,7 @@ export default function Knowledge() {
               </p>
               {reviewItem.body && (
                 <div className="mt-2 pt-2 border-t border-border text-sm text-text-secondary"
-                  dangerouslySetInnerHTML={{ __html: reviewItem.body }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(reviewItem.body) }}
                 />
               )}
             </div>

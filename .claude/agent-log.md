@@ -256,3 +256,39 @@ Implemented AI philosophy positioning and financial transparency system. Landing
 → `.claude/sessions/2026-02-07-ai-philosophy-finance.md`
 
 ---
+
+## 2026-02-07 19:00 — Security fixes + comprehensive visual UI testing
+
+**Area:** Security / Testing / Full Stack
+**Type:** bugfix + testing
+
+### Files Changed
+- `server/index.js` — added JSON parse error handler middleware (catches `entity.parse.failed`, returns clean 400)
+- `client/src/utils/sanitize.ts` — new: HTML sanitizer using DOMParser with tag/attribute whitelist
+- `client/src/pages/user/Library.tsx` — applied sanitizeHtml to dangerouslySetInnerHTML
+- `client/src/pages/admin/Knowledge.tsx` — applied sanitizeHtml to dangerouslySetInnerHTML
+- `.claude/sessions/2026-02-07-visual-ui-testing.md` — new: detailed session notes
+- `.claude/sessions/2026-02-07-security-testing.md` — new: security testing session notes
+- `.claude/work-log.md` — updated with combined security + UI testing entry
+
+### Functions/Symbols Modified
+- `sanitizeHtml()` in sanitize.ts — new: recursive DOM node cleaner with tag/attribute whitelist
+- Error middleware in index.js — new: catches `entity.parse.failed` type errors
+- `Library` component — modified: wraps dangerouslySetInnerHTML with sanitizeHtml()
+- `Knowledge` component — modified: wraps dangerouslySetInnerHTML with sanitizeHtml()
+
+### Database Tables
+- `registrations` — tested: new registration created (ID 13, Алексей Петров)
+- `posts` — tested: new post created via admin Tiptap editor
+- `knowledge_submissions` — tested: new submission created via user portal
+- `users` — tested: password reset for E2E testing, profile edit
+- `registration_notes` — tested: note added to registration
+- `user_invites` — tested: invite sent for registration
+
+### Summary
+Picked up from crashed agent session. Verified 3 security bug fixes (JSON parse error info leak, XSS via dangerouslySetInnerHTML, XSS data in DB). Ran 12-point security test suite (all pass). Then conducted comprehensive visual UI testing with Playwright: 24 screenshots covering landing page registration, admin login/dashboard/registrations/users/analytics/posts/finance/settings, user portal login/dashboard/news/library/finance/profile, and knowledge submission + logout. Found 0 critical bugs. Confirmed 3 known limitations (missing API keys for email/AI).
+
+### Session Notes
+→ `.claude/sessions/2026-02-07-visual-ui-testing.md`
+
+---
