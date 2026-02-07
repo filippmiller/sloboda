@@ -138,7 +138,17 @@ Full list evaluated across impact, effort, risk, and relevance criteria.
 - [x] TypeScript compiles clean (tsc --noEmit)
 - [x] Client build succeeds (vite build)
 - [x] Server syntax check passes (node --check)
-- [ ] E2E testing (to be done after commit)
+- [x] Production deployed and verified on Railway
+- [x] Health check returns DB pool stats (83ms response)
+- [x] Forgot-password: returns success for non-existent email (anti-enumeration)
+- [x] Reset-password: rejects invalid token
+- [x] Password validation: rejects <8 chars, no uppercase, no lowercase, no digit
+- [x] Audit log: requires auth (returns 401 without)
+- [x] Playwright E2E: login page renders "Forgot password?" link
+- [x] Playwright E2E: forgot password form submits and shows success
+- [x] Playwright E2E: reset password form renders via ?reset=TOKEN URL
+- [x] Playwright E2E: frontend Zod validation catches weak passwords
+- [x] Rate-limit memory cleanup committed (auth.js + userAuth.js)
 
 ## Gotchas & Notes for Future Agents
 
