@@ -383,3 +383,49 @@ Generated 30 improvement ideas, critically evaluated each (rejected 15 with reas
 → `.claude/sessions/2026-02-07-wizzard-improvements.md`
 
 ---
+
+## 2026-02-07 16:30 — Recovery: commit orphaned changes + production verification
+
+**Area:** Full Stack / Auth / SEO / Performance / Error Handling
+**Type:** feature + chore
+
+### Files Changed
+- `server/routes/auth.js` — added setInterval cleanup for loginAttempts Map (memory leak fix)
+- `server/routes/userAuth.js` — added setInterval cleanup for loginAttempts Map (memory leak fix)
+- `client/index.html` — added Open Graph + Twitter Card meta tags
+- `client/src/App.tsx` — replaced catch-all redirect with NotFound component
+- `client/src/pages/NotFound.tsx` — new: 404 page with Russian text, back/home buttons
+- `client/src/services/api.ts` — debounced 401 redirects, toast on session expiry, GET retry on 5xx
+- `client/src/services/adminApi.ts` — same API resilience pattern for admin routes
+- `client/src/components/RouteErrorBoundary.tsx` — new: per-route error boundary (isolates crashes)
+- `server/db.js` — added 15 performance indexes on key tables
+- `server/index.js` — SPA fallback fix (React app handles unknown routes for 404 page)
+- `.claude/sessions/2026-02-07-wizzard-improvements.md` — updated testing section with results
+
+### Functions/Symbols Modified
+- `setInterval()` cleanup in auth.js — new: removes stale rate-limit entries every 15min
+- `setInterval()` cleanup in userAuth.js — new: same pattern for user auth rate limits
+- `NotFound` component — new: styled 404 page with navigate(-1) and /dashboard links
+- `RouteErrorBoundary` class component — new: catches per-route errors without full-app crash
+- `api.interceptors.response` in api.ts — modified: debounce redirecting flag, toast, 5xx retry
+- `adminApi.interceptors.response` in adminApi.ts — modified: same resilience pattern
+- `initDatabase()` in db.js — modified: 15 CREATE INDEX IF NOT EXISTS statements
+- SPA fallback route in index.js — modified: serves React index.html for non-API routes
+
+### Database Tables
+- `posts` — index: idx_posts_status_type, idx_posts_published_at, idx_posts_slug
+- `registrations` — index: idx_registrations_status, idx_registrations_email
+- `notifications` — index: idx_notifications_user_unread, idx_notifications_user_id
+- `user_bookmarks` — index: idx_user_bookmarks_user
+- `knowledge_submissions` — index: idx_knowledge_submissions_status, idx_knowledge_submissions_user
+- `transactions` — index: idx_transactions_type_date, idx_transactions_date
+- `audit_log` — index: idx_audit_log_created
+- `users` — index: idx_users_email, idx_users_status
+
+### Summary
+Picked up after previous agent crashed during testing phase. Found 6 files with uncommitted changes from earlier sessions. Verified all code compiles cleanly (TypeScript, Vite build, Node syntax check). Committed in 3 logical groups: (1) rate-limit memory leak fix, (2) OG meta tags + 404 page + API resilience + DB indexes + SPA fallback, (3) admin API resilience + RouteErrorBoundary. Ran comprehensive production verification: health check with DB stats, forgot-password anti-enumeration, reset-password token validation, all 3 password strength rejection cases, audit log auth gate, and Playwright E2E tests for forgot/reset password UI flows. All tests passed.
+
+### Session Notes
+→ `.claude/sessions/2026-02-07-recovery-orphaned-changes.md`
+
+---
