@@ -41,6 +41,19 @@ function clearLoginAttempts(email) {
     loginAttempts.delete(email);
 }
 
+// Periodic cleanup to prevent memory leak from abandoned entries
+setInterval(() => {
+    const now = Date.now();
+    for (const [email, attempts] of loginAttempts) {
+        const recent = attempts.filter(time => now - time < LOGIN_WINDOW_MS);
+        if (recent.length === 0) {
+            loginAttempts.delete(email);
+        } else {
+            loginAttempts.set(email, recent);
+        }
+    }
+}, LOGIN_WINDOW_MS).unref();
+
 /**
  * POST /api/auth/login
  * Login with email and password

@@ -48,6 +48,19 @@ function clearLoginAttempts(key) {
     loginAttempts.delete(key);
 }
 
+// Periodic cleanup to prevent memory leak from abandoned entries
+setInterval(() => {
+    const now = Date.now();
+    for (const [key, attempts] of loginAttempts) {
+        const recent = attempts.filter(time => now - time < LOGIN_WINDOW_MS);
+        if (recent.length === 0) {
+            loginAttempts.delete(key);
+        } else {
+            loginAttempts.set(key, recent);
+        }
+    }
+}, LOGIN_WINDOW_MS).unref();
+
 /**
  * Generate JWT for user (different payload from admin)
  */
