@@ -1,7 +1,8 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, type ReactNode } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { ROUTES } from '@/config/routes'
+import RouteErrorBoundary from '@/components/RouteErrorBoundary'
 
 // Layouts loaded eagerly — needed immediately for route groups
 import AuthLayout from '@/layouts/AuthLayout'
@@ -34,6 +35,7 @@ const Admins = lazy(() => import('@/pages/admin/Admins'))
 const Settings = lazy(() => import('@/pages/admin/Settings'))
 const Analytics = lazy(() => import('@/pages/admin/Analytics'))
 const AdminFinance = lazy(() => import('@/pages/admin/Finance'))
+const NotFound = lazy(() => import('@/pages/NotFound'))
 
 function LoadingSpinner() {
   return (
@@ -41,6 +43,11 @@ function LoadingSpinner() {
       <Loader2 size={28} className="animate-spin text-accent" />
     </div>
   )
+}
+
+/** Wraps a page component with error boundary so a crash doesn't kill the layout */
+function Safe({ children }: { children: ReactNode }) {
+  return <RouteErrorBoundary>{children}</RouteErrorBoundary>
 }
 
 function App() {
@@ -58,15 +65,15 @@ function App() {
 
         {/* User portal routes */}
         <Route element={<DashboardLayout />}>
-          <Route path={ROUTES.DASHBOARD} element={<UserDashboard />} />
-          <Route path={ROUTES.NEWS} element={<News />} />
-          <Route path={ROUTES.LIBRARY} element={<Library />} />
-          <Route path={ROUTES.LIBRARIAN} element={<Librarian />} />
-          <Route path={ROUTES.SUBMIT} element={<KnowledgeSubmit />} />
-          <Route path={ROUTES.FINANCE} element={<Finance />} />
-          <Route path={ROUTES.BOOKMARKS} element={<Bookmarks />} />
-          <Route path={ROUTES.NOTIFICATIONS} element={<Notifications />} />
-          <Route path={ROUTES.PROFILE} element={<Profile />} />
+          <Route path={ROUTES.DASHBOARD} element={<Safe><UserDashboard /></Safe>} />
+          <Route path={ROUTES.NEWS} element={<Safe><News /></Safe>} />
+          <Route path={ROUTES.LIBRARY} element={<Safe><Library /></Safe>} />
+          <Route path={ROUTES.LIBRARIAN} element={<Safe><Librarian /></Safe>} />
+          <Route path={ROUTES.SUBMIT} element={<Safe><KnowledgeSubmit /></Safe>} />
+          <Route path={ROUTES.FINANCE} element={<Safe><Finance /></Safe>} />
+          <Route path={ROUTES.BOOKMARKS} element={<Safe><Bookmarks /></Safe>} />
+          <Route path={ROUTES.NOTIFICATIONS} element={<Safe><Notifications /></Safe>} />
+          <Route path={ROUTES.PROFILE} element={<Safe><Profile /></Safe>} />
         </Route>
 
         {/* Admin login (no layout) */}
@@ -74,21 +81,21 @@ function App() {
 
         {/* Admin routes (with sidebar layout + auth check) */}
         <Route element={<AdminLayout />}>
-          <Route path={ROUTES.ADMIN_DASHBOARD} element={<AdminDashboard />} />
-          <Route path={ROUTES.ADMIN_REGISTRATIONS} element={<Registrations />} />
-          <Route path={ROUTES.ADMIN_USERS} element={<Users />} />
-          <Route path={ROUTES.ADMIN_POSTS} element={<Posts />} />
-          <Route path={ROUTES.ADMIN_KNOWLEDGE} element={<Knowledge />} />
-          <Route path={ROUTES.ADMIN_CATEGORIES} element={<Categories />} />
-          <Route path={ROUTES.ADMIN_CAMPAIGNS} element={<Campaigns />} />
-          <Route path={ROUTES.ADMIN_ADMINS} element={<Admins />} />
-          <Route path={ROUTES.ADMIN_SETTINGS} element={<Settings />} />
-          <Route path={ROUTES.ADMIN_ANALYTICS} element={<Analytics />} />
-          <Route path={ROUTES.ADMIN_FINANCE} element={<AdminFinance />} />
+          <Route path={ROUTES.ADMIN_DASHBOARD} element={<Safe><AdminDashboard /></Safe>} />
+          <Route path={ROUTES.ADMIN_REGISTRATIONS} element={<Safe><Registrations /></Safe>} />
+          <Route path={ROUTES.ADMIN_USERS} element={<Safe><Users /></Safe>} />
+          <Route path={ROUTES.ADMIN_POSTS} element={<Safe><Posts /></Safe>} />
+          <Route path={ROUTES.ADMIN_KNOWLEDGE} element={<Safe><Knowledge /></Safe>} />
+          <Route path={ROUTES.ADMIN_CATEGORIES} element={<Safe><Categories /></Safe>} />
+          <Route path={ROUTES.ADMIN_CAMPAIGNS} element={<Safe><Campaigns /></Safe>} />
+          <Route path={ROUTES.ADMIN_ADMINS} element={<Safe><Admins /></Safe>} />
+          <Route path={ROUTES.ADMIN_SETTINGS} element={<Safe><Settings /></Safe>} />
+          <Route path={ROUTES.ADMIN_ANALYTICS} element={<Safe><Analytics /></Safe>} />
+          <Route path={ROUTES.ADMIN_FINANCE} element={<Safe><AdminFinance /></Safe>} />
         </Route>
 
-        {/* Catch all */}
-        <Route path="*" element={<Navigate to={ROUTES.LOGIN} replace />} />
+        {/* 404 */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
   )

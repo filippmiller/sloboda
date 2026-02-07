@@ -386,6 +386,27 @@ async function initDatabase() {
             ON CONFLICT (slug) DO NOTHING
         `);
 
+        // ============================================
+        // PERFORMANCE INDEXES
+        // ============================================
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_posts_status_type ON posts(status, type);
+            CREATE INDEX IF NOT EXISTS idx_posts_published_at ON posts(published_at DESC) WHERE status = 'published';
+            CREATE INDEX IF NOT EXISTS idx_posts_slug ON posts(slug);
+            CREATE INDEX IF NOT EXISTS idx_registrations_status ON registrations(status);
+            CREATE INDEX IF NOT EXISTS idx_registrations_email ON registrations(email);
+            CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, is_read) WHERE is_read = false;
+            CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id, created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_user_bookmarks_user ON user_bookmarks(user_id);
+            CREATE INDEX IF NOT EXISTS idx_knowledge_submissions_status ON knowledge_submissions(status);
+            CREATE INDEX IF NOT EXISTS idx_knowledge_submissions_user ON knowledge_submissions(user_id);
+            CREATE INDEX IF NOT EXISTS idx_transactions_type_date ON transactions(type, date DESC);
+            CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date DESC);
+            CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+            CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
+        `);
+
         console.log('Database tables initialized');
     } catch (err) {
         console.error('Error initializing database:', err);

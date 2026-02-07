@@ -84,6 +84,29 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(cookieParser());
 
+// Cache headers for API GET responses
+app.use('/api', (req, res, next) => {
+    if (req.method !== 'GET') return next();
+
+    // Public endpoints get short browser cache
+    const publicCachePaths = ['/api/stats', '/api/health'];
+    if (publicCachePaths.some(p => req.path === p)) {
+        res.set('Cache-Control', 'public, max-age=60');
+        return next();
+    }
+
+    // User-facing read endpoints get private short cache (browser only, not CDN)
+    const shortCachePaths = ['/api/user/categories', '/api/user/posts'];
+    if (shortCachePaths.some(p => req.path.startsWith(p))) {
+        res.set('Cache-Control', 'private, max-age=30');
+        return next();
+    }
+
+    // Admin and auth endpoints: no cache
+    res.set('Cache-Control', 'no-store');
+    next();
+});
+
 // React client build detection (must register before express.static)
 const clientBuildPath = path.join(__dirname, '../dist/client');
 const clientIndexPath = path.join(clientBuildPath, 'index.html');
@@ -732,8 +755,12 @@ app.get('/updates', (req, res) => {
     res.sendFile(path.join(__dirname, '../src/updates.html'));
 });
 
-// Landing page fallback for all other routes
+// SPA fallback: serve React app for unknown routes (renders 404 component),
+// or landing page if no React build exists
 app.get('*', (req, res) => {
+    if (hasClientBuild && !req.path.startsWith('/api/')) {
+        return res.sendFile(clientIndexPath);
+    }
     res.sendFile(path.join(__dirname, '../src/index.html'));
 });
 
