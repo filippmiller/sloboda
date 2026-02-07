@@ -30,6 +30,7 @@ export default function Library() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [total, setTotal] = useState(0)
   const [offset, setOffset] = useState(0)
+  const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<number>>(new Set())
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -179,6 +180,21 @@ export default function Library() {
     return item.body
   }
 
+  const getItemTags = (item: ContentItem): string[] => {
+    if (item._type === 'article') return item.tags ?? []
+    return item.ai_tags ?? []
+  }
+
+  // Collect unique tags across all items
+  const allTags = Array.from(
+    new Set(items.flatMap(getItemTags).filter(Boolean)),
+  ).sort()
+
+  // Filter items by selected tag (client-side)
+  const filteredItems = selectedTag
+    ? items.filter((item) => getItemTags(item).includes(selectedTag))
+    : items
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold font-display">Библиотека</h1>
@@ -250,6 +266,43 @@ export default function Library() {
         </div>
       )}
 
+      {/* Tags */}
+      {allTags.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setSelectedTag(null)}
+            className={`
+              px-2.5 py-1 rounded-md text-xs font-medium transition-colors
+              ${
+                selectedTag === null
+                  ? 'bg-accent/20 text-accent border border-accent/30'
+                  : 'bg-bg-card border border-border text-text-muted hover:text-text hover:border-border-hover'
+              }
+            `}
+          >
+            Все теги
+          </button>
+          {allTags.map((tag) => (
+            <button
+              key={tag}
+              type="button"
+              onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
+              className={`
+                px-2.5 py-1 rounded-md text-xs font-medium transition-colors
+                ${
+                  selectedTag === tag
+                    ? 'bg-accent/20 text-accent border border-accent/30'
+                    : 'bg-bg-card border border-border text-text-muted hover:text-text hover:border-border-hover'
+                }
+              `}
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Content grid */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -263,10 +316,10 @@ export default function Library() {
             </Card>
           ))}
         </div>
-      ) : items.length > 0 ? (
+      ) : filteredItems.length > 0 ? (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {items.map((item) => (
+            {filteredItems.map((item) => (
               <Card
                 key={`${item._type}-${item.id}`}
                 className="hover:border-border-hover transition-colors cursor-pointer"
@@ -320,6 +373,19 @@ export default function Library() {
                     </p>
                   )}
 
+                  {getItemTags(item).length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {getItemTags(item).map((tag) => (
+                        <span
+                          key={tag}
+                          className="px-1.5 py-0.5 rounded bg-bg-elevated text-text-muted text-[10px]"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
                   {expandedId === item.id && getItemBody(item) && (
                     <div
                       className="text-sm text-text-secondary pt-2 border-t border-border prose prose-invert prose-sm max-w-none"
@@ -343,7 +409,7 @@ export default function Library() {
             ))}
           </div>
 
-          {hasMore && (
+          {hasMore && !selectedTag && (
             <div className="text-center pt-2">
               <Button
                 variant="secondary"

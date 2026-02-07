@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import adminApi from '@/services/adminApi'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
@@ -18,10 +18,12 @@ import {
   Heading2,
   List,
   Link2,
+  ImageIcon,
 } from 'lucide-react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import LinkExtension from '@tiptap/extension-link'
+import ImageExtension from '@tiptap/extension-image'
 import type { Post, Category } from '@/types'
 
 type TabFilter = 'all' | 'news' | 'article' | 'draft'
@@ -33,7 +35,7 @@ const TABS: { value: TabFilter; label: string }[] = [
   { value: 'draft', label: 'Черновики' },
 ]
 
-function TiptapToolbar({ editor }: { editor: ReturnType<typeof useEditor> }) {
+function TiptapToolbar({ editor, onImageUpload }: { editor: ReturnType<typeof useEditor>; onImageUpload?: () => void }) {
   if (!editor) return null
 
   return (
@@ -78,6 +80,16 @@ function TiptapToolbar({ editor }: { editor: ReturnType<typeof useEditor> }) {
       >
         <Link2 size={16} />
       </button>
+      {onImageUpload && (
+        <button
+          type="button"
+          onClick={onImageUpload}
+          className="p-1.5 rounded transition-colors text-text-secondary hover:text-text hover:bg-bg-elevated"
+          title="Вставить изображение"
+        >
+          <ImageIcon size={16} />
+        </button>
+      )}
     </div>
   )
 }
@@ -89,6 +101,7 @@ interface PostForm {
   type: 'news' | 'article'
   status: 'draft' | 'published'
   categoryId: string
+  tags: string
 }
 
 export default function Posts() {
@@ -108,6 +121,7 @@ export default function Posts() {
     type: 'news',
     status: 'draft',
     categoryId: '',
+    tags: '',
   })
 
   // Delete confirmation
@@ -118,6 +132,7 @@ export default function Posts() {
     extensions: [
       StarterKit,
       LinkExtension.configure({ openOnClick: false }),
+      ImageExtension.configure({ inline: false }),
     ],
     content: '',
     editorProps: {
@@ -126,6 +141,33 @@ export default function Posts() {
       },
     },
   })
+
+  const imageInputRef = useRef<HTMLInputElement>(null)
+
+  const handleImageUpload = () => {
+    imageInputRef.current?.click()
+  }
+
+  const onImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !editor) return
+
+    const formData = new FormData()
+    formData.append('image', file)
+
+    try {
+      const res = await adminApi.post('/upload/image', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      const url = res.data.url
+      editor.chain().focus().setImage({ src: url }).run()
+    } catch {
+      toast.error('Ошибка загрузки изображения')
+    }
+
+    // Reset the input so the same file can be re-selected
+    e.target.value = ''
+  }
 
   const fetchPosts = useCallback(async () => {
     setLoading(true)
@@ -156,7 +198,7 @@ export default function Posts() {
 
   const openCreate = () => {
     setEditingPost(null)
-    setForm({ title: '', summary: '', body: '', type: 'news', status: 'draft', categoryId: '' })
+    setForm({ title: '', summary: '', body: '', type: 'news', status: 'draft', categoryId: '', tags: '' })
     editor?.commands.setContent('')
     setEditorOpen(true)
   }
@@ -170,6 +212,7 @@ export default function Posts() {
       type: post.type === 'newsletter' || post.type === 'knowledge' ? 'news' : post.type,
       status: post.status === 'archived' ? 'draft' : post.status,
       categoryId: post.category_id?.toString() ?? '',
+      tags: (post.tags ?? []).join(', '),
     })
     editor?.commands.setContent(post.body ?? '')
     setEditorOpen(true)
@@ -189,6 +232,11 @@ export default function Posts() {
 
     setSaving(true)
     try {
+      const tagsArray = form.tags
+        .split(',')
+        .map(t => t.trim())
+        .filter(Boolean)
+
       const payload = {
         title: form.title,
         summary: form.summary || undefined,
@@ -196,6 +244,7 @@ export default function Posts() {
         type: form.type,
         status: form.status,
         categoryId: form.categoryId ? parseInt(form.categoryId) : undefined,
+        tags: tagsArray.length > 0 ? tagsArray : null,
       }
 
       if (editingPost) {
@@ -419,11 +468,25 @@ export default function Posts() {
             />
           </div>
 
+          <Input
+            label="Теги (через запятую)"
+            value={form.tags}
+            onChange={(e) => setForm({ ...form, tags: e.target.value })}
+            placeholder="строительство, дерево, фундамент"
+          />
+
           {/* Tiptap Editor */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-text-secondary">Содержание</label>
             <div className="bg-bg-card border border-border rounded-lg overflow-hidden">
-              <TiptapToolbar editor={editor} />
+              <TiptapToolbar editor={editor} onImageUpload={handleImageUpload} />
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                onChange={onImageFileChange}
+                className="hidden"
+              />
               <EditorContent editor={editor} />
             </div>
           </div>

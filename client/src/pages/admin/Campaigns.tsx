@@ -17,6 +17,8 @@ import {
   CheckCircle2,
   Clock,
   Users,
+  MailOpen,
+  MousePointerClick,
 } from 'lucide-react'
 import type { EmailTemplate, EmailCampaign } from '@/types'
 
@@ -262,6 +264,9 @@ export default function Campaigns() {
                     <th className="text-left p-3 text-text-secondary font-medium">Тема</th>
                     <th className="text-left p-3 text-text-secondary font-medium">Статус</th>
                     <th className="text-left p-3 text-text-secondary font-medium">Получателей</th>
+                    <th className="text-left p-3 text-text-secondary font-medium">Отправлено</th>
+                    <th className="text-left p-3 text-text-secondary font-medium">Открыто</th>
+                    <th className="text-left p-3 text-text-secondary font-medium">Клики</th>
                     <th className="text-left p-3 text-text-secondary font-medium">Дата</th>
                   </tr>
                 </thead>
@@ -277,6 +282,18 @@ export default function Campaigns() {
                       <td className="p-3 text-text-secondary">
                         <Users size={14} className="inline mr-1" />
                         {c.recipient_count}
+                      </td>
+                      <td className="p-3 text-text-secondary">
+                        <Send size={14} className="inline mr-1" />
+                        {c.sent_count ?? 0}
+                      </td>
+                      <td className="p-3 text-text-secondary">
+                        <MailOpen size={14} className="inline mr-1" />
+                        {c.opened_count ?? 0}
+                      </td>
+                      <td className="p-3 text-text-secondary">
+                        <MousePointerClick size={14} className="inline mr-1" />
+                        {c.clicked_count ?? 0}
                       </td>
                       <td className="p-3 text-text-muted">
                         {new Date(c.created_at).toLocaleDateString('ru-RU')}

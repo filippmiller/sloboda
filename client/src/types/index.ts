@@ -32,6 +32,7 @@ export interface Post {
   author_user_id?: number
   featured_image?: string
   is_pinned?: boolean
+  tags?: string[]
   views?: number
   published_at?: string
   created_at: string
@@ -193,6 +194,8 @@ export interface EmailCampaign {
   filters?: Record<string, string>
   recipient_count: number
   sent_count?: number
+  opened_count?: number
+  clicked_count?: number
   failed_count?: number
   status: 'draft' | 'sending' | 'sent' | 'failed'
   created_by?: number

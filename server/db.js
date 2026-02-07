@@ -312,6 +312,11 @@ async function initDatabase() {
             ALTER TABLE posts ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN DEFAULT FALSE
         `);
 
+        // Add tags column to posts
+        await client.query(`
+            ALTER TABLE posts ADD COLUMN IF NOT EXISTS tags TEXT[]
+        `);
+
         // Seed default categories
         await client.query(`
             INSERT INTO categories (name, slug, description, sort_order) VALUES
@@ -1186,8 +1191,8 @@ async function createPost(data) {
 
         const result = await client.query(
             `INSERT INTO posts
-                (title, slug, summary, body, type, status, category_id, author_admin_id, author_user_id, featured_image, published_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                (title, slug, summary, body, type, status, category_id, author_admin_id, author_user_id, featured_image, tags, published_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
              RETURNING *`,
             [
                 data.title,
@@ -1200,6 +1205,7 @@ async function createPost(data) {
                 data.authorAdminId || null,
                 data.authorUserId || null,
                 data.featuredImage || null,
+                data.tags || null,
                 data.status === 'published' ? new Date() : null
             ]
         );
@@ -1357,6 +1363,7 @@ async function updatePost(id, data) {
             categoryId: 'category_id',
             featuredImage: 'featured_image',
             isPinned: 'is_pinned',
+            tags: 'tags',
             publishedAt: 'published_at'
         };
 

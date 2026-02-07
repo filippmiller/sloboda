@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, type ChangeEvent } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -6,6 +6,7 @@ import { useDropzone } from 'react-dropzone'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import LinkExtension from '@tiptap/extension-link'
+import ImageExtension from '@tiptap/extension-image'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
@@ -18,6 +19,7 @@ import {
   Heading2,
   List,
   Link2,
+  ImageIcon,
   Loader2,
   Clock,
   CheckCircle,
@@ -106,6 +108,7 @@ export default function KnowledgeSubmit() {
           class: 'text-accent underline',
         },
       }),
+      ImageExtension.configure({ inline: false }),
     ],
     content: '',
     editorProps: {
@@ -118,6 +121,32 @@ export default function KnowledgeSubmit() {
       form.setValue('body', ed.getHTML(), { shouldValidate: true })
     },
   })
+
+  const editorImageRef = useRef<HTMLInputElement>(null)
+
+  const handleEditorImageUpload = () => {
+    editorImageRef.current?.click()
+  }
+
+  const onEditorImageChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !editor) return
+
+    const fd = new FormData()
+    fd.append('image', file)
+
+    try {
+      const res = await api.post('/user/upload/image', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      const url = res.data.url
+      editor.chain().focus().setImage({ src: url }).run()
+    } catch {
+      toast.error('Ошибка загрузки изображения')
+    }
+
+    e.target.value = ''
+  }
 
   // Fetch categories
   useEffect(() => {
@@ -413,6 +442,19 @@ export default function KnowledgeSubmit() {
                       >
                         <Link2 size={16} />
                       </ToolbarButton>
+                      <ToolbarButton
+                        onClick={handleEditorImageUpload}
+                        title="Изображение"
+                      >
+                        <ImageIcon size={16} />
+                      </ToolbarButton>
+                      <input
+                        ref={editorImageRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={onEditorImageChange}
+                        className="hidden"
+                      />
                     </div>
                   )}
                   <EditorContent editor={editor} />

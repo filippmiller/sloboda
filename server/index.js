@@ -16,6 +16,7 @@ const { router: adminContentRouter, setDb: setAdminContentDb, setEmailService: s
 const { requireAuth, requireSuperAdmin } = require('./middleware/auth');
 const emailService = require('./services/email');
 const { setDb: setAiQueueDb } = require('./services/ai/queue');
+const { upload: fileUpload } = require('./services/fileStorage');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -27,7 +28,7 @@ app.use(helmet({
             defaultSrc: ["'self'"],
             styleSrc: ["'self'", "'unsafe-inline'", "fonts.googleapis.com"],
             fontSrc: ["'self'", "fonts.gstatic.com"],
-            imgSrc: ["'self'", "data:", "https://images.unsplash.com"],
+            imgSrc: ["'self'", "data:", "blob:", "https://images.unsplash.com"],
             scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
             connectSrc: ["'self'"],
         }
@@ -109,6 +110,49 @@ app.use('/api/user', userPortalRouter);
 // ADMIN CONTENT ROUTES
 // ============================================
 app.use('/api/admin', adminContentRouter);
+
+// ============================================
+// IMAGE UPLOAD ROUTE (authenticated)
+// ============================================
+
+app.post('/api/upload/image', requireAuth, fileUpload.single('image'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ success: false, error: 'No image file provided' });
+    }
+
+    const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedImageTypes.includes(req.file.mimetype)) {
+        // Delete the uploaded file since it's not an image
+        const filePath = req.file.path;
+        fs.unlink(filePath, () => {});
+        return res.status(400).json({ success: false, error: 'Only image files are allowed (jpeg, png, webp, gif)' });
+    }
+
+    res.json({
+        success: true,
+        url: `/uploads/${req.file.filename}`,
+    });
+});
+
+// User image upload (user auth)
+const { requireUserAuth } = require('./middleware/userAuth');
+app.post('/api/user/upload/image', requireUserAuth, fileUpload.single('image'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ success: false, error: 'No image file provided' });
+    }
+
+    const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedImageTypes.includes(req.file.mimetype)) {
+        const filePath = req.file.path;
+        fs.unlink(filePath, () => {});
+        return res.status(400).json({ success: false, error: 'Only image files are allowed (jpeg, png, webp, gif)' });
+    }
+
+    res.json({
+        success: true,
+        url: `/uploads/${req.file.filename}`,
+    });
+});
 
 // ============================================
 // PUBLIC API ROUTES

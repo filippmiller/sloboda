@@ -172,7 +172,7 @@ router.get('/posts', requireAuth, async (req, res) => {
  */
 router.post('/posts', requireAuth, async (req, res) => {
     try {
-        const { title, summary, body, type, status, categoryId, featuredImage } = req.body;
+        const { title, summary, body, type, status, categoryId, featuredImage, tags } = req.body;
 
         if (!title || !body) {
             return res.status(400).json({
@@ -203,7 +203,8 @@ router.post('/posts', requireAuth, async (req, res) => {
             status: status || 'draft',
             categoryId: categoryId ? parseInt(categoryId) : null,
             authorAdminId: req.admin.id,
-            featuredImage: featuredImage || null
+            featuredImage: featuredImage || null,
+            tags: Array.isArray(tags) ? tags : null
         });
 
         res.json({ success: true, data: post });
@@ -220,7 +221,7 @@ router.post('/posts', requireAuth, async (req, res) => {
 router.patch('/posts/:id', requireAuth, async (req, res) => {
     try {
         const postId = parseInt(req.params.id);
-        const { title, slug, summary, body, type, status, categoryId, featuredImage, isPinned } = req.body;
+        const { title, slug, summary, body, type, status, categoryId, featuredImage, isPinned, tags } = req.body;
 
         const updates = {};
         if (title !== undefined) updates.title = title;
@@ -242,6 +243,7 @@ router.patch('/posts/:id', requireAuth, async (req, res) => {
         if (categoryId !== undefined) updates.categoryId = categoryId ? parseInt(categoryId) : null;
         if (featuredImage !== undefined) updates.featuredImage = featuredImage;
         if (isPinned !== undefined) updates.isPinned = !!isPinned;
+        if (tags !== undefined) updates.tags = Array.isArray(tags) ? tags : null;
 
         if (Object.keys(updates).length === 0) {
             return res.status(400).json({ success: false, error: 'No fields to update' });
@@ -504,7 +506,8 @@ router.post('/knowledge/:id/publish', requireAuth, async (req, res) => {
             status: 'published',
             categoryId: submission.final_category_id || submission.ai_category_id || submission.suggested_category_id,
             authorAdminId: req.admin.id,
-            authorUserId: submission.user_id
+            authorUserId: submission.user_id,
+            tags: submission.ai_tags || null
         });
 
         // Link the post back to the submission
