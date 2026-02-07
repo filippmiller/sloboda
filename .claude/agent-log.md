@@ -151,3 +151,64 @@ Evaluated 30 improvement ideas, rejected 12 with reasons, and implemented the to
 → `.claude/sessions/2026-02-07-platform-improvements.md`
 
 ---
+
+## 2026-02-07 08:00 — Backlog features: code-splitting, campaign analytics, tags, image upload
+
+**Area:** Full Stack / Admin Panel / User Portal
+**Type:** feature
+
+### Files Changed
+- `client/src/App.tsx` — code-splitting with React.lazy for 21 pages, Suspense wrapper with LoadingSpinner
+- `client/src/types/index.ts` — added tags to Post, opened_count/clicked_count to EmailCampaign
+- `client/src/pages/admin/Campaigns.tsx` — added 3 analytics columns (Sent, Opened, Clicked) with icons
+- `client/src/pages/admin/Posts.tsx` — tags input field, image upload button + handler, @tiptap/extension-image
+- `client/src/pages/user/Library.tsx` — tag chip filter bar, getItemTags helper, filteredItems, tag display on cards
+- `client/src/pages/user/KnowledgeSubmit.tsx` — image upload button + handler for user Tiptap editor
+- `server/db.js` — tags TEXT[] column migration, createPost/updatePost tags support
+- `server/routes/adminContent.js` — tags in POST/PATCH posts, knowledge publish copies ai_tags to post
+- `server/index.js` — POST /api/upload/image (admin), POST /api/user/upload/image (user), CSP blob:
+
+### Functions/Symbols Modified
+- `LoadingSpinner()` in App.tsx — new: Suspense fallback
+- `React.lazy()` x21 in App.tsx — new: dynamic imports for all pages
+- `createPost()` in db.js — modified: now accepts tags (12th param)
+- `updatePost()` in db.js — modified: fieldMap includes tags
+- `POST /api/upload/image` in index.js — new: admin image upload
+- `POST /api/user/upload/image` in index.js — new: user image upload
+- `handleImageUpload()` / `onImageFileChange()` in Posts.tsx — new: image upload flow
+- `handleEditorImageUpload()` / `onEditorImageChange()` in KnowledgeSubmit.tsx — new: user image upload
+- `getItemTags()` in Library.tsx — new: extract tags from article or knowledge item
+
+### Database Tables
+- `posts` — schema change: added `tags TEXT[]` column
+
+### Summary
+Implemented 4 backlog features from the plan: (1) Code-splitting with React.lazy reduces initial bundle by splitting 21 pages into separate chunks. (2) Email campaign analytics displays sent/opened/clicked counts in admin campaigns table. (3) Tags system adds TEXT[] column to posts, comma-separated tags input in admin editor, tag chip filtering in user library, and auto-copying ai_tags from knowledge submissions to published posts. (4) Image upload adds endpoints for admin and user, integrates @tiptap/extension-image into both editors with file upload to /uploads/.
+
+### Session Notes
+→ `.claude/sessions/2026-02-07-backlog-features-e2e.md`
+
+---
+
+## 2026-02-07 09:00 — Fix invite endpoint + E2E user flow verification
+
+**Area:** Auth / User Portal / Testing
+**Type:** bugfix + testing
+
+### Files Changed
+- `server/routes/userAuth.js` — added GET /api/user/auth/invite/:token endpoint
+
+### Functions/Symbols Modified
+- `GET /invite/:token` in userAuth.js — new: validates invite token, checks expiry/acceptance, returns email + name + expires_at for registration form prefill
+
+### Database Tables
+- `user_invites` — read: new endpoint queries invite by token
+- `registrations` — read: endpoint fetches registration for name prefill
+
+### Summary
+Fixed critical missing endpoint: Register.tsx called `GET /api/user/auth/invite/:token` to prefill the invite acceptance form, but this route didn't exist in the backend. Added the endpoint with proper validation (token existence, expiry, already-accepted checks). Then ran comprehensive E2E testing against production using Playwright: landing page registration, admin invite sending, invite acceptance with prefill verification, user portal login, dashboard, library, knowledge submission ("Основы автономного водоснабжения"), profile, news, bookmarks, librarian AI chat, logout, and re-login. All 15 steps passed.
+
+### Session Notes
+→ `.claude/sessions/2026-02-07-backlog-features-e2e.md`
+
+---

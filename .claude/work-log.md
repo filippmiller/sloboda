@@ -187,3 +187,47 @@ Brainstormed 30 improvement ideas, critically evaluated each, implemented top 9:
 - Remaining ideas: library tag filtering, image upload for articles, email analytics, content tags
 
 **Session notes**: `.claude/sessions/2026-02-07-platform-improvements.md`
+
+## 2026-02-07 - Backlog Features + E2E User Flow Verification
+
+**Status**: Completed
+**Commits**: 09fe39b, 21bc803
+
+### What was done
+Implemented 4 remaining backlog features from the plan, then ran comprehensive E2E testing.
+
+**Features implemented:**
+1. **Code-splitting** — React.lazy for all 21 pages, Suspense fallback. Build produces ~50 separate chunks.
+2. **Email campaign analytics** — Sent/Opened/Clicked columns in admin campaigns table.
+3. **Library tags + content tags** — TEXT[] column on posts, comma-separated tags input in admin, tag chip filter bar in user library, auto-copy ai_tags from knowledge submissions.
+4. **Image upload for Tiptap** — Admin + user upload endpoints, @tiptap/extension-image integration in both editors.
+
+**Bug fixed:**
+- Missing `GET /api/user/auth/invite/:token` endpoint — Register.tsx called it for prefill but it didn't exist.
+
+**E2E testing (15 steps, all pass):**
+- Landing page registration (multi-step form)
+- Admin login + find registration + send invite
+- User invite acceptance (form prefill works with new endpoint)
+- Auto-login to dashboard ("Привет, Test User E2E!")
+- Library page (categories, search, tags, empty state)
+- Knowledge submission ("Основы автономного водоснабжения" — submitted and appears as "На модерации")
+- Profile page (all data correct)
+- News, Bookmarks, Librarian pages render
+- Logout + re-login flow
+
+### Decisions made
+- Tested against production (ports 3000/3001 occupied locally)
+- Tags as PostgreSQL TEXT[] (native array support)
+- Separate image upload endpoints for admin vs user auth
+
+### Issues encountered
+- Local server couldn't start (ports occupied) — tested against production instead
+- Tiptap "Duplicate extension names" console warning (cosmetic, non-blocking)
+
+### Next steps
+- Set RESEND_API_KEY on Railway for actual email delivery
+- Persistent file storage for uploads (S3/R2 — Railway is ephemeral)
+- Clean up login page autocomplete defaults
+
+**Session notes**: `.claude/sessions/2026-02-07-backlog-features-e2e.md`
