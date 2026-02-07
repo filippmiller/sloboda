@@ -283,6 +283,50 @@ router.get('/magic-link/verify', async (req, res) => {
 });
 
 /**
+ * GET /api/user/auth/invite/:token
+ * Verify invite token and return invite info for registration form prefill
+ */
+router.get('/invite/:token', async (req, res) => {
+    try {
+        const { token } = req.params;
+
+        const invite = await db.getUserInviteByToken(token);
+        if (!invite) {
+            return res.status(404).json({
+                success: false,
+                message: 'Приглашение не найдено или недействительно'
+            });
+        }
+
+        if (new Date() > new Date(invite.expires_at)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Срок действия приглашения истёк'
+            });
+        }
+
+        if (invite.accepted_at) {
+            return res.status(400).json({
+                success: false,
+                message: 'Приглашение уже принято'
+            });
+        }
+
+        // Get registration data for name prefill
+        const registration = invite.registration_id ? await db.getRegistrationById(invite.registration_id) : null;
+
+        res.json({
+            email: invite.email,
+            name: registration ? registration.name : null,
+            expires_at: invite.expires_at
+        });
+    } catch (err) {
+        console.error('Get invite info error:', err);
+        res.status(500).json({ success: false, message: 'Ошибка проверки приглашения' });
+    }
+});
+
+/**
  * POST /api/user/auth/accept-invite
  * Accept invite and set password
  */
