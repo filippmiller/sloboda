@@ -1,6 +1,5 @@
 -- ============================================
 -- SLOBODA FORUM SYSTEM - DATABASE MIGRATIONS
--- CORRECTED: All tables use forum_ prefix
 -- ============================================
 
 -- ============================================
@@ -30,24 +29,25 @@ CREATE TABLE IF NOT EXISTS forum_threads (
     last_activity_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_forum_threads_category ON forum_threads(category_id);
-CREATE INDEX IF NOT EXISTS idx_forum_threads_author ON forum_threads(author_id);
-CREATE INDEX IF NOT EXISTS idx_forum_threads_last_activity ON forum_threads(last_activity_at DESC);
-CREATE INDEX IF NOT EXISTS idx_forum_threads_category_activity ON forum_threads(category_id, last_activity_at DESC);
+CREATE INDEX IF NOT EXISTS idx_threads_category ON threads(category_id);
+CREATE INDEX IF NOT EXISTS idx_threads_author ON threads(author_id);
+CREATE INDEX IF NOT EXISTS idx_threads_last_activity ON threads(last_activity_at DESC);
+CREATE INDEX IF NOT EXISTS idx_threads_category_activity ON threads(category_id, last_activity_at DESC);
 
 -- ============================================
--- FORUM COMMENTS (for threads only)
+-- COMMENTS (works for both posts and threads)
 -- ============================================
 CREATE TABLE IF NOT EXISTS forum_comments (
     id SERIAL PRIMARY KEY,
     body TEXT NOT NULL,
     author_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
 
-    -- Belongs to thread
-    thread_id INTEGER NOT NULL REFERENCES forum_threads(id) ON DELETE CASCADE,
+    -- Polymorphic: can belong to post OR thread
+    post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
+    thread_id INTEGER REFERENCES threads(id) ON DELETE CASCADE,
 
     -- Nested threading
-    parent_comment_id INTEGER REFERENCES forum_comments(id) ON DELETE CASCADE,
+    parent_comment_id INTEGER REFERENCES comments(id) ON DELETE CASCADE,
     depth INTEGER DEFAULT 0, -- 0 = top-level, increments with nesting
 
     -- Engagement
@@ -60,29 +60,36 @@ CREATE TABLE IF NOT EXISTS forum_comments (
     deleted_at TIMESTAMP,
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    -- Constraint: must belong to either post OR thread, not both
+    CONSTRAINT check_comment_parent CHECK (
+        (post_id IS NOT NULL AND thread_id IS NULL) OR
+        (post_id IS NULL AND thread_id IS NOT NULL)
+    )
 );
 
-CREATE INDEX IF NOT EXISTS idx_forum_comments_thread ON forum_comments(thread_id);
-CREATE INDEX IF NOT EXISTS idx_forum_comments_parent ON forum_comments(parent_comment_id);
-CREATE INDEX IF NOT EXISTS idx_forum_comments_author ON forum_comments(author_id);
-CREATE INDEX IF NOT EXISTS idx_forum_comments_thread_parent ON forum_comments(thread_id, parent_comment_id);
+CREATE INDEX IF NOT EXISTS idx_comments_post ON comments(post_id);
+CREATE INDEX IF NOT EXISTS idx_comments_thread ON comments(thread_id);
+CREATE INDEX IF NOT EXISTS idx_comments_parent ON comments(parent_comment_id);
+CREATE INDEX IF NOT EXISTS idx_comments_author ON comments(author_id);
+CREATE INDEX IF NOT EXISTS idx_comments_thread_parent ON comments(thread_id, parent_comment_id);
 
 -- ============================================
--- FORUM VOTES (for comments)
+-- COMMENT VOTES
 -- ============================================
 CREATE TABLE IF NOT EXISTS forum_votes (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    comment_id INTEGER NOT NULL REFERENCES forum_comments(id) ON DELETE CASCADE,
+    comment_id INTEGER NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
     vote_value INTEGER NOT NULL CHECK (vote_value IN (-1, 1)), -- -1 downvote, 1 upvote
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, comment_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_forum_votes_comment ON forum_votes(comment_id);
+CREATE INDEX IF NOT EXISTS idx_comment_votes_comment ON comment_votes(comment_id);
 
 -- ============================================
--- FORUM ROLES (tiered permission system)
+-- USER ROLES (tiered permission system)
 -- ============================================
 CREATE TABLE IF NOT EXISTS forum_roles (
     id SERIAL PRIMARY KEY,
@@ -137,11 +144,11 @@ CREATE TABLE IF NOT EXISTS forum_roles (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_forum_roles_user ON forum_roles(user_id);
-CREATE INDEX IF NOT EXISTS idx_forum_roles_role ON forum_roles(role);
+CREATE INDEX IF NOT EXISTS idx_user_roles_user ON user_roles(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_roles_role ON user_roles(role);
 
 -- ============================================
--- FORUM REPUTATION (for automatic tier advancement)
+-- USER REPUTATION (for automatic tier advancement)
 -- ============================================
 CREATE TABLE IF NOT EXISTS forum_reputation (
     id SERIAL PRIMARY KEY,
@@ -164,11 +171,11 @@ CREATE TABLE IF NOT EXISTS forum_reputation (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_forum_reputation_user ON forum_reputation(user_id);
-CREATE INDEX IF NOT EXISTS idx_forum_reputation_points ON forum_reputation(total_points DESC);
+CREATE INDEX IF NOT EXISTS idx_user_reputation_user ON user_reputation(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_reputation_points ON user_reputation(total_points DESC);
 
 -- ============================================
--- FORUM MODERATION ACTIONS (audit trail)
+-- MODERATION ACTIONS (audit trail)
 -- ============================================
 CREATE TABLE IF NOT EXISTS forum_moderation_actions (
     id SERIAL PRIMARY KEY,
@@ -177,8 +184,9 @@ CREATE TABLE IF NOT EXISTS forum_moderation_actions (
 
     -- Target of action
     target_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-    target_comment_id INTEGER REFERENCES forum_comments(id) ON DELETE SET NULL,
-    target_thread_id INTEGER REFERENCES forum_threads(id) ON DELETE SET NULL,
+    target_comment_id INTEGER REFERENCES comments(id) ON DELETE SET NULL,
+    target_thread_id INTEGER REFERENCES threads(id) ON DELETE SET NULL,
+    target_post_id INTEGER REFERENCES posts(id) ON DELETE SET NULL,
 
     reason TEXT,
     details JSONB, -- Store additional context
@@ -186,12 +194,12 @@ CREATE TABLE IF NOT EXISTS forum_moderation_actions (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_forum_moderation_actions_moderator ON forum_moderation_actions(moderator_id);
-CREATE INDEX IF NOT EXISTS idx_forum_moderation_actions_target_user ON forum_moderation_actions(target_user_id);
-CREATE INDEX IF NOT EXISTS idx_forum_moderation_actions_type ON forum_moderation_actions(action_type);
+CREATE INDEX IF NOT EXISTS idx_moderation_actions_moderator ON moderation_actions(moderator_id);
+CREATE INDEX IF NOT EXISTS idx_moderation_actions_target_user ON moderation_actions(target_user_id);
+CREATE INDEX IF NOT EXISTS idx_moderation_actions_type ON moderation_actions(action_type);
 
 -- ============================================
--- FORUM USER BANS
+-- USER BANS
 -- ============================================
 CREATE TABLE IF NOT EXISTS forum_bans (
     id SERIAL PRIMARY KEY,
@@ -209,11 +217,11 @@ CREATE TABLE IF NOT EXISTS forum_bans (
     lifted_by INTEGER REFERENCES admins(id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_forum_bans_user ON forum_bans(user_id);
-CREATE INDEX IF NOT EXISTS idx_forum_bans_active ON forum_bans(is_active);
+CREATE INDEX IF NOT EXISTS idx_user_bans_user ON user_bans(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_bans_active ON user_bans(is_active);
 
 -- ============================================
--- FORUM USER WARNINGS
+-- USER WARNINGS
 -- ============================================
 CREATE TABLE IF NOT EXISTS forum_warnings (
     id SERIAL PRIMARY KEY,
@@ -226,10 +234,10 @@ CREATE TABLE IF NOT EXISTS forum_warnings (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_forum_warnings_user ON forum_warnings(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_warnings_user ON user_warnings(user_id);
 
 -- ============================================
--- FORUM MODERATOR CATEGORIES (category-specific mods)
+-- MODERATOR CATEGORIES (category-specific mods)
 -- ============================================
 CREATE TABLE IF NOT EXISTS forum_moderator_categories (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -243,10 +251,10 @@ CREATE TABLE IF NOT EXISTS forum_moderator_categories (
 -- ============================================
 
 -- Update thread's last_activity_at when new comment added
-CREATE OR REPLACE FUNCTION update_forum_thread_activity()
+CREATE OR REPLACE FUNCTION update_thread_activity()
 RETURNS TRIGGER AS $$
 BEGIN
-    UPDATE forum_threads
+    UPDATE threads
     SET last_activity_at = NEW.created_at,
         comment_count = comment_count + 1
     WHERE id = NEW.thread_id;
@@ -254,33 +262,34 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS trigger_update_forum_thread_activity ON forum_comments;
-CREATE TRIGGER trigger_update_forum_thread_activity
-AFTER INSERT ON forum_comments
+DROP TRIGGER IF EXISTS trigger_update_thread_activity ON comments;
+CREATE TRIGGER trigger_update_thread_activity
+AFTER INSERT ON comments
 FOR EACH ROW
-EXECUTE FUNCTION update_forum_thread_activity();
+WHEN (NEW.thread_id IS NOT NULL)
+EXECUTE FUNCTION update_thread_activity();
 
 -- Update comment vote counts when vote added/changed
-CREATE OR REPLACE FUNCTION update_forum_comment_votes()
+CREATE OR REPLACE FUNCTION update_comment_votes()
 RETURNS TRIGGER AS $$
 BEGIN
     IF TG_OP = 'INSERT' THEN
         IF NEW.vote_value = 1 THEN
-            UPDATE forum_comments SET upvote_count = upvote_count + 1 WHERE id = NEW.comment_id;
+            UPDATE comments SET upvote_count = upvote_count + 1 WHERE id = NEW.comment_id;
         ELSE
-            UPDATE forum_comments SET downvote_count = downvote_count + 1 WHERE id = NEW.comment_id;
+            UPDATE comments SET downvote_count = downvote_count + 1 WHERE id = NEW.comment_id;
         END IF;
     ELSIF TG_OP = 'UPDATE' THEN
         IF OLD.vote_value = 1 AND NEW.vote_value = -1 THEN
-            UPDATE forum_comments SET upvote_count = upvote_count - 1, downvote_count = downvote_count + 1 WHERE id = NEW.comment_id;
+            UPDATE comments SET upvote_count = upvote_count - 1, downvote_count = downvote_count + 1 WHERE id = NEW.comment_id;
         ELSIF OLD.vote_value = -1 AND NEW.vote_value = 1 THEN
-            UPDATE forum_comments SET downvote_count = downvote_count - 1, upvote_count = upvote_count + 1 WHERE id = NEW.comment_id;
+            UPDATE comments SET downvote_count = downvote_count - 1, upvote_count = upvote_count + 1 WHERE id = NEW.comment_id;
         END IF;
     ELSIF TG_OP = 'DELETE' THEN
         IF OLD.vote_value = 1 THEN
-            UPDATE forum_comments SET upvote_count = upvote_count - 1 WHERE id = OLD.comment_id;
+            UPDATE comments SET upvote_count = upvote_count - 1 WHERE id = OLD.comment_id;
         ELSE
-            UPDATE forum_comments SET downvote_count = downvote_count - 1 WHERE id = OLD.comment_id;
+            UPDATE comments SET downvote_count = downvote_count - 1 WHERE id = OLD.comment_id;
         END IF;
         RETURN OLD;
     END IF;
@@ -288,11 +297,11 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS trigger_update_forum_comment_votes ON forum_votes;
-CREATE TRIGGER trigger_update_forum_comment_votes
-AFTER INSERT OR UPDATE OR DELETE ON forum_votes
+DROP TRIGGER IF EXISTS trigger_update_comment_votes ON comment_votes;
+CREATE TRIGGER trigger_update_comment_votes
+AFTER INSERT OR UPDATE OR DELETE ON comment_votes
 FOR EACH ROW
-EXECUTE FUNCTION update_forum_comment_votes();
+EXECUTE FUNCTION update_comment_votes();
 
 -- ============================================
 -- COMPLETED
