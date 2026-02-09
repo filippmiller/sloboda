@@ -5,6 +5,36 @@ Each entry tracks: timestamp, agent session, functionality area, files changed, 
 
 ---
 
+## 2026-02-09 12:45 — Landing: compact hero theses + always-on navigation + concept page
+
+**Area:** Frontend / Landing / Content Architecture
+**Type:** feature
+
+### Issues
+- `derevnya-z06` — Landing: compact hero тезисы + sticky навигация + ссылка на подробную концепцию (closed)
+
+### Files Changed
+- `src/index.html` — reworked hero into high-signal layout: definition + lede + CTA cluster + “Key theses” block with anchor jumps; added “How it works” and “Governance” sections; improved meta description/OG text; added always-on header nav + mobile menu; added back-to-top button.
+- `src/styles.css` — added page-level tokens (`--header-h`, `--radius`, `--shadow`), skip link + focus-visible styles, new hero grid/card/thesis styles, sticky header/nav/menu styles, mobile-first breakpoints and scroll-margin for anchor jumps, “How” + “Governance” section styles, back-to-top and reduced-motion handling.
+- `src/script.js` — replaced “header appears on scroll” logic with always-on header behavior; active-section highlighting for nav anchors; mobile menu close behavior; back-to-top visibility + smooth scroll respecting reduced motion.
+- `src/concept.html` — new: detailed /concept page (expanded explanation of library/curation/registry/network/governance/roadmap) with the same navigation model.
+- `server/index.js` — added `/concept` static route; improved env loading for tests (`.env.test` when `NODE_ENV=test`); added test-only toggles: `TEST_NO_DB` (use stub DB) and `DISABLE_CLIENT_BUILD` (force vanilla admin for Playwright).
+- `server/db_stub.js` — new: in-memory DB stub (admins/registrations/audit/finance) to run Playwright tests without Postgres.
+- `playwright.config.js` — now starts webServer automatically for E2E; sets test env vars (`NODE_ENV=test`, `TEST_NO_DB=true`, `DISABLE_CLIENT_BUILD=true`, seeded admin credentials).
+- `src/admin/admin.js` — stabilized invite flow: refreshes the admin list without rerendering the entire page, so the “Invitation created” result stays visible for tests/users.
+- `AGENTS.md` — updated with global skills snippet (as provided in session context).
+
+### Commit
+- `5f470b5` — `feat: compact landing hero, sticky nav, concept page`
+
+### Verification
+- `npm test` (Playwright): **12 passed** using test webServer + in-memory DB stub.
+
+### Notes
+- Design direction used: **Tech Noir / high-signal** (dense information hierarchy, deliberate tokens, mobile-first navigation).
+
+---
+
 ## 2026-02-06 21:30 — Complete member portal platform build
 
 **Area:** Full Stack / Platform
