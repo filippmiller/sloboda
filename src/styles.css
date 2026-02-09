@@ -22,7 +22,7 @@
     --font-display: 'Unbounded', sans-serif;
     --font-body: 'Golos Text', sans-serif;
     --header-h: 64px;
-    --header-max-w: 1200px;
+    --header-max-w: 1400px;
     --radius: 14px;
     --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
@@ -159,6 +159,13 @@ textarea:focus-visible {
     gap: 1rem;
 }
 
+@media (min-width: 1200px) {
+    .sticky-inner {
+        padding: 0 2rem;
+        gap: 1.25rem;
+    }
+}
+
 .sticky-logo {
     font-family: var(--font-display);
     font-size: 0.9rem;
@@ -185,6 +192,17 @@ textarea:focus-visible {
     border-radius: 10px;
     transition: color 0.2s ease, background 0.2s ease;
     white-space: nowrap;
+}
+
+@media (min-width: 1200px) {
+    .sticky-nav {
+        gap: 1.15rem;
+    }
+
+    .sticky-nav a {
+        font-size: 0.82rem;
+        padding: 0.5rem 0.7rem;
+    }
 }
 
 .sticky-nav a:hover {
