@@ -213,6 +213,11 @@ app.use('/api/votes', votesRouter);
 const forumAnalytics = require('./routes/forum-analytics');
 forumAnalytics.setDb(db);
 app.use('/api/forum/analytics', forumAnalytics.router);
+
+// Admin seed endpoint (temporary)
+const adminSeed = require('./routes/admin-seed');
+adminSeed.setDb(db);
+app.use('/api/admin', adminSeed.router);
 app.use('/api/moderation', moderationRouter);
 app.use('/api/roles', rolesRouter);
 

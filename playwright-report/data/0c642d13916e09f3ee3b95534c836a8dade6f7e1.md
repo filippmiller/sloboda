@@ -1,0 +1,77 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - img [ref=e7]
+        - heading "ADMIN" [level=1] [ref=e9]
+      - navigation [ref=e11]:
+        - link "Обзор" [ref=e12] [cursor=pointer]:
+          - /url: /admin
+          - img [ref=e13]
+          - text: Обзор
+        - link "Заявки" [ref=e18] [cursor=pointer]:
+          - /url: /admin/registrations
+          - img [ref=e19]
+          - text: Заявки
+        - link "Пользователи" [ref=e22] [cursor=pointer]:
+          - /url: /admin/users
+          - img [ref=e23]
+          - text: Пользователи
+        - link "Форум" [ref=e28] [cursor=pointer]:
+          - /url: /admin/forum
+          - img [ref=e30]
+          - text: Форум
+        - link "Публикации" [ref=e32] [cursor=pointer]:
+          - /url: /admin/posts
+          - img [ref=e33]
+          - text: Публикации
+        - link "Знания" [ref=e36] [cursor=pointer]:
+          - /url: /admin/knowledge
+          - img [ref=e37]
+          - text: Знания
+        - link "Категории" [ref=e39] [cursor=pointer]:
+          - /url: /admin/categories
+          - img [ref=e40]
+          - text: Категории
+        - link "Финансы" [ref=e44] [cursor=pointer]:
+          - /url: /admin/finance
+          - img [ref=e45]
+          - text: Финансы
+        - link "Рассылки" [ref=e48] [cursor=pointer]:
+          - /url: /admin/campaigns
+          - img [ref=e49]
+          - text: Рассылки
+        - link "Аналитика" [ref=e52] [cursor=pointer]:
+          - /url: /admin/analytics
+          - img [ref=e53]
+          - text: Аналитика
+        - link "Администраторы" [ref=e55] [cursor=pointer]:
+          - /url: /admin/admins
+          - img [ref=e56]
+          - text: Администраторы
+        - link "Настройки" [ref=e59] [cursor=pointer]:
+          - /url: /admin/settings
+          - img [ref=e60]
+          - text: Настройки
+      - generic [ref=e63]:
+        - generic [ref=e64]:
+          - paragraph [ref=e65]: Super Admin
+          - paragraph [ref=e66]: admin@sloboda.land
+        - button "Выйти" [ref=e67]:
+          - img [ref=e68]
+          - text: Выйти
+    - main [ref=e71]:
+      - generic [ref=e74]:
+        - img [ref=e76]
+        - generic [ref=e78]:
+          - heading "Ошибка на странице" [level=2] [ref=e79]
+          - paragraph [ref=e80]: Эта страница столкнулась с ошибкой. Остальные разделы работают нормально.
+        - generic [ref=e81]: Cannot read properties of undefined (reading 'filter')
+        - button "Попробовать снова" [ref=e82]:
+          - img [ref=e83]
+          - text: Попробовать снова
+  - region "Notifications alt+T"
+```
