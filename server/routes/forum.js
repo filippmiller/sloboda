@@ -9,6 +9,18 @@ function setDb(database) {
   db = database;
 }
 
+// DEBUG endpoint to verify db object structure
+router.get('/debug', (req, res) => {
+  res.json({
+    hasDb: !!db,
+    hasPool: !!db?.pool,
+    hasQuery: !!db?.query,
+    hasPoolQuery: !!db?.pool?.query,
+    dbType: typeof db,
+    poolType: typeof db?.pool
+  });
+});
+
 // GET /api/forum/threads - List all threads with pagination and filtering
 router.get('/threads', async (req, res) => {
   try {
