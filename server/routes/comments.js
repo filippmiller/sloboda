@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { requireUserAuth } = require('../middleware/rolePermission');
+const { requireUserAuth } = require('../middleware/userAuth');
 
 let db;
 

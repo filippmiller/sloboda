@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { requireUserAuth, requirePermission } = require('../middleware/rolePermission');
+const { requireUserAuth } = require('../middleware/userAuth');
+const { requirePermission } = require('../middleware/rolePermission');
 
 let db;
 
