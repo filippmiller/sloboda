@@ -12,10 +12,6 @@ function setDb(database) {
 // GET /api/forum/roles/users - Get all users with their roles and reputation
 router.get('/users', requireAuth, async (req, res) => {
   try {
-    // First check if forum_roles table exists
-    const testQuery = await db.pool.query(`SELECT COUNT(*) FROM forum_roles`);
-    console.log('[forum-roles] Forum roles count:', testQuery.rows[0].count);
-
     const query = `
       SELECT
         fr.id,
@@ -29,7 +25,7 @@ router.get('/users', requireAuth, async (req, res) => {
         fr.can_post,
         fr.can_comment,
         fr.can_create_threads,
-        COALESCE(fr.can_moderate, false) as can_moderate
+        COALESCE(fr.can_ban_users, false) as can_moderate
       FROM forum_roles fr
       LEFT JOIN users u ON u.id = fr.user_id
       LEFT JOIN forum_reputation frep ON frep.user_id = fr.user_id
