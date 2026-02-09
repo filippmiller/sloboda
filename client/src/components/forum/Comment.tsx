@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { MessageSquare, Edit2, Trash2 } from 'lucide-react';
 import { VoteButtons } from './VoteButtons';
 import { CommentForm } from './CommentForm';
-import { Button } from '@/components/ui/Button';
+import Button from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';

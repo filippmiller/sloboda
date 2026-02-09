@@ -1,7 +1,7 @@
 // Moderator action buttons for threads
 import { useState } from 'react';
 import { Pin, Lock, Unlock, AlertTriangle, Ban, Trash2 } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
+import Button from '@/components/ui/Button';
 import axios from 'axios';
 import { toast } from 'sonner';
 

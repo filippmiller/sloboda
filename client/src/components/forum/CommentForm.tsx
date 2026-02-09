@@ -2,7 +2,7 @@
 // Source: https://github.com/DurgeshPatil24/Reddit-Clone
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/Button';
+import Button from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Input';
 import { cn } from '@/lib/utils';
 

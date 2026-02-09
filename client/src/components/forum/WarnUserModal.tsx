@@ -1,6 +1,6 @@
 // Modal for issuing warnings to users
 import { useState } from 'react';
-import { Button } from '@/components/ui/Button';
+import Button from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import axios from 'axios';

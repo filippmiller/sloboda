@@ -1,7 +1,7 @@
 // Moderation controls for user profiles and content
 import { useState } from 'react';
 import { AlertTriangle, Ban } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
+import Button from '@/components/ui/Button';
 import { BanUserModal } from './BanUserModal';
 import { WarnUserModal } from './WarnUserModal';
 

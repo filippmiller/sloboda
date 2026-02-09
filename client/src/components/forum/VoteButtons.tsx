@@ -2,7 +2,7 @@
 // Source: https://github.com/DurgeshPatil24/Reddit-Clone
 
 import { ArrowUp, ArrowDown } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
+import Button from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 
 interface VoteButtonsProps {
