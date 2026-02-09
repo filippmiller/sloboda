@@ -43,10 +43,11 @@ export default function ForumRoles() {
     try {
       setLoading(true)
       const response = await axios.get('/api/forum/roles/users')
-      setUsers(response.data.users)
+      setUsers(response.data.users || [])
     } catch (error) {
       console.error('Error fetching users:', error)
       toast.error('Не удалось загрузить пользователей')
+      setUsers([])
     } finally {
       setLoading(false)
     }
@@ -97,8 +98,8 @@ export default function ForumRoles() {
   }
 
   const filteredUsers = selectedRole === 'all'
-    ? users
-    : users.filter(u => u.role === selectedRole)
+    ? (users || [])
+    : (users || []).filter(u => u.role === selectedRole)
 
   return (
     <div className="space-y-6">
@@ -141,7 +142,7 @@ export default function ForumRoles() {
       {/* Role stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {ROLE_TIERS.slice(0, 4).map(tier => {
-          const count = users.filter(u => u.role === tier.value).length
+          const count = users?.filter(u => u.role === tier.value).length || 0
           return (
             <Card key={tier.value}>
               <div className="p-6">

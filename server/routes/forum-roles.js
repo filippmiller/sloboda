@@ -29,7 +29,6 @@ router.get('/users', requireAuth, async (req, res) => {
       FROM forum_roles fr
       INNER JOIN users u ON u.id = fr.user_id
       LEFT JOIN forum_reputation frep ON frep.user_id = fr.user_id
-      WHERE u.status = 'active'
       ORDER BY frep.total_points DESC NULLS LAST, u.name ASC
     `;
 
@@ -41,9 +40,11 @@ router.get('/users', requireAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching forum users:', error);
+    console.error('Error details:', error.message, error.stack);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch users'
+      error: 'Failed to fetch users',
+      details: error.message
     });
   }
 });
