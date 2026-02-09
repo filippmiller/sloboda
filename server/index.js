@@ -854,6 +854,10 @@ async function start() {
         // Initialize database
         await db.initDatabase();
 
+        // Auto-run forum migrations if MIGRATE_ON_START=true
+        const { checkAndRunMigrations } = require('./scripts/migrate-on-startup');
+        await checkAndRunMigrations();
+
         // Check for CLI commands
         const args = process.argv.slice(2);
         if (args[0] === 'create-admin') {
