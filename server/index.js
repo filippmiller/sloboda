@@ -214,6 +214,11 @@ const forumAnalytics = require('./routes/forum-analytics');
 forumAnalytics.setDb(db);
 app.use('/api/forum/analytics', forumAnalytics.router);
 
+// Forum roles
+const forumRoles = require('./routes/forum-roles');
+forumRoles.setDb(db);
+app.use('/api/forum/roles', forumRoles.router);
+
 // Admin seed endpoint (temporary)
 const adminSeed = require('./routes/admin-seed');
 adminSeed.setDb(db);
