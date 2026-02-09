@@ -1492,6 +1492,66 @@ We have exciting news..."></textarea>
     // ADMIN MANAGEMENT PAGE
     // ============================================
 
+    async loadAdminsList() {
+        const listEl = document.getElementById('admins-list');
+        if (!listEl) return;
+
+        try {
+            const response = await fetch('/api/admins');
+            const json = await response.json();
+
+            if (!json || !json.success) {
+                const msg = json && json.error ? json.error : 'Failed to load admins';
+                listEl.innerHTML = `<div class="error-message show">${this.escapeHtml(msg)}</div>`;
+                return;
+            }
+
+            const admins = json.data || [];
+
+            listEl.innerHTML = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Last Login</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${admins.map(admin => `
+                            <tr>
+                                <td><strong>${this.escapeHtml(admin.name || '-')}</strong></td>
+                                <td>${this.escapeHtml(admin.email)}</td>
+                                <td><span class="badge badge-${admin.pending ? 'pending' : admin.role}">${admin.pending ? 'Pending' : admin.role}</span></td>
+                                <td>${admin.last_login ? new Date(admin.last_login).toLocaleString() : 'Never'}</td>
+                                <td>
+                                    ${admin.id !== this.currentAdmin.id ? `
+                                        <button class="btn btn-danger btn-sm delete-admin" data-id="${admin.id}">Remove</button>
+                                    ` : '<span style="color: var(--text-muted);">You</span>'}
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+
+            // Delete admin
+            listEl.querySelectorAll('.delete-admin').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    if (confirm('Remove this admin?')) {
+                        await fetch(`/api/admins/${btn.dataset.id}`, { method: 'DELETE' });
+                        this.loadAdminsList();
+                    }
+                });
+            });
+        } catch (err) {
+            console.error('Failed to load admins:', err);
+            listEl.innerHTML = `<div class="error-message show">Failed to load admins</div>`;
+        }
+    },
+
     async renderAdmins() {
         if (this.currentAdmin.role !== 'super_admin') {
             document.getElementById('page-content').innerHTML = `
@@ -1544,48 +1604,7 @@ We have exciting news..."></textarea>
             </div>
         `;
 
-        // Load admins
-        const response = await fetch('/api/admins');
-        const admins = (await response.json()).data;
-
-        document.getElementById('admins-list').innerHTML = `
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Role</th>
-                        <th>Last Login</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${admins.map(admin => `
-                        <tr>
-                            <td><strong>${this.escapeHtml(admin.name || '-')}</strong></td>
-                            <td>${this.escapeHtml(admin.email)}</td>
-                            <td><span class="badge badge-${admin.pending ? 'pending' : admin.role}">${admin.pending ? 'Pending' : admin.role}</span></td>
-                            <td>${admin.last_login ? new Date(admin.last_login).toLocaleString() : 'Never'}</td>
-                            <td>
-                                ${admin.id !== this.currentAdmin.id ? `
-                                    <button class="btn btn-danger btn-sm delete-admin" data-id="${admin.id}">Remove</button>
-                                ` : '<span style="color: var(--text-muted);">You</span>'}
-                            </td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        `;
-
-        // Delete admin
-        document.querySelectorAll('.delete-admin').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                if (confirm('Remove this admin?')) {
-                    await fetch(`/api/admins/${btn.dataset.id}`, { method: 'DELETE' });
-                    this.renderAdmins();
-                }
-            });
-        });
+        await this.loadAdminsList();
 
         // Invite modal
         document.getElementById('invite-admin-btn').addEventListener('click', () => {
@@ -1627,7 +1646,7 @@ We have exciting news..."></textarea>
                 document.getElementById('invite-name').value = '';
 
                 // Refresh list
-                this.renderAdmins();
+                this.loadAdminsList();
             } catch (err) {
                 alert(err.message);
             }

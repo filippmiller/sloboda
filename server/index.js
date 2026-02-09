@@ -1,15 +1,23 @@
-// Load environment variables from .env file
-require('dotenv').config();
+const path = require('path');
+const dotenv = require('dotenv');
+
+// Load environment variables from the repo root:
+// - default: .env
+// - tests: .env.test (when NODE_ENV=test)
+dotenv.config({
+    path: path.join(__dirname, '..', process.env.NODE_ENV === 'test' ? '.env.test' : '.env')
+});
 
 const express = require('express');
-const path = require('path');
 const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
 const bcrypt = require('bcrypt');
 
-const db = require('./db');
+const db = (process.env.NODE_ENV === 'test' && process.env.TEST_NO_DB === 'true')
+    ? require('./db_stub')
+    : require('./db');
 const { router: authRouter, setDb: setAuthDb } = require('./routes/auth');
 const { router: userAuthRouter, setDb: setUserAuthDb, setEmailService: setUserAuthEmailService } = require('./routes/userAuth');
 const { router: userPortalRouter, setDb: setUserPortalDb } = require('./routes/userPortal');
@@ -111,7 +119,7 @@ app.use('/api', (req, res, next) => {
 const clientBuildPath = path.join(__dirname, '../dist/client');
 const clientIndexPath = path.join(clientBuildPath, 'index.html');
 const fs = require('fs');
-const hasClientBuild = fs.existsSync(clientIndexPath);
+const hasClientBuild = process.env.DISABLE_CLIENT_BUILD === 'true' ? false : fs.existsSync(clientIndexPath);
 
 if (hasClientBuild) {
     // Serve React static assets (Vite hashes filenames, so cache forever)
@@ -135,6 +143,11 @@ if (hasClientBuild) {
 // Privacy policy page
 app.get('/privacy', (req, res) => {
     res.sendFile(path.join(__dirname, '../src/privacy.html'));
+});
+
+// Detailed concept page (static, outside React routes)
+app.get('/concept', (req, res) => {
+    res.sendFile(path.join(__dirname, '../src/concept.html'));
 });
 
 // Serve static files from src directory (landing page assets)

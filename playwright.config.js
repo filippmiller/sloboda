@@ -21,5 +21,20 @@ module.exports = defineConfig({
     },
   ],
 
-  // No webServer - rely on existing server or start manually
+  webServer: {
+    command: 'node server/index.js',
+    url: 'http://localhost:3000/',
+    reuseExistingServer: !process.env.CI,
+    timeout: 120 * 1000,
+    env: {
+      NODE_ENV: 'test',
+      TEST_NO_DB: 'true',
+      DISABLE_CLIENT_BUILD: 'true',
+      PORT: '3000',
+      ADMIN_EMAIL: 'admin@sloboda.land',
+      ADMIN_PASSWORD: 'testpassword123',
+      RESET_ADMIN_PASSWORD: 'true',
+      JWT_SECRET: 'test-secret-change-me',
+    },
+  },
 });

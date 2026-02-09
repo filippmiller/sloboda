@@ -46,24 +46,80 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ----------------------------------------
-    // 2. Sticky Header on Scroll
+    // 2. Sticky Header + Navigation
     // ----------------------------------------
     const stickyHeader = document.getElementById('stickyHeader');
-    const hero = document.querySelector('.hero');
+    const stickyMenu = document.getElementById('stickyMenu');
+    const backToTopBtn = document.getElementById('backToTop');
+    const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    if (stickyHeader && hero) {
-        const observer = new IntersectionObserver(
-            ([entry]) => {
-                if (entry.isIntersecting) {
-                    stickyHeader.classList.remove('visible');
-                } else {
-                    stickyHeader.classList.add('visible');
-                }
-            },
-            { threshold: 0 }
-        );
-        observer.observe(hero);
+    if (backToTopBtn) {
+        backToTopBtn.addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+        });
     }
+
+    // Close mobile menu on link click / outside click / Escape
+    if (stickyMenu) {
+        stickyMenu.addEventListener('click', (e) => {
+            const link = e.target.closest('a[href]');
+            if (!link) return;
+            stickyMenu.removeAttribute('open');
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!stickyMenu.open) return;
+            if (!stickyMenu.contains(e.target)) stickyMenu.removeAttribute('open');
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && stickyMenu.open) stickyMenu.removeAttribute('open');
+        });
+    }
+
+    const navLinks = Array.from(document.querySelectorAll('.sticky-nav a[href^=\"#\"]'));
+    const navTargets = navLinks
+        .map((a) => {
+            const href = a.getAttribute('href');
+            if (!href) return null;
+            const el = document.querySelector(href);
+            if (!el) return null;
+            return { href, a, el };
+        })
+        .filter(Boolean);
+
+    const headerH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--header-h'), 10) || 64;
+
+    function updateNavState() {
+        if (stickyHeader) stickyHeader.classList.toggle('scrolled', window.scrollY > 8);
+        if (backToTopBtn) backToTopBtn.classList.toggle('visible', window.scrollY > 500);
+
+        if (!navTargets.length) return;
+
+        const y = headerH + 24;
+
+        let currentHref = navTargets[0].href;
+        for (const t of navTargets) {
+            const top = t.el.getBoundingClientRect().top;
+            if (top <= y) currentHref = t.href;
+        }
+
+        navLinks.forEach((a) => {
+            a.classList.toggle('active', a.getAttribute('href') === currentHref);
+        });
+    }
+
+    updateNavState();
+
+    let ticking = false;
+    window.addEventListener('scroll', () => {
+        if (ticking) return;
+        ticking = true;
+        window.requestAnimationFrame(() => {
+            updateNavState();
+            ticking = false;
+        });
+    }, { passive: true });
 
     // ----------------------------------------
     // 3. Donate Section
@@ -208,8 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const submitBtn = document.getElementById('submitBtn');
     const statusEl = document.getElementById('formStatus');
 
-    if (!form) return;
-
+    if (form && submitBtn && statusEl) {
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
 
@@ -273,4 +328,5 @@ document.addEventListener('DOMContentLoaded', () => {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Отправить';
     });
+    }
 });
