@@ -4,6 +4,21 @@ Persistent log of all agent work in this repository.
 Each entry tracks: timestamp, agent session, functionality area, files changed, functions/symbols used, database tables affected, and a link to detailed session notes.
 
 ---
+## 2026-02-09 15:40 — Hero centering and glass readability polish
+
+**Area:** Frontend / Hero layout
+**Type:** bugfix
+
+### Issues
+- `derevnya-z13` — Hero layout feels lopsided and text hard to read on background.
+
+### Files Changed
+- `src/styles.css` — Centered the hero grid (flex centering, controlled width, text-shadow) so the entire hero body sits in the viewport center; restyled the glass card (stronger frosted fill/border, dedicated text colors) and ensured CTA cluster and thesis card align with the new structure; tuned mobile padding/gap for better focus and added dedicated hero color tokens.
+
+### Notes
+- These tweaks keep key messaging readable on the hero image while the sticky nav remains untouched; the hero now feels grounded and the supporting content stays balanced even on narrow screens.
+
+---
 
 ## 2026-02-09 12:45 — Landing: compact hero theses + always-on navigation + concept page
 
@@ -32,6 +47,8 @@ Each entry tracks: timestamp, agent session, functionality area, files changed, 
 
 ### Notes
 - Design direction used: **Tech Noir / high-signal** (dense information hierarchy, deliberate tokens, mobile-first navigation).
+
+---
 
 ---
 
