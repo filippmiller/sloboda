@@ -4,8 +4,8 @@ import { Link } from 'react-router-dom';
 import { Plus, TrendingUp, Clock, Award, Flame } from 'lucide-react';
 import { ThreadList } from '@/components/forum/ThreadList';
 import { Button } from '@/components/ui/Button';
-import { useForumStore } from '@/store/forumStore';
-import { useAuthStore } from '@/store/authStore';
+import { useForumStore } from '@/stores/forumStore';
+import { useAuthStore } from '@/stores/authStore';
 import { cn } from '@/lib/utils';
 
 const SORT_OPTIONS = [

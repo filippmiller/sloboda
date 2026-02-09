@@ -7,8 +7,8 @@ import { CommentForm } from '@/components/forum/CommentForm';
 import { VoteButtons } from '@/components/forum/VoteButtons';
 import { ModActions } from '@/components/forum/ModActions';
 import { Button } from '@/components/ui/Button';
-import { useForumStore } from '@/store/forumStore';
-import { useAuthStore } from '@/store/authStore';
+import { useForumStore } from '@/stores/forumStore';
+import { useAuthStore } from '@/stores/authStore';
 import { formatDistanceToNow } from 'date-fns';
 
 export default function ThreadView() {

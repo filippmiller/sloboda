@@ -1,8 +1,8 @@
 // Thread list with sorting and filtering
 import { useEffect } from 'react';
 import { ThreadCard } from './ThreadCard';
-import { useForumStore } from '@/store/forumStore';
-import { useAuthStore } from '@/store/authStore';
+import { useForumStore } from '@/stores/forumStore';
+import { useAuthStore } from '@/stores/authStore';
 import { Loader2 } from 'lucide-react';
 
 interface ThreadListProps {

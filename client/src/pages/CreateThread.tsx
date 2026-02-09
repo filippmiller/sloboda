@@ -5,8 +5,8 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Input';
-import { useForumStore } from '@/store/forumStore';
-import { useAuthStore } from '@/store/authStore';
+import { useForumStore } from '@/stores/forumStore';
+import { useAuthStore } from '@/stores/authStore';
 
 export default function CreateThread() {
   const navigate = useNavigate();
