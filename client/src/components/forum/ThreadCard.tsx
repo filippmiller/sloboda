@@ -147,7 +147,7 @@ export function ThreadCard({
             {isTextPost && onEdit && (
               <Button
                 variant="ghost"
-                size="icon"
+                size="sm"
                 onClick={onEdit}
                 className="h-8 w-8"
               >
@@ -157,7 +157,7 @@ export function ThreadCard({
             {onDelete && (
               <Button
                 variant="ghost"
-                size="icon"
+                size="sm"
                 onClick={onDelete}
                 className="h-8 w-8 text-red-500 hover:text-red-400"
               >

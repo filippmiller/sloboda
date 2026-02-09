@@ -19,6 +19,7 @@ import {
   Shield,
   Menu,
   X,
+  MessageSquare,
 } from 'lucide-react'
 import Skeleton from '@/components/ui/Skeleton'
 
@@ -26,6 +27,7 @@ const navItems = [
   { to: ROUTES.ADMIN_DASHBOARD, label: 'Обзор', icon: LayoutDashboard },
   { to: ROUTES.ADMIN_REGISTRATIONS, label: 'Заявки', icon: UserPlus },
   { to: ROUTES.ADMIN_USERS, label: 'Пользователи', icon: Users },
+  { to: ROUTES.ADMIN_FORUM, label: 'Форум', icon: MessageSquare },
   { to: ROUTES.ADMIN_POSTS, label: 'Публикации', icon: FileText },
   { to: ROUTES.ADMIN_KNOWLEDGE, label: 'Знания', icon: Lightbulb },
   { to: ROUTES.ADMIN_CATEGORIES, label: 'Категории', icon: Tags },

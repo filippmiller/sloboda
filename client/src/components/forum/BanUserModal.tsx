@@ -60,7 +60,7 @@ export function BanUserModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`Ban User: ${userName}`}>
+    <Modal open={isOpen} onOpenChange={(open) => !open && onClose} title={`Ban User: ${userName}`}>
       <div className="space-y-4">
         {/* Duration selector */}
         <div>

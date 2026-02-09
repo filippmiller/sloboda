@@ -48,7 +48,7 @@ export function WarnUserModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`Warn User: ${userName}`}>
+    <Modal open={isOpen} onOpenChange={(open) => !open && onClose} title={`Warn User: ${userName}`}>
       <div className="space-y-4">
         <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg text-sm text-yellow-500">
           Warnings are logged and visible to all moderators. Multiple warnings may result in a ban.

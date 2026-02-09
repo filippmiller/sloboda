@@ -70,7 +70,7 @@ export function ThreadList({ categoryId }: ThreadListProps) {
           isLocked={thread.is_locked}
           isDeleted={thread.is_deleted}
           createdAt={thread.created_at}
-          currentUserId={user?.id}
+          currentUserId={user?.id ? Number(user.id) : undefined}
           onVote={(value) => voteThread(thread.id, value)}
           onDelete={() => deleteThread(thread.id, 'Deleted by author')}
           compact={false}

@@ -31,12 +31,12 @@ export default function Forum() {
         </div>
 
         {user && (
-          <Button asChild>
-            <Link to="/forum/create">
+          <Link to="/forum/create">
+            <Button>
               <Plus size={18} className="mr-2" />
               New Thread
-            </Link>
-          </Button>
+            </Button>
+          </Link>
         )}
       </div>
 
@@ -69,7 +69,7 @@ export default function Forum() {
           <p className="text-gray-400 mb-4">
             Create an account to post threads, comment, and vote
           </p>
-          <Button asChild variant="outline">
+          <Button variant="secondary">
             <Link to="/login">Log In</Link>
           </Button>
         </div>

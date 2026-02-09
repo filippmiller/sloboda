@@ -52,7 +52,7 @@ export function VoteButtons({
     <div className="flex flex-col items-center gap-1 mr-3">
       <Button
         variant="ghost"
-        size="icon"
+        size="sm"
         onClick={handleUpvote}
         disabled={disabled}
         className={cn(
@@ -83,7 +83,7 @@ export function VoteButtons({
 
       <Button
         variant="ghost"
-        size="icon"
+        size="sm"
         onClick={handleDownvote}
         disabled={disabled}
         className={cn(

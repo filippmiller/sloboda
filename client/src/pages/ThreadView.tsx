@@ -92,10 +92,10 @@ export default function ThreadView() {
         depth={comment.depth}
         createdAt={comment.created_at}
         isDeleted={comment.is_deleted}
-        currentUserId={user?.id}
+        currentUserId={user?.id ? Number(user.id) : undefined}
         onVote={(value) => voteComment(comment.id, value)}
-        onReply={(body) => createComment(threadId, body, comment.id)}
-        onEdit={(body) => updateComment(comment.id, body)}
+        onReply={async (body) => { await createComment(threadId, body, comment.id) }}
+        onEdit={async (body) => { await updateComment(comment.id, body) }}
         onDelete={() => deleteComment(comment.id)}
       >
         {comment.replies?.length > 0 && (
@@ -221,7 +221,7 @@ export default function ThreadView() {
           <h2 className="text-xl font-bold mb-3">Add a Comment</h2>
           <CommentForm
             threadId={threadId}
-            onSubmit={(body) => createComment(threadId, body, null)}
+            onSubmit={async (body) => { await createComment(threadId, body, undefined) }}
             placeholder="What are your thoughts?"
           />
         </div>
@@ -233,7 +233,7 @@ export default function ThreadView() {
       ) : (
         <div className="mb-6 p-4 bg-white/5 border border-gray-800 rounded-lg text-center">
           <p className="text-gray-400 mb-2">Log in to comment</p>
-          <Button asChild variant="outline" size="sm">
+          <Button variant="secondary" size="sm">
             <Link to="/login">Log In</Link>
           </Button>
         </div>
