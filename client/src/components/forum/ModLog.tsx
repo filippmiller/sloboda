@@ -1,7 +1,7 @@
 // Moderation log display
 import { useEffect, useState } from 'react';
 import { AlertTriangle, Shield } from 'lucide-react';
-import { Card } from '@/components/ui/Card';
+import Card from '@/components/ui/Card';
 import axios from 'axios';
 import { formatDistanceToNow } from 'date-fns';
 

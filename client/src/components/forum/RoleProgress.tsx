@@ -1,5 +1,5 @@
 // Display progress toward next role tier
-import { Card } from '@/components/ui/Card';
+import Card from '@/components/ui/Card';
 import { RoleBadge } from './RoleBadge';
 import { TrendingUp, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';

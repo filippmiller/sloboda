@@ -1,5 +1,5 @@
 // Display user reputation statistics
-import { Card } from '@/components/ui/Card';
+import Card from '@/components/ui/Card';
 import { TrendingUp, MessageSquare, FileText, ThumbsUp, Award } from 'lucide-react';
 
 interface ReputationStats {
