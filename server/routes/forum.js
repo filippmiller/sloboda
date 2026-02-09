@@ -26,7 +26,7 @@ router.get('/threads', async (req, res) => {
     let query = `
       SELECT
         t.*,
-        u.username as author_username,
+        u.name as author_username,
         COUNT(DISTINCT c.id) as comment_count,
         MAX(COALESCE(c.created_at, t.created_at)) as last_activity
       FROM forum_threads t
@@ -51,12 +51,12 @@ router.get('/threads', async (req, res) => {
     }
 
     if (search) {
-      query += ` AND (t.title ILIKE $${paramCount} OR t.content ILIKE $${paramCount})`;
+      query += ` AND (t.title ILIKE $${paramCount} OR t.body ILIKE $${paramCount})`;
       params.push(`%${search}%`);
       paramCount++;
     }
 
-    query += ` GROUP BY t.id, u.username`;
+    query += ` GROUP BY t.id, u.name`;
 
     // Sorting
     switch (sortBy) {
@@ -100,7 +100,7 @@ router.get('/threads', async (req, res) => {
     }
 
     if (search) {
-      countQuery += ` AND (t.title ILIKE $${countParamIndex} OR t.content ILIKE $${countParamIndex})`;
+      countQuery += ` AND (t.title ILIKE $${countParamIndex} OR t.body ILIKE $${countParamIndex})`;
       countParams.push(`%${search}%`);
     }
 
@@ -131,13 +131,13 @@ router.get('/threads/:id', async (req, res) => {
     const threadResult = await db.query(`
       SELECT
         t.*,
-        u.username as author_username,
+        u.name as author_username,
         COUNT(DISTINCT c.id) as comment_count
       FROM forum_threads t
       LEFT JOIN users u ON t.author_id = u.id
       LEFT JOIN forum_comments c ON t.id = c.thread_id AND c.is_deleted = false
       WHERE t.id = $1 AND t.is_deleted = false
-      GROUP BY t.id, u.username
+      GROUP BY t.id, u.name
     `, [id]);
 
     if (threadResult.rows.length === 0) {
@@ -150,7 +150,7 @@ router.get('/threads/:id', async (req, res) => {
     const commentsResult = await db.query(`
       SELECT
         c.*,
-        u.username as author_username,
+        u.name as author_username,
         COUNT(DISTINCT r.id) as reply_count,
         SUM(CASE WHEN v.vote_type = 'upvote' THEN 1 ELSE 0 END)::integer as upvotes,
         SUM(CASE WHEN v.vote_type = 'downvote' THEN 1 ELSE 0 END)::integer as downvotes
@@ -159,7 +159,7 @@ router.get('/threads/:id', async (req, res) => {
       LEFT JOIN forum_comments r ON c.id = r.parent_id AND r.is_deleted = false
       LEFT JOIN forum_votes v ON c.id = v.comment_id
       WHERE c.thread_id = $1 AND c.parent_id IS NULL AND c.is_deleted = false
-      GROUP BY c.id, u.username
+      GROUP BY c.id, u.name
       ORDER BY c.created_at ASC
     `, [id]);
 

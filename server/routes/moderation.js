@@ -96,7 +96,7 @@ router.post('/users/:id/warn', requireUserAuth, requirePermission('can_moderate'
 
     // Check if user exists
     const userResult = await db.query(`
-      SELECT id, username FROM users WHERE id = $1
+      SELECT id, name FROM users WHERE id = $1
     `, [id]);
 
     if (userResult.rows.length === 0) {
@@ -139,7 +139,7 @@ router.post('/users/:id/ban', requireUserAuth, requirePermission('can_ban'), asy
 
     // Check if user exists
     const userResult = await db.query(`
-      SELECT id, username FROM users WHERE id = $1
+      SELECT id, name FROM users WHERE id = $1
     `, [id]);
 
     if (userResult.rows.length === 0) {
@@ -227,8 +227,8 @@ router.get('/users/:id/history', requireUserAuth, requirePermission('can_moderat
     const result = await db.query(`
       SELECT
         ma.*,
-        m.username as moderator_username,
-        u.username as user_username
+        m.name as moderator_name,
+        u.name as user_name
       FROM forum_moderation_actions ma
       LEFT JOIN users m ON ma.moderator_id = m.id
       LEFT JOIN users u ON ma.user_id = u.id
@@ -271,8 +271,8 @@ router.get('/actions', requireUserAuth, requirePermission('can_moderate'), async
     let query = `
       SELECT
         ma.*,
-        m.username as moderator_username,
-        u.username as user_username
+        m.name as moderator_name,
+        u.name as user_name
       FROM forum_moderation_actions ma
       LEFT JOIN users m ON ma.moderator_id = m.id
       LEFT JOIN users u ON ma.user_id = u.id
@@ -339,12 +339,12 @@ router.get('/banned-users', requireUserAuth, requirePermission('can_moderate'), 
     const result = await db.query(`
       SELECT DISTINCT
         u.id,
-        u.username,
+        u.name,
         u.email,
         ma.reason as ban_reason,
         ma.created_at as banned_at,
         ma.expires_at as ban_expires_at,
-        m.username as banned_by
+        m.name as banned_by
       FROM forum_moderation_actions ma
       LEFT JOIN users u ON ma.user_id = u.id
       LEFT JOIN users m ON ma.moderator_id = m.id

@@ -66,7 +66,7 @@ router.post('/', requireUserAuth, async (req, res) => {
     const commentResult = await db.query(`
       SELECT
         c.*,
-        u.username as author_username
+        u.name as author_username
       FROM forum_comments c
       LEFT JOIN users u ON c.author_id = u.id
       WHERE c.id = $1
@@ -103,14 +103,14 @@ router.get('/:id/replies', async (req, res) => {
     const repliesResult = await db.query(`
       SELECT
         c.*,
-        u.username as author_username,
+        u.name as author_username,
         SUM(CASE WHEN v.vote_type = 'upvote' THEN 1 ELSE 0 END)::integer as upvotes,
         SUM(CASE WHEN v.vote_type = 'downvote' THEN 1 ELSE 0 END)::integer as downvotes
       FROM forum_comments c
       LEFT JOIN users u ON c.author_id = u.id
       LEFT JOIN forum_votes v ON c.id = v.comment_id
       WHERE c.parent_id = $1 AND c.is_deleted = false
-      GROUP BY c.id, u.username
+      GROUP BY c.id, u.name
       ORDER BY c.created_at ASC
       LIMIT $2 OFFSET $3
     `, [id, parseInt(limit), offset]);
@@ -240,7 +240,7 @@ router.get('/:id', async (req, res) => {
     const result = await db.query(`
       SELECT
         c.*,
-        u.username as author_username,
+        u.name as author_username,
         SUM(CASE WHEN v.vote_type = 'upvote' THEN 1 ELSE 0 END)::integer as upvotes,
         SUM(CASE WHEN v.vote_type = 'downvote' THEN 1 ELSE 0 END)::integer as downvotes,
         COUNT(DISTINCT r.id) as reply_count
@@ -249,7 +249,7 @@ router.get('/:id', async (req, res) => {
       LEFT JOIN forum_votes v ON c.id = v.comment_id
       LEFT JOIN forum_comments r ON c.id = r.parent_id AND r.is_deleted = false
       WHERE c.id = $1 AND c.is_deleted = false
-      GROUP BY c.id, u.username
+      GROUP BY c.id, u.name
     `, [id]);
 
     if (result.rows.length === 0) {

@@ -191,7 +191,7 @@ router.get('/user/comments', requireUserAuth, async (req, res) => {
         v.comment_id,
         v.vote_type,
         v.created_at as voted_at,
-        c.content as comment_content,
+        c.body as comment_content,
         c.thread_id,
         t.title as thread_title
       FROM forum_votes v
