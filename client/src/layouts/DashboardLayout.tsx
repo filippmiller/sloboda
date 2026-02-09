@@ -17,11 +17,13 @@ import {
   Bell,
   Menu,
   X,
+  MessageSquare,
 } from 'lucide-react'
 
 const navItems = [
   { to: ROUTES.DASHBOARD, label: 'Главная', icon: LayoutDashboard },
   { to: ROUTES.NEWS, label: 'Новости', icon: Newspaper },
+  { to: ROUTES.FORUM, label: 'Форум', icon: MessageSquare },
   { to: ROUTES.LIBRARY, label: 'Библиотека', icon: BookOpen },
   { to: ROUTES.LIBRARIAN, label: 'Библиотекарь', icon: Sparkles },
   { to: ROUTES.FINANCE, label: 'Финансы', icon: Wallet },

@@ -13,6 +13,9 @@ export const ROUTES = {
   BOOKMARKS: '/bookmarks',
   NOTIFICATIONS: '/notifications',
   PROFILE: '/profile',
+  FORUM: '/forum',
+  FORUM_THREAD: '/forum/thread/:id',
+  FORUM_CREATE: '/forum/create',
 
   // Admin
   ADMIN_LOGIN: '/admin/login',

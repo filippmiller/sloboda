@@ -2265,6 +2265,858 @@ async function healthCheck() {
     }
 }
 
+// ============================================
+// FORUM SYSTEM - THREADS
+// ============================================
+
+async function getThreads(filters = {}, sort = 'recent') {
+    const conditions = ['t.is_deleted = false'];
+    const params = [];
+    let paramIndex = 1;
+
+    if (filters.category_id) {
+        conditions.push(`t.category_id = $${paramIndex++}`);
+        params.push(filters.category_id);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    let orderBy;
+    switch (sort) {
+        case 'hot':
+            orderBy = `ORDER BY (t.comment_count * 0.5 + EXTRACT(EPOCH FROM (NOW() - t.last_activity_at)) / -3600) DESC`;
+            break;
+        case 'top':
+            orderBy = `ORDER BY (t.comment_count + t.view_count * 0.1) DESC`;
+            break;
+        case 'controversial':
+            orderBy = `ORDER BY t.comment_count DESC, t.view_count ASC`;
+            break;
+        case 'recent':
+        default:
+            orderBy = `ORDER BY t.last_activity_at DESC`;
+    }
+
+    const limit = filters.limit || 20;
+    const offset = filters.offset || 0;
+
+    const query = `
+        SELECT
+            t.*,
+            u.name as author_name,
+            c.name as category_name,
+            c.slug as category_slug
+        FROM threads t
+        LEFT JOIN users u ON t.author_id = u.id
+        LEFT JOIN categories c ON t.category_id = c.id
+        ${whereClause}
+        ${orderBy}
+        LIMIT $${paramIndex++} OFFSET $${paramIndex++}
+    `;
+
+    params.push(limit, offset);
+
+    const client = await pool.connect();
+    try {
+        const result = await client.query(query, params);
+        return result.rows;
+    } finally {
+        client.release();
+    }
+}
+
+async function getThreadCount(filters = {}) {
+    const conditions = ['is_deleted = false'];
+    const params = [];
+    let paramIndex = 1;
+
+    if (filters.category_id) {
+        conditions.push(`category_id = $${paramIndex++}`);
+        params.push(filters.category_id);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const query = `SELECT COUNT(*) FROM threads ${whereClause}`;
+    const client = await pool.connect();
+    try {
+        const result = await client.query(query, params);
+        return parseInt(result.rows[0].count);
+    } finally {
+        client.release();
+    }
+}
+
+async function getThreadById(threadId) {
+    const query = `
+        SELECT
+            t.*,
+            u.name as author_name,
+            c.name as category_name,
+            c.slug as category_slug
+        FROM threads t
+        LEFT JOIN users u ON t.author_id = u.id
+        LEFT JOIN categories c ON t.category_id = c.id
+        WHERE t.id = $1
+    `;
+    const client = await pool.connect();
+    try {
+        const result = await client.query(query, [threadId]);
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function createThread(data) {
+    const query = `
+        INSERT INTO threads (title, body, type, author_id, category_id)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING *
+    `;
+    const client = await pool.connect();
+    try {
+        const result = await client.query(query, [
+            data.title,
+            data.body,
+            data.type,
+            data.author_id,
+            data.category_id
+        ]);
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function updateThread(threadId, data) {
+    const fields = [];
+    const params = [];
+    let paramIndex = 1;
+
+    if (data.title !== undefined) {
+        fields.push(`title = $${paramIndex++}`);
+        params.push(data.title);
+    }
+    if (data.body !== undefined) {
+        fields.push(`body = $${paramIndex++}`);
+        params.push(data.body);
+    }
+    if (data.is_pinned !== undefined) {
+        fields.push(`is_pinned = $${paramIndex++}`);
+        params.push(data.is_pinned);
+    }
+    if (data.is_locked !== undefined) {
+        fields.push(`is_locked = $${paramIndex++}`);
+        params.push(data.is_locked);
+    }
+    if (data.updated_at !== undefined) {
+        fields.push(`updated_at = $${paramIndex++}`);
+        params.push(data.updated_at);
+    }
+
+    if (fields.length === 0) return;
+
+    params.push(threadId);
+    const query = `
+        UPDATE threads
+        SET ${fields.join(', ')}
+        WHERE id = $${paramIndex}
+        RETURNING *
+    `;
+
+    const client = await pool.connect();
+    try {
+        const result = await client.query(query, params);
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function softDeleteThread(threadId, deletedBy) {
+    const query = `
+        UPDATE threads
+        SET is_deleted = true,
+            deleted_by = $1,
+            deleted_at = NOW()
+        WHERE id = $2
+    `;
+    const client = await pool.connect();
+    try {
+        await client.query(query, [deletedBy, threadId]);
+    } finally {
+        client.release();
+    }
+}
+
+async function incrementThreadViews(threadId) {
+    const query = `
+        UPDATE threads
+        SET view_count = view_count + 1
+        WHERE id = $1
+    `;
+    const client = await pool.connect();
+    try {
+        await client.query(query, [threadId]);
+    } finally {
+        client.release();
+    }
+}
+
+// ============================================
+// FORUM SYSTEM - COMMENTS
+// ============================================
+
+async function getThreadComments(threadId, options = {}) {
+    const { parent_comment_id = null, sort = 'top' } = options;
+
+    let orderBy;
+    switch (sort) {
+        case 'new':
+            orderBy = 'ORDER BY c.created_at DESC';
+            break;
+        case 'old':
+            orderBy = 'ORDER BY c.created_at ASC';
+            break;
+        case 'controversial':
+            orderBy = 'ORDER BY ABS(c.upvote_count - c.downvote_count) ASC, (c.upvote_count + c.downvote_count) DESC';
+            break;
+        case 'top':
+        default:
+            orderBy = 'ORDER BY (c.upvote_count - c.downvote_count) DESC';
+    }
+
+    const parentCondition = parent_comment_id === null
+        ? 'c.parent_comment_id IS NULL'
+        : 'c.parent_comment_id = $2';
+
+    const query = `
+        SELECT
+            c.*,
+            u.name as author_name,
+            ur.role as author_role,
+            (SELECT COUNT(*) FROM comments WHERE parent_comment_id = c.id) as reply_count
+        FROM comments c
+        LEFT JOIN users u ON c.author_id = u.id
+        LEFT JOIN user_roles ur ON u.id = ur.user_id
+        WHERE c.thread_id = $1
+            AND ${parentCondition}
+            AND c.is_deleted = false
+        ${orderBy}
+    `;
+
+    const params = parent_comment_id === null ? [threadId] : [threadId, parent_comment_id];
+    const client = await pool.connect();
+    try {
+        const result = await client.query(query, params);
+        return result.rows;
+    } finally {
+        client.release();
+    }
+}
+
+async function getCommentReplies(parentCommentId, sort = 'top') {
+    let orderBy;
+    switch (sort) {
+        case 'new':
+            orderBy = 'ORDER BY c.created_at DESC';
+            break;
+        case 'old':
+            orderBy = 'ORDER BY c.created_at ASC';
+            break;
+        case 'top':
+        default:
+            orderBy = 'ORDER BY (c.upvote_count - c.downvote_count) DESC';
+    }
+
+    const query = `
+        SELECT
+            c.*,
+            u.name as author_name,
+            ur.role as author_role,
+            (SELECT COUNT(*) FROM comments WHERE parent_comment_id = c.id) as reply_count
+        FROM comments c
+        LEFT JOIN users u ON c.author_id = u.id
+        LEFT JOIN user_roles ur ON u.id = ur.user_id
+        WHERE c.parent_comment_id = $1
+            AND c.is_deleted = false
+        ${orderBy}
+    `;
+
+    const client = await pool.connect();
+    try {
+        const result = await client.query(query, [parentCommentId]);
+        return result.rows;
+    } finally {
+        client.release();
+    }
+}
+
+async function getCommentById(commentId) {
+    const query = `
+        SELECT c.*, u.name as author_name
+        FROM comments c
+        LEFT JOIN users u ON c.author_id = u.id
+        WHERE c.id = $1
+    `;
+    const client = await pool.connect();
+    try {
+        const result = await client.query(query, [commentId]);
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function createComment(data) {
+    const query = `
+        INSERT INTO comments (
+            body,
+            author_id,
+            post_id,
+            thread_id,
+            parent_comment_id,
+            depth
+        )
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING *
+    `;
+    const client = await pool.connect();
+    try {
+        const result = await client.query(query, [
+            data.body,
+            data.author_id,
+            data.post_id,
+            data.thread_id,
+            data.parent_comment_id,
+            data.depth
+        ]);
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function updateComment(commentId, data) {
+    const fields = [];
+    const params = [];
+    let paramIndex = 1;
+
+    if (data.body !== undefined) {
+        fields.push(`body = $${paramIndex++}`);
+        params.push(data.body);
+    }
+    if (data.updated_at !== undefined) {
+        fields.push(`updated_at = $${paramIndex++}`);
+        params.push(data.updated_at);
+    }
+
+    if (fields.length === 0) return;
+
+    params.push(commentId);
+    const query = `
+        UPDATE comments
+        SET ${fields.join(', ')}
+        WHERE id = $${paramIndex}
+        RETURNING *
+    `;
+
+    const client = await pool.connect();
+    try {
+        const result = await client.query(query, params);
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function softDeleteComment(commentId, deletedBy) {
+    const query = `
+        UPDATE comments
+        SET is_deleted = true,
+            deleted_by = $1,
+            deleted_at = NOW()
+        WHERE id = $2
+    `;
+    const client = await pool.connect();
+    try {
+        await client.query(query, [deletedBy, commentId]);
+    } finally {
+        client.release();
+    }
+}
+
+// ============================================
+// FORUM SYSTEM - COMMENT VOTES
+// ============================================
+
+async function getCommentVote(userId, commentId) {
+    const query = `
+        SELECT * FROM comment_votes
+        WHERE user_id = $1 AND comment_id = $2
+    `;
+    const client = await pool.connect();
+    try {
+        const result = await client.query(query, [userId, commentId]);
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function getUserCommentVotes(userId, commentIds) {
+    if (!commentIds || commentIds.length === 0) return {};
+
+    const query = `
+        SELECT comment_id, vote_value
+        FROM comment_votes
+        WHERE user_id = $1 AND comment_id = ANY($2::int[])
+    `;
+    const client = await pool.connect();
+    try {
+        const result = await client.query(query, [userId, commentIds]);
+        const votes = {};
+        result.rows.forEach(row => {
+            votes[row.comment_id] = row.vote_value;
+        });
+        return votes;
+    } finally {
+        client.release();
+    }
+}
+
+async function createCommentVote(data) {
+    const query = `
+        INSERT INTO comment_votes (user_id, comment_id, vote_value)
+        VALUES ($1, $2, $3)
+        RETURNING *
+    `;
+    const client = await pool.connect();
+    try {
+        const result = await client.query(query, [
+            data.user_id,
+            data.comment_id,
+            data.vote_value
+        ]);
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function updateCommentVote(userId, commentId, voteValue) {
+    const query = `
+        UPDATE comment_votes
+        SET vote_value = $1
+        WHERE user_id = $2 AND comment_id = $3
+    `;
+    const client = await pool.connect();
+    try {
+        await client.query(query, [voteValue, userId, commentId]);
+    } finally {
+        client.release();
+    }
+}
+
+async function removeCommentVote(userId, commentId) {
+    const query = `
+        DELETE FROM comment_votes
+        WHERE user_id = $1 AND comment_id = $2
+    `;
+    const client = await pool.connect();
+    try {
+        await client.query(query, [userId, commentId]);
+    } finally {
+        client.release();
+    }
+}
+
+// ============================================
+// FORUM SYSTEM - USER ROLES & PERMISSIONS
+// ============================================
+
+async function getUserRole(userId) {
+    const query = `
+        SELECT * FROM user_roles
+        WHERE user_id = $1
+    `;
+    const client = await pool.connect();
+    try {
+        const result = await client.query(query, [userId]);
+
+        if (result.rows.length === 0) {
+            return await createDefaultUserRole(userId);
+        }
+
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function createDefaultUserRole(userId) {
+    const { ROLE_TIERS } = require('./config/roles');
+    const defaultRole = ROLE_TIERS.new_user;
+
+    const query = `
+        INSERT INTO user_roles (
+            user_id,
+            role,
+            can_post,
+            can_comment,
+            can_upload_images,
+            can_create_threads,
+            can_edit_own_posts,
+            can_delete_own_posts
+        )
+        VALUES ($1, 'new_user', $2, $3, $4, $5, $6, $7)
+        RETURNING *
+    `;
+
+    const client = await pool.connect();
+    try {
+        const result = await client.query(query, [
+            userId,
+            defaultRole.permissions.can_post,
+            defaultRole.permissions.can_comment,
+            defaultRole.permissions.can_upload_images,
+            defaultRole.permissions.can_create_threads,
+            defaultRole.permissions.can_edit_own_posts,
+            defaultRole.permissions.can_delete_own_posts
+        ]);
+
+        await createUserReputation(userId);
+
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function updateUserRole(userId, data) {
+    const fields = [];
+    const params = [];
+    let paramIndex = 1;
+
+    Object.keys(data).forEach(key => {
+        if (data[key] !== undefined) {
+            fields.push(`${key} = $${paramIndex++}`);
+            params.push(data[key]);
+        }
+    });
+
+    if (fields.length === 0) return;
+
+    params.push(userId);
+    const query = `
+        UPDATE user_roles
+        SET ${fields.join(', ')}
+        WHERE user_id = $${paramIndex}
+        RETURNING *
+    `;
+
+    const client = await pool.connect();
+    try {
+        const result = await client.query(query, params);
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+// ============================================
+// FORUM SYSTEM - USER REPUTATION
+// ============================================
+
+async function getUserReputation(userId) {
+    const query = `
+        SELECT * FROM user_reputation
+        WHERE user_id = $1
+    `;
+    const client = await pool.connect();
+    try {
+        const result = await client.query(query, [userId]);
+
+        if (result.rows.length === 0) {
+            return await createUserReputation(userId);
+        }
+
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function createUserReputation(userId) {
+    const query = `
+        INSERT INTO user_reputation (user_id)
+        VALUES ($1)
+        RETURNING *
+    `;
+    const client = await pool.connect();
+    try {
+        const result = await client.query(query, [userId]);
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function incrementReputation(userId, action) {
+    const { REPUTATION_ACTIONS } = require('./config/roles');
+    const points = REPUTATION_ACTIONS[action] || 0;
+
+    if (points === 0) return;
+
+    const fieldMap = {
+        'create_thread': 'threads_created',
+        'create_comment': 'comments_made',
+        'receive_upvote_comment': 'upvotes_received',
+        'receive_upvote_thread': 'upvotes_received',
+        'receive_downvote_comment': 'downvotes_received',
+        'receive_downvote_thread': 'downvotes_received'
+    };
+
+    const field = fieldMap[action];
+    const fieldUpdate = field ? `, ${field} = ${field} + 1` : '';
+
+    const query = `
+        UPDATE user_reputation
+        SET total_points = total_points + $1,
+            last_activity_at = NOW(),
+            updated_at = NOW()
+            ${fieldUpdate}
+        WHERE user_id = $2
+    `;
+
+    const client = await pool.connect();
+    try {
+        await client.query(query, [points, userId]);
+    } finally {
+        client.release();
+    }
+}
+
+async function decrementReputation(userId, action) {
+    const { REPUTATION_ACTIONS } = require('./config/roles');
+    const points = REPUTATION_ACTIONS[action] || 0;
+
+    if (points === 0) return;
+
+    const query = `
+        UPDATE user_reputation
+        SET total_points = total_points - $1,
+            updated_at = NOW()
+        WHERE user_id = $2
+    `;
+
+    const client = await pool.connect();
+    try {
+        await client.query(query, [points, userId]);
+    } finally {
+        client.release();
+    }
+}
+
+async function getUserThreadsToday(userId) {
+    const query = `
+        SELECT COUNT(*) FROM threads
+        WHERE author_id = $1
+            AND created_at >= CURRENT_DATE
+            AND is_deleted = false
+    `;
+    const client = await pool.connect();
+    try {
+        const result = await client.query(query, [userId]);
+        return parseInt(result.rows[0].count);
+    } finally {
+        client.release();
+    }
+}
+
+async function getUserCommentsToday(userId) {
+    const query = `
+        SELECT COUNT(*) FROM comments
+        WHERE author_id = $1
+            AND created_at >= CURRENT_DATE
+            AND is_deleted = false
+    `;
+    const client = await pool.connect();
+    try {
+        const result = await client.query(query, [userId]);
+        return parseInt(result.rows[0].count);
+    } finally {
+        client.release();
+    }
+}
+
+// ============================================
+// FORUM SYSTEM - MODERATION
+// ============================================
+
+async function createModerationAction(data) {
+    const query = `
+        INSERT INTO moderation_actions (
+            moderator_id,
+            action_type,
+            target_user_id,
+            target_comment_id,
+            target_thread_id,
+            target_post_id,
+            reason,
+            details
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING *
+    `;
+    const client = await pool.connect();
+    try {
+        const result = await client.query(query, [
+            data.moderator_id,
+            data.action_type,
+            data.target_user_id || null,
+            data.target_comment_id || null,
+            data.target_thread_id || null,
+            data.target_post_id || null,
+            data.reason || null,
+            data.details ? JSON.stringify(data.details) : null
+        ]);
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function getModerationActions(filters = {}) {
+    const conditions = [];
+    const params = [];
+    let paramIndex = 1;
+
+    if (filters.action_type) {
+        conditions.push(`action_type = $${paramIndex++}`);
+        params.push(filters.action_type);
+    }
+    if (filters.moderator_id) {
+        conditions.push(`moderator_id = $${paramIndex++}`);
+        params.push(filters.moderator_id);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const limit = filters.limit || 50;
+    const offset = filters.offset || 0;
+
+    params.push(limit, offset);
+
+    const query = `
+        SELECT
+            ma.*,
+            u.name as moderator_name,
+            tu.name as target_user_name
+        FROM moderation_actions ma
+        LEFT JOIN users u ON ma.moderator_id = u.id
+        LEFT JOIN users tu ON ma.target_user_id = tu.id
+        ${whereClause}
+        ORDER BY ma.created_at DESC
+        LIMIT $${paramIndex++} OFFSET $${paramIndex++}
+    `;
+
+    const client = await pool.connect();
+    try {
+        const result = await client.query(query, params);
+        return result.rows;
+    } finally {
+        client.release();
+    }
+}
+
+async function createUserWarning(data) {
+    const query = `
+        INSERT INTO user_warnings (user_id, issued_by, severity, reason)
+        VALUES ($1, $2, $3, $4)
+        RETURNING *
+    `;
+    const client = await pool.connect();
+    try {
+        const result = await client.query(query, [
+            data.user_id,
+            data.issued_by,
+            data.severity,
+            data.reason
+        ]);
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function createUserBan(data) {
+    const query = `
+        INSERT INTO user_bans (
+            user_id,
+            banned_by,
+            ban_type,
+            reason,
+            expires_at
+        )
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING *
+    `;
+    const client = await pool.connect();
+    try {
+        const result = await client.query(query, [
+            data.user_id,
+            data.banned_by,
+            data.ban_type,
+            data.reason,
+            data.expires_at
+        ]);
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function getActiveBan(userId) {
+    const query = `
+        SELECT * FROM user_bans
+        WHERE user_id = $1
+            AND is_active = true
+            AND (expires_at IS NULL OR expires_at > NOW())
+        ORDER BY banned_at DESC
+        LIMIT 1
+    `;
+    const client = await pool.connect();
+    try {
+        const result = await client.query(query, [userId]);
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function assignModeratorCategories(userId, categoryIds) {
+    const client = await pool.connect();
+    try {
+        await client.query('DELETE FROM moderator_categories WHERE user_id = $1', [userId]);
+
+        if (categoryIds.length > 0) {
+            const values = categoryIds.map((catId, idx) =>
+                `($1, $${idx + 2})`
+            ).join(', ');
+
+            const query = `
+                INSERT INTO moderator_categories (user_id, category_id)
+                VALUES ${values}
+            `;
+
+            await client.query(query, [userId, ...categoryIds]);
+        }
+    } finally {
+        client.release();
+    }
+}
+
 module.exports = {
     pool,
     initDatabase,
@@ -2381,6 +3233,44 @@ module.exports = {
     getAuditLogs,
     // Health check
     healthCheck,
+    // Forum - Threads
+    getThreads,
+    getThreadCount,
+    getThreadById,
+    createThread,
+    updateThread,
+    softDeleteThread,
+    incrementThreadViews,
+    // Forum - Comments
+    getThreadComments,
+    getCommentReplies,
+    getCommentById,
+    createComment,
+    updateComment,
+    softDeleteComment,
+    // Forum - Votes
+    getCommentVote,
+    getUserCommentVotes,
+    createCommentVote,
+    updateCommentVote,
+    removeCommentVote,
+    // Forum - Roles & Reputation
+    getUserRole,
+    createDefaultUserRole,
+    updateUserRole,
+    getUserReputation,
+    createUserReputation,
+    incrementReputation,
+    decrementReputation,
+    getUserThreadsToday,
+    getUserCommentsToday,
+    // Forum - Moderation
+    createModerationAction,
+    getModerationActions,
+    createUserWarning,
+    createUserBan,
+    getActiveBan,
+    assignModeratorCategories,
     // Pool reference for graceful shutdown
     pool
 };

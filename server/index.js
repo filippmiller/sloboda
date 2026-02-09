@@ -23,6 +23,11 @@ const { router: userAuthRouter, setDb: setUserAuthDb, setEmailService: setUserAu
 const { router: userPortalRouter, setDb: setUserPortalDb } = require('./routes/userPortal');
 const { router: adminContentRouter, setDb: setAdminContentDb, setEmailService: setAdminContentEmailService } = require('./routes/adminContent');
 const { router: financeRouter, setDb: setFinanceDb } = require('./routes/finance');
+const { router: forumRouter, setDb: setForumDb } = require('./routes/forum');
+const { router: commentsRouter, setDb: setCommentsDb } = require('./routes/comments');
+const { router: votesRouter, setDb: setVotesDb } = require('./routes/votes');
+const { router: moderationRouter, setDb: setModerationDb } = require('./routes/moderation');
+const { router: rolesRouter, setDb: setRolesDb } = require('./routes/roles');
 const { requireAuth, requireSuperAdmin } = require('./middleware/auth');
 const emailService = require('./services/email');
 const { setDb: setAiQueueDb } = require('./services/ai/queue');
@@ -129,7 +134,7 @@ if (hasClientBuild) {
     }));
 
     // React app routes - user portal
-    const reactRoutes = ['/login', '/register', '/dashboard', '/news', '/library', '/librarian', '/submit', '/profile', '/bookmarks', '/notifications', '/finance'];
+    const reactRoutes = ['/login', '/register', '/dashboard', '/news', '/library', '/librarian', '/submit', '/profile', '/bookmarks', '/notifications', '/finance', '/forum'];
     reactRoutes.forEach(route => {
         app.get(route, (req, res) => res.sendFile(clientIndexPath));
         app.get(route + '/*', (req, res) => res.sendFile(clientIndexPath));
@@ -166,6 +171,16 @@ setAdminContentEmailService(emailService);
 setAiQueueDb(db);
 setFinanceDb(db);
 
+// Forum system injection
+setForumDb(db);
+setCommentsDb(db);
+setVotesDb(db);
+setModerationDb(db);
+setRolesDb(db);
+
+// Make db available to middleware via app.locals
+app.locals.db = db;
+
 // ============================================
 // AUTH ROUTES
 // ============================================
@@ -186,6 +201,15 @@ app.use('/api/admin', adminContentRouter);
 // FINANCE ROUTES (admin, user, public)
 // ============================================
 app.use('/api', financeRouter);
+
+// ============================================
+// FORUM ROUTES
+// ============================================
+app.use('/api/forum', forumRouter);
+app.use('/api/comments', commentsRouter);
+app.use('/api/votes', votesRouter);
+app.use('/api/moderation', moderationRouter);
+app.use('/api/roles', rolesRouter);
 
 // ============================================
 // IMAGE UPLOAD ROUTE (authenticated)

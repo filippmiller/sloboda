@@ -22,6 +22,9 @@ const Finance = lazy(() => import('@/pages/user/Finance'))
 const Bookmarks = lazy(() => import('@/pages/user/Bookmarks'))
 const Notifications = lazy(() => import('@/pages/user/Notifications'))
 const Profile = lazy(() => import('@/pages/user/Profile'))
+const Forum = lazy(() => import('@/pages/Forum'))
+const ThreadView = lazy(() => import('@/pages/ThreadView'))
+const CreateThread = lazy(() => import('@/pages/CreateThread'))
 
 const AdminLogin = lazy(() => import('@/pages/admin/Login'))
 const AdminDashboard = lazy(() => import('@/pages/admin/Dashboard'))
@@ -74,6 +77,9 @@ function App() {
           <Route path={ROUTES.BOOKMARKS} element={<Safe><Bookmarks /></Safe>} />
           <Route path={ROUTES.NOTIFICATIONS} element={<Safe><Notifications /></Safe>} />
           <Route path={ROUTES.PROFILE} element={<Safe><Profile /></Safe>} />
+          <Route path={ROUTES.FORUM} element={<Safe><Forum /></Safe>} />
+          <Route path={ROUTES.FORUM_THREAD} element={<Safe><ThreadView /></Safe>} />
+          <Route path={ROUTES.FORUM_CREATE} element={<Safe><CreateThread /></Safe>} />
         </Route>
 
         {/* Admin login (no layout) */}
