@@ -208,6 +208,11 @@ app.use('/api', financeRouter);
 app.use('/api/forum', forumRouter);
 app.use('/api/comments', commentsRouter);
 app.use('/api/votes', votesRouter);
+
+// Forum analytics
+const forumAnalytics = require('./routes/forum-analytics');
+forumAnalytics.setDb(db);
+app.use('/api/forum/analytics', forumAnalytics.router);
 app.use('/api/moderation', moderationRouter);
 app.use('/api/roles', rolesRouter);
 
@@ -857,6 +862,25 @@ async function start() {
         // Auto-run forum migrations if MIGRATE_ON_START=true
         const { checkAndRunMigrations } = require('./scripts/migrate-on-startup');
         await checkAndRunMigrations();
+
+        // Set up role progression checks (every 6 hours)
+        const roleProgressionService = require('./services/roleProgressionService');
+        setInterval(async () => {
+          try {
+            await roleProgressionService.checkRoleProgressions();
+          } catch (error) {
+            console.error('[RoleProgression] Scheduled check failed:', error.message);
+          }
+        }, 6 * 60 * 60 * 1000); // 6 hours
+
+        // Run initial check after startup
+        setTimeout(async () => {
+          try {
+            await roleProgressionService.checkRoleProgressions();
+          } catch (error) {
+            console.error('[RoleProgression] Initial check failed:', error.message);
+          }
+        }, 60000); // 1 minute after startup
 
         // Check for CLI commands
         const args = process.argv.slice(2);

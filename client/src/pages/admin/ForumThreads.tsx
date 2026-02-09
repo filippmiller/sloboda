@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { MessageSquare, Eye, MessageCircle, Pin, Lock, Trash2, Edit, Search, Shield, AlertTriangle } from 'lucide-react'
+import { MessageSquare, Eye, MessageCircle, Pin, Lock, Trash2, Edit, Search, Shield, AlertTriangle, BarChart3 } from 'lucide-react'
 import { ROUTES } from '@/config/routes'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -128,6 +128,13 @@ export default function ForumThreads() {
         >
           <AlertTriangle size={16} className="inline mr-2" />
           Модерация
+        </Link>
+        <Link
+          to={ROUTES.ADMIN_FORUM_ANALYTICS}
+          className="px-4 py-2 rounded-lg text-sm font-medium text-text-secondary hover:text-text hover:bg-bg-elevated transition-colors"
+        >
+          <BarChart3 size={16} className="inline mr-2" />
+          Аналитика
         </Link>
       </div>
 
