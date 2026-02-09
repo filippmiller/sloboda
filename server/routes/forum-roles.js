@@ -16,8 +16,8 @@ router.get('/users', requireAuth, async (req, res) => {
       SELECT
         fr.id,
         fr.user_id,
-        u.name as username,
-        u.email,
+        COALESCE(u.name, 'Unknown') as username,
+        COALESCE(u.email, '') as email,
         fr.role,
         COALESCE(frep.total_points, 0) as total_points,
         COALESCE(frep.posts_created, 0) as posts_created,
@@ -25,11 +25,11 @@ router.get('/users', requireAuth, async (req, res) => {
         fr.can_post,
         fr.can_comment,
         fr.can_create_threads,
-        fr.can_moderate
+        COALESCE(fr.can_moderate, false) as can_moderate
       FROM forum_roles fr
-      INNER JOIN users u ON u.id = fr.user_id
+      LEFT JOIN users u ON u.id = fr.user_id
       LEFT JOIN forum_reputation frep ON frep.user_id = fr.user_id
-      ORDER BY frep.total_points DESC NULLS LAST, u.name ASC
+      ORDER BY frep.total_points DESC NULLS LAST, COALESCE(u.name, '') ASC
     `;
 
     const result = await db.pool.query(query);
