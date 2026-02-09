@@ -23,7 +23,7 @@ router.post('/', requireUserAuth, async (req, res) => {
     }
 
     // Check if comment exists
-    const commentResult = await db.query(`
+    const commentResult = await db.pool.query(`
       SELECT id, author_id FROM forum_comments
       WHERE id = $1 AND is_deleted = false
     `, [commentId]);
@@ -38,7 +38,7 @@ router.post('/', requireUserAuth, async (req, res) => {
     }
 
     // Check if user has already voted on this comment
-    const existingVoteResult = await db.query(`
+    const existingVoteResult = await db.pool.query(`
       SELECT * FROM forum_votes
       WHERE user_id = $1 AND comment_id = $2
     `, [userId, commentId]);
@@ -48,7 +48,7 @@ router.post('/', requireUserAuth, async (req, res) => {
 
       // If same vote type, remove the vote (toggle off)
       if (existingVote.vote_type === voteType) {
-        await db.query(`
+        await db.pool.query(`
           DELETE FROM forum_votes
           WHERE user_id = $1 AND comment_id = $2
         `, [userId, commentId]);
@@ -59,7 +59,7 @@ router.post('/', requireUserAuth, async (req, res) => {
         });
       } else {
         // Update to the new vote type
-        await db.query(`
+        await db.pool.query(`
           UPDATE forum_votes
           SET vote_type = $1, created_at = NOW()
           WHERE user_id = $2 AND comment_id = $3
@@ -73,7 +73,7 @@ router.post('/', requireUserAuth, async (req, res) => {
       }
     } else {
       // Create new vote
-      await db.query(`
+      await db.pool.query(`
         INSERT INTO forum_votes (user_id, comment_id, vote_type)
         VALUES ($1, $2, $3)
       `, [userId, commentId, voteType]);
@@ -95,7 +95,7 @@ router.get('/comment/:commentId', async (req, res) => {
   try {
     const { commentId } = req.params;
 
-    const result = await db.query(`
+    const result = await db.pool.query(`
       SELECT
         SUM(CASE WHEN vote_type = 'upvote' THEN 1 ELSE 0 END)::integer as upvotes,
         SUM(CASE WHEN vote_type = 'downvote' THEN 1 ELSE 0 END)::integer as downvotes
@@ -123,7 +123,7 @@ router.get('/user/comment/:commentId', requireUserAuth, async (req, res) => {
     const { commentId } = req.params;
     const userId = req.user.id;
 
-    const result = await db.query(`
+    const result = await db.pool.query(`
       SELECT vote_type, created_at
       FROM forum_votes
       WHERE user_id = $1 AND comment_id = $2
@@ -156,7 +156,7 @@ router.delete('/comment/:commentId', requireUserAuth, async (req, res) => {
     const userId = req.user.id;
 
     // Check if vote exists
-    const voteResult = await db.query(`
+    const voteResult = await db.pool.query(`
       SELECT * FROM forum_votes
       WHERE user_id = $1 AND comment_id = $2
     `, [userId, commentId]);
@@ -166,7 +166,7 @@ router.delete('/comment/:commentId', requireUserAuth, async (req, res) => {
     }
 
     // Remove vote
-    await db.query(`
+    await db.pool.query(`
       DELETE FROM forum_votes
       WHERE user_id = $1 AND comment_id = $2
     `, [userId, commentId]);
@@ -212,7 +212,7 @@ router.get('/user/comments', requireUserAuth, async (req, res) => {
     query += ` ORDER BY v.created_at DESC LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
     params.push(parseInt(limit), offset);
 
-    const result = await db.query(query, params);
+    const result = await db.pool.query(query, params);
 
     // Get total count
     let countQuery = `
@@ -228,7 +228,7 @@ router.get('/user/comments', requireUserAuth, async (req, res) => {
       countParams.push(voteType);
     }
 
-    const countResult = await db.query(countQuery, countParams);
+    const countResult = await db.pool.query(countQuery, countParams);
     const total = parseInt(countResult.rows[0].total);
 
     res.json({

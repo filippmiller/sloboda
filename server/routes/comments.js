@@ -23,7 +23,7 @@ router.post('/', requireUserAuth, async (req, res) => {
     }
 
     // Check if thread exists and is not locked
-    const threadResult = await db.query(`
+    const threadResult = await db.pool.query(`
       SELECT is_locked, is_deleted FROM forum_threads WHERE id = $1
     `, [threadId]);
 
@@ -45,7 +45,7 @@ router.post('/', requireUserAuth, async (req, res) => {
 
     // If this is a reply, check if parent comment exists
     if (parentId) {
-      const parentResult = await db.query(`
+      const parentResult = await db.pool.query(`
         SELECT id, thread_id FROM forum_comments
         WHERE id = $1 AND is_deleted = false
       `, [parentId]);
@@ -63,7 +63,7 @@ router.post('/', requireUserAuth, async (req, res) => {
     const result = await db.createForumComment(userId, threadId, content, parentId || null);
 
     // Get the created comment with author details
-    const commentResult = await db.query(`
+    const commentResult = await db.pool.query(`
       SELECT
         c.*,
         u.name as author_username
@@ -91,7 +91,7 @@ router.get('/:id/replies', async (req, res) => {
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     // Check if parent comment exists
-    const parentResult = await db.query(`
+    const parentResult = await db.pool.query(`
       SELECT id FROM forum_comments WHERE id = $1 AND is_deleted = false
     `, [id]);
 
@@ -100,7 +100,7 @@ router.get('/:id/replies', async (req, res) => {
     }
 
     // Get replies with vote counts
-    const repliesResult = await db.query(`
+    const repliesResult = await db.pool.query(`
       SELECT
         c.*,
         u.name as author_username,
@@ -116,7 +116,7 @@ router.get('/:id/replies', async (req, res) => {
     `, [id, parseInt(limit), offset]);
 
     // Get total count
-    const countResult = await db.query(`
+    const countResult = await db.pool.query(`
       SELECT COUNT(*) as total
       FROM forum_comments
       WHERE parent_id = $1 AND is_deleted = false
@@ -155,7 +155,7 @@ router.put('/:id', requireUserAuth, async (req, res) => {
     }
 
     // Check if comment exists
-    const commentResult = await db.query(`
+    const commentResult = await db.pool.query(`
       SELECT * FROM forum_comments
       WHERE id = $1 AND is_deleted = false
     `, [id]);
@@ -175,7 +175,7 @@ router.put('/:id', requireUserAuth, async (req, res) => {
     }
 
     // Update comment
-    const result = await db.query(`
+    const result = await db.pool.query(`
       UPDATE forum_comments
       SET content = $1, updated_at = NOW()
       WHERE id = $2
@@ -199,7 +199,7 @@ router.delete('/:id', requireUserAuth, async (req, res) => {
     const userId = req.user.id;
 
     // Check if comment exists
-    const commentResult = await db.query(`
+    const commentResult = await db.pool.query(`
       SELECT * FROM forum_comments
       WHERE id = $1 AND is_deleted = false
     `, [id]);
@@ -219,7 +219,7 @@ router.delete('/:id', requireUserAuth, async (req, res) => {
     }
 
     // Soft delete
-    await db.query(`
+    await db.pool.query(`
       UPDATE forum_comments
       SET is_deleted = true, updated_at = NOW()
       WHERE id = $1
@@ -237,7 +237,7 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await db.query(`
+    const result = await db.pool.query(`
       SELECT
         c.*,
         u.name as author_username,

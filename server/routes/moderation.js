@@ -20,7 +20,7 @@ router.post('/threads/:id/pin', requireUserAuth, requirePermission('can_moderate
     }
 
     // Check if thread exists
-    const threadResult = await db.query(`
+    const threadResult = await db.pool.query(`
       SELECT id FROM forum_threads WHERE id = $1 AND is_deleted = false
     `, [id]);
 
@@ -29,7 +29,7 @@ router.post('/threads/:id/pin', requireUserAuth, requirePermission('can_moderate
     }
 
     // Update pin status
-    await db.query(`
+    await db.pool.query(`
       UPDATE forum_threads
       SET is_pinned = $1, updated_at = NOW()
       WHERE id = $2
@@ -57,7 +57,7 @@ router.post('/threads/:id/lock', requireUserAuth, requirePermission('can_moderat
     }
 
     // Check if thread exists
-    const threadResult = await db.query(`
+    const threadResult = await db.pool.query(`
       SELECT id FROM forum_threads WHERE id = $1 AND is_deleted = false
     `, [id]);
 
@@ -66,7 +66,7 @@ router.post('/threads/:id/lock', requireUserAuth, requirePermission('can_moderat
     }
 
     // Update lock status
-    await db.query(`
+    await db.pool.query(`
       UPDATE forum_threads
       SET is_locked = $1, updated_at = NOW()
       WHERE id = $2
@@ -95,7 +95,7 @@ router.post('/users/:id/warn', requireUserAuth, requirePermission('can_moderate'
     }
 
     // Check if user exists
-    const userResult = await db.query(`
+    const userResult = await db.pool.query(`
       SELECT id, name FROM users WHERE id = $1
     `, [id]);
 
@@ -109,7 +109,7 @@ router.post('/users/:id/warn', requireUserAuth, requirePermission('can_moderate'
     }
 
     // Record the warning
-    const result = await db.query(`
+    const result = await db.pool.query(`
       INSERT INTO forum_moderation_actions
       (user_id, moderator_id, action_type, reason)
       VALUES ($1, $2, 'warn', $3)
@@ -138,7 +138,7 @@ router.post('/users/:id/ban', requireUserAuth, requirePermission('can_ban'), asy
     }
 
     // Check if user exists
-    const userResult = await db.query(`
+    const userResult = await db.pool.query(`
       SELECT id, name FROM users WHERE id = $1
     `, [id]);
 
@@ -152,7 +152,7 @@ router.post('/users/:id/ban', requireUserAuth, requirePermission('can_ban'), asy
     }
 
     // Check if user is already banned
-    const banCheckResult = await db.query(`
+    const banCheckResult = await db.pool.query(`
       SELECT id FROM forum_moderation_actions
       WHERE user_id = $1 AND action_type = 'ban' AND is_active = true
     `, [id]);
@@ -162,7 +162,7 @@ router.post('/users/:id/ban', requireUserAuth, requirePermission('can_ban'), asy
     }
 
     // Record the ban
-    const result = await db.query(`
+    const result = await db.pool.query(`
       INSERT INTO forum_moderation_actions
       (user_id, moderator_id, action_type, reason, expires_at)
       VALUES ($1, $2, 'ban', $3, $4)
@@ -186,7 +186,7 @@ router.post('/users/:id/unban', requireUserAuth, requirePermission('can_ban'), a
     const moderatorId = req.user.id;
 
     // Check if user is banned
-    const banResult = await db.query(`
+    const banResult = await db.pool.query(`
       SELECT id FROM forum_moderation_actions
       WHERE user_id = $1 AND action_type = 'ban' AND is_active = true
     `, [id]);
@@ -196,14 +196,14 @@ router.post('/users/:id/unban', requireUserAuth, requirePermission('can_ban'), a
     }
 
     // Deactivate the ban
-    await db.query(`
+    await db.pool.query(`
       UPDATE forum_moderation_actions
       SET is_active = false, updated_at = NOW()
       WHERE user_id = $1 AND action_type = 'ban' AND is_active = true
     `, [id]);
 
     // Record the unban action
-    await db.query(`
+    await db.pool.query(`
       INSERT INTO forum_moderation_actions
       (user_id, moderator_id, action_type, reason)
       VALUES ($1, $2, 'unban', 'Ban lifted')
@@ -224,7 +224,7 @@ router.get('/users/:id/history', requireUserAuth, requirePermission('can_moderat
 
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
-    const result = await db.query(`
+    const result = await db.pool.query(`
       SELECT
         ma.*,
         m.name as moderator_name,
@@ -238,7 +238,7 @@ router.get('/users/:id/history', requireUserAuth, requirePermission('can_moderat
     `, [id, parseInt(limit), offset]);
 
     // Get total count
-    const countResult = await db.query(`
+    const countResult = await db.pool.query(`
       SELECT COUNT(*) as total
       FROM forum_moderation_actions
       WHERE user_id = $1
@@ -297,7 +297,7 @@ router.get('/actions', requireUserAuth, requirePermission('can_moderate'), async
     query += ` ORDER BY ma.created_at DESC LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
     params.push(parseInt(limit), offset);
 
-    const result = await db.query(query, params);
+    const result = await db.pool.query(query, params);
 
     // Get total count
     let countQuery = `SELECT COUNT(*) as total FROM forum_moderation_actions WHERE 1=1`;
@@ -315,7 +315,7 @@ router.get('/actions', requireUserAuth, requirePermission('can_moderate'), async
       countParams.push(isActive === 'true');
     }
 
-    const countResult = await db.query(countQuery, countParams);
+    const countResult = await db.pool.query(countQuery, countParams);
     const total = parseInt(countResult.rows[0].total);
 
     res.json({
@@ -336,7 +336,7 @@ router.get('/actions', requireUserAuth, requirePermission('can_moderate'), async
 // GET /api/moderation/banned-users - Get list of currently banned users (requires can_moderate)
 router.get('/banned-users', requireUserAuth, requirePermission('can_moderate'), async (req, res) => {
   try {
-    const result = await db.query(`
+    const result = await db.pool.query(`
       SELECT DISTINCT
         u.id,
         u.name,
@@ -372,7 +372,7 @@ router.post('/comments/:id/delete', requireUserAuth, requirePermission('can_mode
     }
 
     // Check if comment exists
-    const commentResult = await db.query(`
+    const commentResult = await db.pool.query(`
       SELECT * FROM forum_comments WHERE id = $1
     `, [id]);
 
@@ -381,14 +381,14 @@ router.post('/comments/:id/delete', requireUserAuth, requirePermission('can_mode
     }
 
     // Soft delete the comment
-    await db.query(`
+    await db.pool.query(`
       UPDATE forum_comments
       SET is_deleted = true, updated_at = NOW()
       WHERE id = $1
     `, [id]);
 
     // Record the moderation action
-    await db.query(`
+    await db.pool.query(`
       INSERT INTO forum_moderation_actions
       (user_id, moderator_id, action_type, reason, metadata)
       VALUES ($1, $2, 'delete_comment', $3, $4)
@@ -417,7 +417,7 @@ router.post('/threads/:id/delete', requireUserAuth, requirePermission('can_moder
     }
 
     // Check if thread exists
-    const threadResult = await db.query(`
+    const threadResult = await db.pool.query(`
       SELECT * FROM forum_threads WHERE id = $1
     `, [id]);
 
@@ -426,14 +426,14 @@ router.post('/threads/:id/delete', requireUserAuth, requirePermission('can_moder
     }
 
     // Soft delete the thread
-    await db.query(`
+    await db.pool.query(`
       UPDATE forum_threads
       SET is_deleted = true, updated_at = NOW()
       WHERE id = $1
     `, [id]);
 
     // Record the moderation action
-    await db.query(`
+    await db.pool.query(`
       INSERT INTO forum_moderation_actions
       (user_id, moderator_id, action_type, reason, metadata)
       VALUES ($1, $2, 'delete_thread', $3, $4)

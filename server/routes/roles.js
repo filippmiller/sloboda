@@ -12,7 +12,7 @@ function setDb(database) {
 // GET /api/roles - Get all available roles
 router.get('/', async (req, res) => {
   try {
-    const result = await db.query(`
+    const result = await db.pool.query(`
       SELECT * FROM forum_roles
       ORDER BY id ASC
     `);
@@ -29,7 +29,7 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await db.query(`
+    const result = await db.pool.query(`
       SELECT * FROM forum_roles WHERE id = $1
     `, [id]);
 
@@ -49,7 +49,7 @@ router.get('/user/me', requireUserAuth, async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const result = await db.query(`
+    const result = await db.pool.query(`
       SELECT
         u.id as user_id,
         u.username,
@@ -81,7 +81,7 @@ router.get('/user/:id', requireUserAuth, requirePermission('can_moderate'), asyn
   try {
     const { id } = req.params;
 
-    const result = await db.query(`
+    const result = await db.pool.query(`
       SELECT
         u.id as user_id,
         u.username,
@@ -119,7 +119,7 @@ router.post('/user/:id/assign', requireUserAuth, requirePermission('can_manage_r
     }
 
     // Check if user exists
-    const userResult = await db.query(`
+    const userResult = await db.pool.query(`
       SELECT id, username, forum_role_id FROM users WHERE id = $1
     `, [id]);
 
@@ -128,7 +128,7 @@ router.post('/user/:id/assign', requireUserAuth, requirePermission('can_manage_r
     }
 
     // Check if role exists
-    const roleResult = await db.query(`
+    const roleResult = await db.pool.query(`
       SELECT * FROM forum_roles WHERE id = $1
     `, [roleId]);
 
@@ -142,14 +142,14 @@ router.post('/user/:id/assign', requireUserAuth, requirePermission('can_manage_r
     }
 
     // Update user's role
-    await db.query(`
+    await db.pool.query(`
       UPDATE users
       SET forum_role_id = $1
       WHERE id = $2
     `, [roleId, id]);
 
     // Record the role change as a moderation action
-    await db.query(`
+    await db.pool.query(`
       INSERT INTO forum_moderation_actions
       (user_id, moderator_id, action_type, reason, metadata)
       VALUES ($1, $2, 'role_change', $3, $4)
@@ -178,7 +178,7 @@ router.post('/user/:id/assign', requireUserAuth, requirePermission('can_manage_r
 // GET /api/roles/moderators - Get list of all moderators
 router.get('/moderators/list', async (req, res) => {
   try {
-    const result = await db.query(`
+    const result = await db.pool.query(`
       SELECT
         u.id,
         u.username,
@@ -254,7 +254,7 @@ router.get('/user/:id/permissions', requireUserAuth, requirePermission('can_mode
   try {
     const { id } = req.params;
 
-    const result = await db.query(`
+    const result = await db.pool.query(`
       SELECT
         r.can_moderate,
         r.can_ban,
@@ -293,7 +293,7 @@ router.get('/users-by-role/:roleId', requireUserAuth, requirePermission('can_mod
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     // Check if role exists
-    const roleResult = await db.query(`
+    const roleResult = await db.pool.query(`
       SELECT * FROM forum_roles WHERE id = $1
     `, [roleId]);
 
@@ -302,7 +302,7 @@ router.get('/users-by-role/:roleId', requireUserAuth, requirePermission('can_mod
     }
 
     // Get users with this role
-    const result = await db.query(`
+    const result = await db.pool.query(`
       SELECT
         u.id,
         u.username,
@@ -320,7 +320,7 @@ router.get('/users-by-role/:roleId', requireUserAuth, requirePermission('can_mod
     `, [roleId, parseInt(limit), offset]);
 
     // Get total count
-    const countResult = await db.query(`
+    const countResult = await db.pool.query(`
       SELECT COUNT(*) as total
       FROM users
       WHERE forum_role_id = $1

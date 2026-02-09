@@ -76,7 +76,7 @@ router.get('/threads', async (req, res) => {
     query += ` LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
     params.push(parseInt(limit), offset);
 
-    const result = await db.query(query, params);
+    const result = await db.pool.query(query, params);
 
     // Get total count for pagination
     let countQuery = `
@@ -104,7 +104,7 @@ router.get('/threads', async (req, res) => {
       countParams.push(`%${search}%`);
     }
 
-    const countResult = await db.query(countQuery, countParams);
+    const countResult = await db.pool.query(countQuery, countParams);
     const total = parseInt(countResult.rows[0].total);
 
     res.json({
@@ -133,7 +133,7 @@ router.get('/threads/:id', async (req, res) => {
     const { id } = req.params;
 
     // Get thread details
-    const threadResult = await db.query(`
+    const threadResult = await db.pool.query(`
       SELECT
         t.*,
         u.name as author_username,
@@ -152,7 +152,7 @@ router.get('/threads/:id', async (req, res) => {
     const thread = threadResult.rows[0];
 
     // Get top-level comments with vote counts
-    const commentsResult = await db.query(`
+    const commentsResult = await db.pool.query(`
       SELECT
         c.*,
         u.name as author_username,
@@ -169,7 +169,7 @@ router.get('/threads/:id', async (req, res) => {
     `, [id]);
 
     // Increment view count
-    await db.query(`
+    await db.pool.query(`
       UPDATE forum_threads
       SET view_count = view_count + 1
       WHERE id = $1
@@ -226,7 +226,7 @@ router.put('/threads/:id', requireUserAuth, async (req, res) => {
     const userId = req.user.id;
 
     // Check if thread exists
-    const threadResult = await db.query(`
+    const threadResult = await db.pool.query(`
       SELECT * FROM forum_threads
       WHERE id = $1 AND is_deleted = false
     `, [id]);
@@ -281,7 +281,7 @@ router.put('/threads/:id', requireUserAuth, async (req, res) => {
       RETURNING *
     `;
 
-    const result = await db.query(updateQuery, params);
+    const result = await db.pool.query(updateQuery, params);
 
     res.json({
       message: 'Thread updated successfully',
@@ -300,7 +300,7 @@ router.delete('/threads/:id', requireUserAuth, async (req, res) => {
     const userId = req.user.id;
 
     // Check if thread exists
-    const threadResult = await db.query(`
+    const threadResult = await db.pool.query(`
       SELECT * FROM forum_threads
       WHERE id = $1 AND is_deleted = false
     `, [id]);
@@ -320,7 +320,7 @@ router.delete('/threads/:id', requireUserAuth, async (req, res) => {
     }
 
     // Soft delete
-    await db.query(`
+    await db.pool.query(`
       UPDATE forum_threads
       SET is_deleted = true, updated_at = NOW()
       WHERE id = $1
