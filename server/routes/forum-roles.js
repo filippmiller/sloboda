@@ -12,6 +12,10 @@ function setDb(database) {
 // GET /api/forum/roles/users - Get all users with their roles and reputation
 router.get('/users', requireAuth, async (req, res) => {
   try {
+    // First check if forum_roles table exists
+    const testQuery = await db.pool.query(`SELECT COUNT(*) FROM forum_roles`);
+    console.log('[forum-roles] Forum roles count:', testQuery.rows[0].count);
+
     const query = `
       SELECT
         fr.id,
