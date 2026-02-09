@@ -21,6 +21,20 @@ DROP FUNCTION IF EXISTS update_thread_activity();
 DROP FUNCTION IF EXISTS update_comment_votes();
 
 -- ============================================
+-- ALTER USERS TABLE - Add forum role reference
+-- ============================================
+-- Add forum_role_id column to users table if it doesn't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'users' AND column_name = 'forum_role_id'
+    ) THEN
+        ALTER TABLE users ADD COLUMN forum_role_id INTEGER;
+    END IF;
+END$$;
+
+-- ============================================
 -- FORUM THREADS (standalone discussions)
 -- ============================================
 CREATE TABLE IF NOT EXISTS forum_threads (

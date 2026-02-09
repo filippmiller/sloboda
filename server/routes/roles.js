@@ -61,7 +61,7 @@ router.get('/user/me', requireUserAuth, async (req, res) => {
         r.can_ban,
         r.can_manage_roles
       FROM users u
-      LEFT JOIN forum_roles r ON u.forum_role_id = r.id
+      LEFT JOIN forum_roles r ON r.user_id = u.id
       WHERE u.id = $1
     `, [userId]);
 
@@ -93,7 +93,7 @@ router.get('/user/:id', requireUserAuth, requirePermission('can_moderate'), asyn
         r.can_ban,
         r.can_manage_roles
       FROM users u
-      LEFT JOIN forum_roles r ON u.forum_role_id = r.id
+      LEFT JOIN forum_roles r ON r.user_id = u.id
       WHERE u.id = $1
     `, [id]);
 
@@ -188,7 +188,7 @@ router.get('/moderators/list', async (req, res) => {
         r.display_name,
         r.color
       FROM users u
-      LEFT JOIN forum_roles r ON u.forum_role_id = r.id
+      LEFT JOIN forum_roles r ON r.user_id = u.id
       WHERE r.can_moderate = true OR r.can_ban = true
       ORDER BY r.id ASC, u.username ASC
     `);
@@ -260,7 +260,7 @@ router.get('/user/:id/permissions', requireUserAuth, requirePermission('can_mode
         r.can_ban,
         r.can_manage_roles
       FROM users u
-      LEFT JOIN forum_roles r ON u.forum_role_id = r.id
+      LEFT JOIN forum_roles r ON r.user_id = u.id
       WHERE u.id = $1
     `, [id]);
 
