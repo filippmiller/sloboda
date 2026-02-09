@@ -65,17 +65,21 @@ export default function ForumModeration() {
     try {
       if (activeTab === 'log') {
         const response = await axios.get('/api/forum/moderation/actions')
-        setModActions(response.data.actions)
+        setModActions(response.data.actions || [])
       } else if (activeTab === 'bans') {
         const response = await axios.get('/api/forum/moderation/bans')
-        setBans(response.data.bans)
+        setBans(response.data.bans || [])
       } else if (activeTab === 'warnings') {
         const response = await axios.get('/api/forum/moderation/warnings')
-        setWarnings(response.data.warnings)
+        setWarnings(response.data.warnings || [])
       }
     } catch (error) {
       console.error('Error fetching data:', error)
       toast.error('Не удалось загрузить данные')
+      // Set empty arrays on error
+      if (activeTab === 'log') setModActions([])
+      else if (activeTab === 'bans') setBans([])
+      else if (activeTab === 'warnings') setWarnings([])
     } finally {
       setLoading(false)
     }
@@ -163,7 +167,7 @@ export default function ForumModeration() {
           <>
             {activeTab === 'log' && (
               <div className="overflow-x-auto">
-                {modActions.length === 0 ? (
+                {(modActions || []).length === 0 ? (
                   <div className="p-12 text-center text-text-muted">
                     Действия не найдены
                   </div>
@@ -189,7 +193,7 @@ export default function ForumModeration() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {modActions.map((action) => {
+                      {(modActions || []).map((action) => {
                         const actionConfig = ACTION_TYPES[action.action_type as keyof typeof ACTION_TYPES] || {
                           label: action.action_type,
                           icon: AlertCircle,
@@ -230,7 +234,7 @@ export default function ForumModeration() {
 
             {activeTab === 'bans' && (
               <div className="overflow-x-auto">
-                {bans.length === 0 ? (
+                {(bans || []).length === 0 ? (
                   <div className="p-12 text-center text-text-muted">
                     Активные баны не найдены
                   </div>
@@ -256,7 +260,7 @@ export default function ForumModeration() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {bans.map((ban) => (
+                      {(bans || []).map((ban) => (
                         <tr key={ban.id} className="hover:bg-bg-elevated transition-colors">
                           <td className="px-6 py-4">
                             <div>
@@ -306,7 +310,7 @@ export default function ForumModeration() {
 
             {activeTab === 'warnings' && (
               <div className="overflow-x-auto">
-                {warnings.length === 0 ? (
+                {(warnings || []).length === 0 ? (
                   <div className="p-12 text-center text-text-muted">
                     Предупреждения не найдены
                   </div>
@@ -329,7 +333,7 @@ export default function ForumModeration() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {warnings.map((warning) => (
+                      {(warnings || []).map((warning) => (
                         <tr key={warning.id} className="hover:bg-bg-elevated transition-colors">
                           <td className="px-6 py-4">
                             <div>
