@@ -36,8 +36,8 @@ router.post('/seed-forum', requireAuth, async (req, res) => {
     const userIds = [];
     for (const user of users) {
       const result = await client.query(
-        `INSERT INTO users (name, email, telegram, location, password, environment)
-         VALUES ($1, $2, $3, $4, $5, 'production')
+        `INSERT INTO users (name, email, telegram, location, password_hash, status)
+         VALUES ($1, $2, $3, $4, $5, 'active')
          ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name
          RETURNING id, name`,
         [user.name, user.email, user.telegram, user.location, hash]
