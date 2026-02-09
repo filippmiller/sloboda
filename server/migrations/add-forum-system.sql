@@ -3,6 +3,23 @@
 -- CORRECTED: All tables use forum_ prefix
 -- ============================================
 
+-- Drop old incorrectly-named tables (from previous migration)
+DROP TABLE IF EXISTS comment_votes CASCADE;
+DROP TABLE IF EXISTS comments CASCADE;
+DROP TABLE IF EXISTS moderator_categories CASCADE;
+DROP TABLE IF EXISTS user_warnings CASCADE;
+DROP TABLE IF EXISTS user_bans CASCADE;
+DROP TABLE IF EXISTS moderation_actions CASCADE;
+DROP TABLE IF EXISTS user_reputation CASCADE;
+DROP TABLE IF NOT EXISTS user_roles CASCADE;
+DROP TABLE IF EXISTS threads CASCADE;
+
+-- Drop old triggers and functions
+DROP TRIGGER IF EXISTS trigger_update_thread_activity ON comments;
+DROP TRIGGER IF EXISTS trigger_update_comment_votes ON comment_votes;
+DROP FUNCTION IF EXISTS update_thread_activity();
+DROP FUNCTION IF EXISTS update_comment_votes();
+
 -- ============================================
 -- FORUM THREADS (standalone discussions)
 -- ============================================
