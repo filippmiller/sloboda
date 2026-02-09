@@ -12,12 +12,12 @@ async function checkAndRunMigrations() {
   try {
     console.log('Checking if forum tables exist...');
 
-    // Check if threads table exists
+    // Check if forum_threads table exists
     const checkQuery = `
       SELECT EXISTS (
         SELECT FROM information_schema.tables
         WHERE table_schema = 'public'
-        AND table_name = 'threads'
+        AND table_name = 'forum_threads'
       );
     `;
 
