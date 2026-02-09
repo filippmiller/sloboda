@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import Button from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Input';
-import { Modal } from '@/components/ui/Modal';
+import Modal from '@/components/ui/Modal';
 import axios from 'axios';
 import { toast } from 'sonner';
 

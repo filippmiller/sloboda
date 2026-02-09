@@ -2,8 +2,8 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
 import Button from '@/components/ui/Button';
-import { Input, Textarea } from '@/components/ui/Input';
-import { Modal } from '@/components/ui/Modal';
+import Input, { Textarea } from '@/components/ui/Input';
+import Modal from '@/components/ui/Modal';
 import axios from 'axios';
 import { toast } from 'sonner';
 

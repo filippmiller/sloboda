@@ -65,4 +65,48 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
 
 Input.displayName = 'Input'
 
+// Textarea component
+interface TextareaProps extends InputHTMLAttributes<HTMLTextAreaElement> {
+  label?: string
+  error?: string
+  rows?: number
+}
+
+export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
+  ({ label, error, className = '', id, rows = 4, ...props }, ref) => {
+    const inputId = id || label?.toLowerCase().replace(/\s+/g, '-')
+
+    return (
+      <div className={`flex flex-col gap-1.5 ${error ? 'animate-shake' : ''}`}>
+        {label && (
+          <label htmlFor={inputId} className="text-sm font-medium text-text-secondary">
+            {label}
+          </label>
+        )}
+        <textarea
+          ref={ref}
+          id={inputId}
+          rows={rows}
+          className={`
+            w-full px-3 py-2 rounded-lg
+            bg-bg-card border border-border
+            text-text placeholder:text-text-muted
+            focus:outline-none focus:border-accent
+            focus:shadow-[0_0_0_3px_var(--color-accent-glow)]
+            transition-all duration-200
+            ${error ? 'border-red-500 focus:border-red-500 focus:shadow-[0_0_0_3px_rgba(239,68,68,0.15)]' : ''}
+            ${className}
+          `}
+          {...props}
+        />
+        {error && (
+          <p className="text-xs text-red-400">{error}</p>
+        )}
+      </div>
+    )
+  },
+)
+
+Textarea.displayName = 'Textarea'
+
 export default Input
