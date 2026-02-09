@@ -118,7 +118,12 @@ router.get('/threads', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching threads:', error);
-    res.status(500).json({ error: 'Failed to fetch threads' });
+    console.error('Error details:', error.message);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({
+      error: 'Failed to fetch threads',
+      details: process.env.NODE_ENV !== 'production' ? error.message : undefined
+    });
   }
 });
 
