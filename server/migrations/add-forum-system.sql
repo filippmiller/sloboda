@@ -11,7 +11,7 @@ DROP TABLE IF EXISTS user_warnings CASCADE;
 DROP TABLE IF EXISTS user_bans CASCADE;
 DROP TABLE IF EXISTS moderation_actions CASCADE;
 DROP TABLE IF EXISTS user_reputation CASCADE;
-DROP TABLE IF NOT EXISTS user_roles CASCADE;
+DROP TABLE IF EXISTS user_roles CASCADE;
 DROP TABLE IF EXISTS threads CASCADE;
 
 -- Drop old triggers and functions
