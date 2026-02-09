@@ -434,6 +434,17 @@ textarea:focus-visible {
     margin-right: auto;
 }
 
+.hero-glass {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: var(--radius);
+    padding: 1.2rem 1.4rem 1.1rem;
+    backdrop-filter: blur(18px);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+    margin: 0 auto 1.5rem;
+    max-width: 760px;
+}
+
 .hero-actions {
     display: flex;
     align-items: center;
