@@ -1,7 +1,6 @@
 // Seed script for forum sample data
-const axios = require('axios');
-
-const BASE_URL = process.env.API_URL || 'http://localhost:3001';
+const db = require('../db');
+const bcrypt = require('bcrypt');
 
 // Sample users to create
 const sampleUsers = [
@@ -96,35 +95,21 @@ async function seedUsers() {
   for (const userData of sampleUsers) {
     try {
       // Check if user exists
-      const existing = await axios.get(`${BASE_URL}/api/user/profile`, {
-        headers: { 'Authorization': `Bearer dummy_${userData.email}` }
-      }).catch(() => null);
+      const existing = await db.pool.query(
+        'SELECT id, name, email FROM users WHERE email = $1',
+        [userData.email]
+      );
 
-      if (existing) {
+      if (existing.rows.length > 0) {
         console.log(`User ${userData.email} already exists, skipping`);
-        createdUsers.push(existing.data);
+        createdUsers.push(existing.rows[0]);
         continue;
       }
 
-      // Create registration
-      const regResponse = await axios.post(`${BASE_URL}/api/registrations`, {
-        name: userData.name,
-        email: userData.email,
-        telegram: userData.telegram,
-        location: userData.location,
-        motivation: 'Интересуюсь экопоселениями',
-        participation: 'active_resident',
-        skills: ['строительство', 'садоводство'],
-        investment_range: '1000000-3000000'
-      });
+      // Hash password
+      const hashedPassword = await bcrypt.hash(userData.password, 10);
 
-      console.log(`Created registration for ${userData.email}`);
-
-      // Auto-approve and create user (simulating admin action)
-      // This would normally be done through admin API
-      const db = require('../db');
-      const hashedPassword = await require('bcrypt').hash(userData.password, 10);
-
+      // Create user directly
       const userResult = await db.pool.query(`
         INSERT INTO users (name, email, telegram, location, password, environment)
         VALUES ($1, $2, $3, $4, $5, 'production')
@@ -144,8 +129,6 @@ async function seedUsers() {
 async function seedThreads(users) {
   console.log('\nCreating sample threads...');
   const createdThreads = [];
-
-  const db = require('../db');
 
   for (let i = 0; i < sampleThreads.length; i++) {
     const thread = sampleThreads[i];
@@ -171,8 +154,6 @@ async function seedThreads(users) {
 async function seedComments(threads, users) {
   console.log('\nCreating sample comments...');
 
-  const db = require('../db');
-
   for (const comment of sampleComments) {
     const thread = threads[comment.threadIndex];
     const author = users[Math.floor(Math.random() * users.length)];
@@ -194,8 +175,6 @@ async function seedComments(threads, users) {
 
 async function seedRoles(users) {
   console.log('\nCreating forum roles...');
-
-  const db = require('../db');
 
   const roles = ['new_user', 'member', 'senior_member'];
 
