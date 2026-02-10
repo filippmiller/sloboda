@@ -386,6 +386,46 @@ async function initDatabase() {
             ON CONFLICT (slug) DO NOTHING
         `);
 
+        // Landing page content management
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS landing_page_content (
+                id SERIAL PRIMARY KEY,
+                section VARCHAR(100) NOT NULL UNIQUE,
+                content JSONB NOT NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_by INTEGER REFERENCES admins(id)
+            )
+        `);
+
+        // Seed default landing page content
+        await client.query(`
+            INSERT INTO landing_page_content (section, content) VALUES
+            ('bookmark_banner', '{"enabled": true, "text": "Это, наверное, самый важный сайт, на который вы зашли. Сохраните его в закладки."}'),
+            ('hero', '{"badge": "⚡ Создано с помощью ИИ", "title": "Вы это чувствуете,<br>не так ли?", "text": "Тревога, когда видишь очередное объявление о сокращениях.<br>Узел в желудке при новостях о банковской нестабильности.<br>Тихий вопрос: <strong>«А что, если всё это развалится?»</strong>", "answer": "<strong>Вы не параноик. Вы проницательны.</strong><br>И вы попали куда нужно."}'),
+            ('reality_cards', '[
+                {"title": "💼 Задайте себе честный вопрос", "question": "Если я работаю на компьютере, может ли ИИ заменить меня?", "answer": "Честный ответ — ДА! Любая работа на компьютере выполнится ИИ быстрее, лучше и за бесценок.", "warning": "Ваша работа под угрозой! Если не сегодня, то через год-два-три.", "type": "urgent"},
+                {"title": "⚠️ Что будет дальше", "content": "Когда начнутся массовые увольнения, конкуренция за оставшиеся рабочие места будет такой, что устроиться станет почти невозможно. Начнётся обесценивание ручного труда — до того момента, когда роботизированные технологии займут и эти места.", "type": "consequence"},
+                {"title": "✓ Что делать", "content": "Не ждать, пока станет поздно. Строить альтернативу. Сейчас. Пока есть время, деньги и возможности.", "cta": "Присоединиться к СЛОБОДЕ", "type": "solution"}
+            ]'),
+            ('testimonials', '[
+                {"quote": "Наконец-то кто-то воспринимает это серьёзно. Не паникёры, а реалисты.", "name": "Дмитрий К.", "role": "Инженер, Москва", "avatar": "Д"},
+                {"quote": "Прозрачность финансов — это то, чего не хватало всем экопроектам. Здесь всё честно.", "name": "Анастасия П.", "role": "Архитектор, Санкт-Петербург", "avatar": "А"},
+                {"quote": "Я уже год искал сообщество для переезда. СЛОБОДА — единственные, у кого есть реальный план.", "name": "Иван С.", "role": "Строитель, Екатеринбург", "avatar": "И"}
+            ]'),
+            ('features', '[
+                {"number": "01", "title": "База знаний", "description": "Практические стандарты и чек-листы: дом, еда, энергия, медицина, право, безопасность. Всё проверено специалистами."},
+                {"number": "02", "title": "Кураторство", "description": "Эксперты подтверждают и обновляют материалы. Ошибки исправляются публично. Качество — приоритет."},
+                {"number": "03", "title": "Реестр компетенций", "description": "Люди указывают навыки, чтобы собирать команды. Нужен электрик? Ищите в реестре. Нужна юридическая помощь? Она здесь."},
+                {"number": "04", "title": "Сеть поселений", "description": "Обмен практиками, людьми и ресурсами. Система сильнее одиночек. Вместе — реально."}
+            ]'),
+            ('donation_amounts', '[
+                {"amount": 500, "description": "Покрывает 1 час юридической консультации"},
+                {"amount": 2000, "description": "Оплачивает создание 1 стандарта в базе знаний", "popular": true},
+                {"amount": 5000, "description": "Финансирует 1 день работы эксперта-куратора"}
+            ]')
+            ON CONFLICT (section) DO NOTHING
+        `);
+
         // ============================================
         // PERFORMANCE INDEXES
         // ============================================
@@ -3117,6 +3157,61 @@ async function assignModeratorCategories(userId, categoryIds) {
     }
 }
 
+// ============================================
+// LANDING PAGE CONTENT MANAGEMENT
+// ============================================
+
+async function getLandingPageContent(section = null) {
+    const client = await pool.connect();
+    try {
+        if (section) {
+            const result = await client.query(
+                'SELECT section, content, updated_at FROM landing_page_content WHERE section = $1',
+                [section]
+            );
+            return result.rows[0] || null;
+        } else {
+            const result = await client.query(
+                'SELECT section, content, updated_at FROM landing_page_content ORDER BY section'
+            );
+            return result.rows;
+        }
+    } finally {
+        client.release();
+    }
+}
+
+async function updateLandingPageContent(section, content, adminId) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `UPDATE landing_page_content
+             SET content = $1, updated_at = CURRENT_TIMESTAMP, updated_by = $2
+             WHERE section = $3
+             RETURNING section, content, updated_at`,
+            [JSON.stringify(content), adminId, section]
+        );
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function getAllLandingPageSections() {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `SELECT lpc.section, lpc.content, lpc.updated_at, a.email as updated_by_email
+             FROM landing_page_content lpc
+             LEFT JOIN admins a ON lpc.updated_by = a.id
+             ORDER BY lpc.section`
+        );
+        return result.rows;
+    } finally {
+        client.release();
+    }
+}
+
 module.exports = {
     pool,
     initDatabase,
@@ -3271,6 +3366,10 @@ module.exports = {
     createUserBan,
     getActiveBan,
     assignModeratorCategories,
+    // Landing Page Content Management
+    getLandingPageContent,
+    updateLandingPageContent,
+    getAllLandingPageSections,
     // Pool reference for graceful shutdown
     pool
 };

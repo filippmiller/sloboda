@@ -23,6 +23,7 @@ const { router: userAuthRouter, setDb: setUserAuthDb, setEmailService: setUserAu
 const { router: userPortalRouter, setDb: setUserPortalDb } = require('./routes/userPortal');
 const { router: adminContentRouter, setDb: setAdminContentDb, setEmailService: setAdminContentEmailService } = require('./routes/adminContent');
 const { router: financeRouter, setDb: setFinanceDb } = require('./routes/finance');
+const { router: landingContentRouter, setDb: setLandingContentDb } = require('./routes/landingContent');
 const { router: forumRouter, setDb: setForumDb } = require('./routes/forum');
 const { router: commentsRouter, setDb: setCommentsDb } = require('./routes/comments');
 const { router: votesRouter, setDb: setVotesDb } = require('./routes/votes');
@@ -170,6 +171,7 @@ setAdminContentDb(db);
 setAdminContentEmailService(emailService);
 setAiQueueDb(db);
 setFinanceDb(db);
+setLandingContentDb(db);
 
 // Forum system injection
 setForumDb(db);
@@ -201,6 +203,11 @@ app.use('/api/admin', adminContentRouter);
 // FINANCE ROUTES (admin, user, public)
 // ============================================
 app.use('/api', financeRouter);
+
+// ============================================
+// LANDING PAGE CONTENT ROUTES (admin + public)
+// ============================================
+app.use('/api', landingContentRouter);
 
 // ============================================
 // FORUM ROUTES
