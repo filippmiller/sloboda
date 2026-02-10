@@ -1,15 +1,22 @@
-const { S3Client, PutObjectCommand, DeleteObjectCommand, HeadBucketCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand, HeadBucketCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const crypto = require('crypto');
 const path = require('path');
 
 let s3Client = null;
+
+const BUCKETS = {
+    avatars: process.env.S3_BUCKET || 'sloboda-avatars',
+    files: process.env.S3_FILES_BUCKET || 'sloboda-files'
+};
 
 function getConfig() {
     return {
         endpoint: process.env.S3_ENDPOINT,
         accessKey: process.env.S3_ACCESS_KEY,
         secretKey: process.env.S3_SECRET_KEY,
-        bucket: process.env.S3_BUCKET || 'sloboda-avatars',
+        bucket: BUCKETS.avatars,
+        filesBucket: BUCKETS.files,
         region: process.env.S3_REGION || 'us-east-1',
         publicUrl: process.env.S3_PUBLIC_URL || process.env.S3_ENDPOINT
     };
@@ -65,6 +72,20 @@ async function uploadFile(buffer, key, contentType) {
     };
 }
 
+async function uploadPrivateFile(buffer, key, contentType) {
+    const client = getClient();
+    const config = getConfig();
+
+    await client.send(new PutObjectCommand({
+        Bucket: config.filesBucket,
+        Key: key,
+        Body: buffer,
+        ContentType: contentType
+    }));
+
+    return { key, bucket: config.filesBucket };
+}
+
 async function deleteFile(key) {
     const client = getClient();
     const config = getConfig();
@@ -75,9 +96,37 @@ async function deleteFile(key) {
     }));
 }
 
+async function deletePrivateFile(key) {
+    const client = getClient();
+    const config = getConfig();
+
+    await client.send(new DeleteObjectCommand({
+        Bucket: config.filesBucket,
+        Key: key
+    }));
+}
+
+async function getPresignedDownloadUrl(key, expiresInSeconds = 3600) {
+    const client = getClient();
+    const config = getConfig();
+
+    const command = new GetObjectCommand({
+        Bucket: config.filesBucket,
+        Key: key
+    });
+
+    return getSignedUrl(client, command, { expiresIn: expiresInSeconds });
+}
+
 function generateAvatarKey(originalFilename) {
     const ext = path.extname(originalFilename).toLowerCase() || '.jpg';
     return `avatars/${crypto.randomUUID()}${ext}`;
+}
+
+function generateFileKey(originalFilename, context = 'general') {
+    const ext = path.extname(originalFilename).toLowerCase();
+    const date = new Date().toISOString().slice(0, 10);
+    return `${context}/${date}/${crypto.randomUUID()}${ext}`;
 }
 
 function extractKeyFromUrl(url) {
@@ -113,9 +162,13 @@ async function healthCheck() {
 module.exports = {
     isConfigured,
     uploadFile,
+    uploadPrivateFile,
     deleteFile,
+    deletePrivateFile,
     getPublicUrl,
+    getPresignedDownloadUrl,
     generateAvatarKey,
+    generateFileKey,
     extractKeyFromUrl,
     healthCheck
 };

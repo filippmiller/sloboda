@@ -3,7 +3,9 @@ const router = express.Router();
 const { requireUserAuth } = require('../middleware/userAuth');
 const { upload } = require('../services/fileStorage');
 const { avatarUpload } = require('../middleware/avatarUpload');
+const { fileUpload } = require('../middleware/fileUpload');
 const s3Storage = require('../services/s3Storage');
+const { parseVideoUrl } = require('../utils/videoEmbed');
 const { enqueue: enqueueClassification } = require('../services/ai/queue');
 const { streamLibrarianResponse } = require('../services/ai/librarian');
 
@@ -681,6 +683,186 @@ router.post('/onboarding/complete', requireUserAuth, async (req, res) => {
         console.error('Error completing onboarding:', err);
         res.status(500).json({ success: false, error: 'Failed to complete onboarding' });
     }
+});
+
+// ============================================
+// FILE STORAGE
+// ============================================
+
+/**
+ * GET /api/user/files
+ * List current user's files
+ */
+router.get('/files', requireUserAuth, async (req, res) => {
+    try {
+        const { context } = req.query;
+        const files = await db.getUserFiles(req.user.id, context || null);
+        const storageUsed = await db.getUserStorageUsed(req.user.id);
+        res.json({
+            success: true,
+            data: files,
+            storage: {
+                used: storageUsed,
+                limit: db.USER_STORAGE_LIMIT,
+                remaining: Math.max(0, db.USER_STORAGE_LIMIT - storageUsed)
+            }
+        });
+    } catch (err) {
+        console.error('Error fetching user files:', err);
+        res.status(500).json({ success: false, error: 'Failed to fetch files' });
+    }
+});
+
+/**
+ * POST /api/user/files/upload
+ * Upload a file to private S3 storage
+ */
+router.post('/files/upload', requireUserAuth, fileUpload.single('file'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, error: 'No file provided' });
+        }
+
+        if (!s3Storage.isConfigured()) {
+            return res.status(503).json({ success: false, error: 'File storage is not configured' });
+        }
+
+        // Check quota
+        const storageUsed = await db.getUserStorageUsed(req.user.id);
+        if (storageUsed + req.file.size > db.USER_STORAGE_LIMIT) {
+            return res.status(413).json({
+                success: false,
+                error: 'Storage quota exceeded',
+                storage: {
+                    used: storageUsed,
+                    limit: db.USER_STORAGE_LIMIT,
+                    remaining: Math.max(0, db.USER_STORAGE_LIMIT - storageUsed)
+                }
+            });
+        }
+
+        const context = req.body.context || 'general';
+        const description = req.body.description || null;
+        const s3Key = s3Storage.generateFileKey(req.file.originalname, context);
+
+        await s3Storage.uploadPrivateFile(req.file.buffer, s3Key, req.file.mimetype);
+
+        const fileRecord = await db.createUserFile({
+            filename: s3Key.split('/').pop(),
+            originalFilename: req.file.originalname,
+            filepath: s3Key,
+            mimetype: req.file.mimetype,
+            sizeBytes: req.file.size,
+            userId: req.user.id,
+            s3Key,
+            context,
+            description
+        });
+
+        res.json({ success: true, file: fileRecord });
+    } catch (err) {
+        console.error('Error uploading file:', err);
+        res.status(500).json({ success: false, error: 'Failed to upload file' });
+    }
+});
+
+/**
+ * GET /api/user/files/:id/download
+ * Get a presigned download URL for a private file
+ */
+router.get('/files/:id/download', requireUserAuth, async (req, res) => {
+    try {
+        const file = await db.getFileById(parseInt(req.params.id, 10));
+        if (!file) {
+            return res.status(404).json({ success: false, error: 'File not found' });
+        }
+        if (file.uploaded_by_user_id !== req.user.id) {
+            return res.status(403).json({ success: false, error: 'Access denied' });
+        }
+        if (!file.s3_key) {
+            return res.status(400).json({ success: false, error: 'File has no S3 key' });
+        }
+
+        const downloadUrl = await s3Storage.getPresignedDownloadUrl(file.s3_key, 3600);
+        res.json({ success: true, downloadUrl, expiresIn: 3600 });
+    } catch (err) {
+        console.error('Error generating download URL:', err);
+        res.status(500).json({ success: false, error: 'Failed to generate download URL' });
+    }
+});
+
+/**
+ * DELETE /api/user/files/:id
+ * Delete a user's file from S3 and database
+ */
+router.delete('/files/:id', requireUserAuth, async (req, res) => {
+    try {
+        const file = await db.getFileById(parseInt(req.params.id, 10));
+        if (!file) {
+            return res.status(404).json({ success: false, error: 'File not found' });
+        }
+        if (file.uploaded_by_user_id !== req.user.id) {
+            return res.status(403).json({ success: false, error: 'Access denied' });
+        }
+
+        // Delete from S3 if key exists
+        if (file.s3_key) {
+            try {
+                await s3Storage.deletePrivateFile(file.s3_key);
+            } catch (s3Err) {
+                console.error('Error deleting file from S3:', s3Err);
+            }
+        }
+
+        await db.deleteFile(file.id);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Error deleting file:', err);
+        res.status(500).json({ success: false, error: 'Failed to delete file' });
+    }
+});
+
+/**
+ * GET /api/user/files/storage
+ * Get storage usage info
+ */
+router.get('/files/storage', requireUserAuth, async (req, res) => {
+    try {
+        const storageUsed = await db.getUserStorageUsed(req.user.id);
+        res.json({
+            success: true,
+            storage: {
+                used: storageUsed,
+                limit: db.USER_STORAGE_LIMIT,
+                remaining: Math.max(0, db.USER_STORAGE_LIMIT - storageUsed)
+            }
+        });
+    } catch (err) {
+        console.error('Error fetching storage info:', err);
+        res.status(500).json({ success: false, error: 'Failed to fetch storage info' });
+    }
+});
+
+// ============================================
+// VIDEO EMBED
+// ============================================
+
+/**
+ * POST /api/user/video/parse
+ * Parse a video URL and return embed data
+ */
+router.post('/video/parse', requireUserAuth, async (req, res) => {
+    const { url } = req.body;
+    if (!url) {
+        return res.status(400).json({ success: false, error: 'URL is required' });
+    }
+
+    const parsed = parseVideoUrl(url);
+    if (!parsed) {
+        return res.status(400).json({ success: false, error: 'Unsupported video URL' });
+    }
+
+    res.json({ success: true, video: parsed });
 });
 
 module.exports = { router, setDb };

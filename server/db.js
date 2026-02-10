@@ -524,6 +524,23 @@ async function initDatabase() {
             CREATE INDEX IF NOT EXISTS idx_content_translations_lookup ON content_translations(content_type, content_id, language);
         `);
 
+        // Extend files table for general file storage (migration)
+        await client.query(`
+            ALTER TABLE files ADD COLUMN IF NOT EXISTS s3_key VARCHAR(500)
+        `);
+        await client.query(`
+            ALTER TABLE files ADD COLUMN IF NOT EXISTS context VARCHAR(50) DEFAULT 'submission'
+        `);
+        await client.query(`
+            ALTER TABLE files ADD COLUMN IF NOT EXISTS description TEXT
+        `);
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_files_user_id ON files(uploaded_by_user_id)
+        `);
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_files_context ON files(context)
+        `);
+
         console.log('Database tables initialized');
     } catch (err) {
         console.error('Error initializing database:', err);
@@ -1864,6 +1881,81 @@ async function deleteFile(id) {
     const client = await pool.connect();
     try {
         await client.query('DELETE FROM files WHERE id = $1', [id]);
+    } finally {
+        client.release();
+    }
+}
+
+// ============================================
+// USER FILE STORAGE FUNCTIONS
+// ============================================
+
+const USER_STORAGE_LIMIT = 200 * 1024 * 1024; // 200 MB
+
+async function createUserFile(data) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `INSERT INTO files
+                (filename, original_filename, filepath, mimetype, size_bytes, uploaded_by_user_id, s3_key, context, description)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+             RETURNING *`,
+            [
+                data.filename,
+                data.originalFilename,
+                data.filepath || '',
+                data.mimetype,
+                data.sizeBytes,
+                data.userId,
+                data.s3Key,
+                data.context || 'general',
+                data.description || null
+            ]
+        );
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function getUserFiles(userId, context) {
+    const client = await pool.connect();
+    try {
+        let query = 'SELECT * FROM files WHERE uploaded_by_user_id = $1';
+        const params = [userId];
+        if (context) {
+            query += ' AND context = $2';
+            params.push(context);
+        }
+        query += ' ORDER BY created_at DESC';
+        const result = await client.query(query, params);
+        return result.rows;
+    } finally {
+        client.release();
+    }
+}
+
+async function getUserStorageUsed(userId) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            'SELECT COALESCE(SUM(size_bytes), 0)::bigint AS total_bytes FROM files WHERE uploaded_by_user_id = $1',
+            [userId]
+        );
+        return parseInt(result.rows[0].total_bytes, 10);
+    } finally {
+        client.release();
+    }
+}
+
+async function getFileByS3Key(s3Key) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            'SELECT * FROM files WHERE s3_key = $1',
+            [s3Key]
+        );
+        return result.rows[0] || null;
     } finally {
         client.release();
     }
@@ -3554,6 +3646,12 @@ module.exports = {
     getFileById,
     getFilesBySubmission,
     deleteFile,
+    // User file storage
+    createUserFile,
+    getUserFiles,
+    getUserStorageUsed,
+    getFileByS3Key,
+    USER_STORAGE_LIMIT,
     // Invite functions
     createUserInvite,
     getUserInviteByToken,
