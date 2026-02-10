@@ -3,231 +3,124 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SLOBODA — Обновления проекта</title>
-    <meta name="description" content="Новости и обновления проекта SLOBODA. Следите за прогрессом строительства сельской инфраструктуры.">
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌾</text></svg>">
+    <title>СЛОБОДА — Обновления</title>
+
+    <meta name="description" content="Новости и обновления проекта СЛОБОДА: прогресс строительства сети экопоселений, важные события, этапы развития.">
+    <meta name="robots" content="index, follow">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Onest:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
-    <style>
-        .updates-header {
-            padding: calc(var(--space-xl) + 2rem) 0 var(--space-lg);
-            text-align: center;
-            background: var(--color-bg-light);
-            border-bottom: 1px solid var(--color-glass-border);
-        }
-
-        .updates-header h1 {
-            font-size: clamp(2rem, 4vw, 3rem);
-            margin-bottom: var(--space-xs);
-        }
-
-        .updates-header p {
-            color: var(--color-text-muted);
-            font-size: 1.1rem;
-        }
-
-        .updates-back {
-            display: inline-flex;
-            align-items: center;
-            gap: var(--space-xs);
-            color: var(--color-accent);
-            text-decoration: none;
-            font-size: 0.9rem;
-            margin-bottom: var(--space-md);
-            transition: var(--transition-fast);
-        }
-
-        .updates-back:hover {
-            opacity: 0.8;
-        }
-
-        .updates-back svg {
-            transition: var(--transition-fast);
-        }
-
-        .updates-back:hover svg {
-            transform: translateX(-4px);
-        }
-
-        .updates-list {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: var(--space-lg) var(--space-md);
-            display: flex;
-            flex-direction: column;
-            gap: var(--space-md);
-        }
-
-        .update-card {
-            padding: var(--space-md) var(--space-lg);
-        }
-
-        .update-date {
-            font-size: 0.8rem;
-            color: var(--color-accent);
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            margin-bottom: var(--space-xs);
-        }
-
-        .update-card h2 {
-            font-size: 1.5rem;
-            margin-bottom: var(--space-sm);
-        }
-
-        .update-card p {
-            color: var(--color-text-muted);
-            font-size: 0.95rem;
-            line-height: 1.7;
-            margin-bottom: var(--space-sm);
-        }
-
-        .update-card p:last-child {
-            margin-bottom: 0;
-        }
-
-        .update-tag {
-            display: inline-block;
-            padding: 2px 12px;
-            background: var(--color-glass);
-            border: 1px solid var(--color-glass-border);
-            border-radius: 100px;
-            font-size: 0.75rem;
-            color: var(--color-text-muted);
-            margin-right: var(--space-xs);
-        }
-
-        .update-tags {
-            margin-top: var(--space-sm);
-        }
-
-        .updates-cta {
-            text-align: center;
-            padding: var(--space-lg) var(--space-md);
-        }
-
-        .updates-cta p {
-            color: var(--color-text-muted);
-            margin-bottom: var(--space-md);
-        }
-    </style>
 </head>
 <body>
-    <!-- Language Switcher -->
-    <nav class="lang-nav" aria-label="Language selection">
-        <button class="lang-btn active" data-lang="ru" aria-label="Switch to Russian" aria-pressed="true">RU</button>
-        <span class="lang-divider" aria-hidden="true">/</span>
-        <button class="lang-btn" data-lang="en" aria-label="Switch to English" aria-pressed="false">EN</button>
-    </nav>
 
-    <header class="updates-header">
-        <div class="container">
-            <a href="/" class="updates-back">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-                <span data-ru="Вернуться на главную" data-en="Back to main page">Вернуться на главную</span>
-            </a>
-            <h1 data-ru="Обновления проекта" data-en="Project Updates">Обновления проекта</h1>
-            <p data-ru="Что происходит в SLOBODA прямо сейчас" data-en="What's happening at SLOBODA right now">Что происходит в SLOBODA прямо сейчас</p>
+    <a class="skip-link" href="#content">Перейти к содержанию</a>
+
+    <!-- Unified header - same as main page -->
+    <header class="header" id="header">
+        <div class="header-inner">
+            <a class="logo" href="/" aria-label="На главную">СЛОБОДА</a>
+            <nav class="nav" aria-label="Основная навигация">
+                <a href="/">Главная</a>
+                <a href="/concept">Концепция</a>
+                <a href="/updates">Обновления</a>
+                <a href="/#join">Присоединиться</a>
+            </nav>
+            <a href="/#join" class="cta-btn cta-btn-header">Заявить о себе</a>
+            <button class="menu-toggle" aria-label="Открыть меню" id="menuToggle">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+        <div class="mobile-menu" id="mobileMenu">
+            <a href="/">Главная</a>
+            <a href="/concept">Концепция</a>
+            <a href="/updates">Обновления</a>
+            <a href="/#join">Присоединиться</a>
         </div>
     </header>
 
-    <main class="updates-list">
-        <article class="update-card glass-card">
-            <div class="update-date">Февраль 2026</div>
-            <h2 data-ru="Сайт запущен. Начинаем собирать сообщество" data-en="Website launched. Building our community">Сайт запущен. Начинаем собирать сообщество</h2>
-            <p data-ru="Мы запустили сайт SLOBODA и открыли регистрацию для всех, кто хочет стать частью проекта. Сейчас главная задача — собрать критическую массу участников: инвесторов, специалистов и единомышленников." data-en="We've launched the SLOBODA website and opened registration for everyone who wants to join. Our main goal now is to gather a critical mass of participants: investors, specialists, and like-minded people.">Мы запустили сайт SLOBODA и открыли регистрацию для всех, кто хочет стать частью проекта. Сейчас главная задача — собрать критическую массу участников: инвесторов, специалистов и единомышленников.</p>
-            <p data-ru="На странице регистрации вы можете указать свои навыки, интересы и предпочтительный формат участия. Мы связываемся с каждым лично." data-en="On the registration page, you can specify your skills, interests, and preferred participation format. We contact everyone personally.">На странице регистрации вы можете указать свои навыки, интересы и предпочтительный формат участия. Мы связываемся с каждым лично.</p>
-            <div class="update-tags">
-                <span class="update-tag" data-ru="запуск" data-en="launch">запуск</span>
-                <span class="update-tag" data-ru="сообщество" data-en="community">сообщество</span>
+    <main id="content">
+        <!-- Hero section -->
+        <section class="hero" style="min-height: 60vh;">
+            <div class="hero-bg" aria-hidden="true"></div>
+            <div class="hero-overlay"></div>
+            <div class="hero-content">
+                <h1 class="hero-title" data-animate="fade-up">Обновления проекта</h1>
+                <div class="hero-body" data-animate="fade-up-delay">
+                    <p class="hero-text">
+                        Что происходит в СЛОБОДЕ прямо сейчас: новости, этапы развития, важные события.
+                    </p>
+                </div>
             </div>
-        </article>
+        </section>
 
-        <article class="update-card glass-card">
-            <div class="update-date" data-ru="Февраль 2026" data-en="February 2026">Февраль 2026</div>
-            <h2 data-ru="Калькулятор участия и экономическая модель" data-en="Participation calculator and economic model">Калькулятор участия и экономическая модель</h2>
-            <p data-ru="Мы добавили на сайт интерактивный калькулятор, который показывает, что именно вы получаете при разных уровнях участия. Также опубликована экономическая модель — сравнение расходов в городе и в посёлке SLOBODA." data-en="We've added an interactive calculator to the website that shows exactly what you get at different participation levels. We also published an economic model — comparing expenses in the city vs a SLOBODA village.">Мы добавили на сайт интерактивный калькулятор, который показывает, что именно вы получаете при разных уровнях участия. Также опубликована экономическая модель — сравнение расходов в городе и в посёлке SLOBODA.</p>
-            <p data-ru="Ключевая цифра: экономия до 136 000 ₽ в месяц по сравнению с жизнью в Москве. Это более 1.6 млн ₽ в год, которые можно вложить в развитие или просто жить спокойнее." data-en="Key figure: savings of up to 136,000 RUB per month compared to living in Moscow. That's over 1.6M RUB per year that you can invest in growth or simply live more peacefully.">Ключевая цифра: экономия до 136 000 ₽ в месяц по сравнению с жизнью в Москве. Это более 1.6 млн ₽ в год, которые можно вложить в развитие или просто жить спокойнее.</p>
-            <div class="update-tags">
-                <span class="update-tag" data-ru="экономика" data-en="economics">экономика</span>
-                <span class="update-tag" data-ru="калькулятор" data-en="calculator">калькулятор</span>
-            </div>
-        </article>
+        <!-- Updates list -->
+        <section class="section">
+            <div class="container">
+                <div class="content-prose" style="max-width: 800px; margin: 0 auto;">
 
-        <article class="update-card glass-card">
-            <div class="update-date" data-ru="Январь 2026" data-en="January 2026">Январь 2026</div>
-            <h2 data-ru="Исследование регионов: первые результаты" data-en="Region research: first results">Исследование регионов: первые результаты</h2>
-            <p data-ru="Мы начали исследование регионов для первого посёлка. Приоритетные критерии: умеренный климат, доступность земли, наличие коммуникаций рядом, транспортная доступность от крупных городов (не более 2-3 часов)." data-en="We've started researching regions for the first village. Priority criteria: moderate climate, affordable land, nearby utilities, transport accessibility from major cities (no more than 2-3 hours).">Мы начали исследование регионов для первого посёлка. Приоритетные критерии: умеренный климат, доступность земли, наличие коммуникаций рядом, транспортная доступность от крупных городов (не более 2-3 часов).</p>
-            <p data-ru="Если вы знаете подходящие участки или регионы — напишите нам. Мы ценим экспертизу участников сообщества." data-en="If you know suitable plots or regions — write to us. We value the expertise of community members.">Если вы знаете подходящие участки или регионы — напишите нам. Мы ценим экспертизу участников сообщества.</p>
-            <div class="update-tags">
-                <span class="update-tag" data-ru="земля" data-en="land">земля</span>
-                <span class="update-tag" data-ru="исследование" data-en="research">исследование</span>
-            </div>
-        </article>
+                    <article style="margin-bottom: 3rem; padding-bottom: 2rem; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                        <div style="font-size: 0.85rem; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5rem;">
+                            Февраль 2026
+                        </div>
+                        <h2>Сайт запущен. Начинаем собирать сообщество</h2>
+                        <p>Мы запустили сайт СЛОБОДА и открыли регистрацию для всех, кто хочет стать частью проекта. Сейчас главная задача — собрать критическую массу участников: инвесторов, специалистов и единомышленников.</p>
+                        <p>На странице регистрации вы можете указать свои навыки, интересы и предпочтительный формат участия. Мы связываемся с каждым лично.</p>
+                    </article>
 
-        <article class="update-card glass-card">
-            <div class="update-date" data-ru="Январь 2026" data-en="January 2026">Январь 2026</div>
-            <h2 data-ru="Идея родилась. Почему SLOBODA?" data-en="The idea was born. Why SLOBODA?">Идея родилась. Почему SLOBODA?</h2>
-            <p data-ru="Всё началось с простого наблюдения: AI уже заменяет профессии, которые казались незаменимыми. Бухгалтеры, юристы, переводчики, программисты — все под угрозой. Что будет с людьми, которые потеряют работу? Что будет с городами, где жизнь стоит 150-200 тысяч рублей в месяц?" data-en="It all started with a simple observation: AI is already replacing professions that seemed irreplaceable. Accountants, lawyers, translators, programmers — all under threat. What happens to people who lose their jobs? What happens to cities where life costs 150-200 thousand rubles per month?">Всё началось с простого наблюдения: AI уже заменяет профессии, которые казались незаменимыми. Бухгалтеры, юристы, переводчики, программисты — все под угрозой. Что будет с людьми, которые потеряют работу? Что будет с городами, где жизнь стоит 150-200 тысяч рублей в месяц?</p>
-            <p data-ru="SLOBODA — это ответ. Не утопия, а практичный план Б. Сообщество людей, которые строят альтернативу вместе: с фермой, инфраструктурой и возможностью жить достойно без зависимости от городской экономики." data-en="SLOBODA is the answer. Not a utopia, but a practical Plan B. A community of people building an alternative together: with a farm, infrastructure, and the ability to live with dignity without depending on the urban economy.">SLOBODA — это ответ. Не утопия, а практичный план Б. Сообщество людей, которые строят альтернативу вместе: с фермой, инфраструктурой и возможностью жить достойно без зависимости от городской экономики.</p>
-            <div class="update-tags">
-                <span class="update-tag" data-ru="история" data-en="story">история</span>
-                <span class="update-tag" data-ru="философия" data-en="philosophy">философия</span>
+                    <article style="margin-bottom: 3rem; padding-bottom: 2rem; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                        <div style="font-size: 0.85rem; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5rem;">
+                            Февраль 2026
+                        </div>
+                        <h2>Калькулятор участия и экономическая модель</h2>
+                        <p>Мы добавили на сайт интерактивный калькулятор, который показывает, что именно вы получаете при разных уровнях участия. Также опубликована экономическая модель — сравнение расходов в городе и в посёлке СЛОБОДА.</p>
+                        <p>Ключевая цифра: экономия до 136 000 ₽ в месяц по сравнению с жизнью в Москве. Это более 1.6 млн ₽ в год, которые можно вложить в развитие или просто жить спокойнее.</p>
+                    </article>
+
+                    <article style="margin-bottom: 3rem; padding-bottom: 2rem; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                        <div style="font-size: 0.85rem; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5rem;">
+                            Январь 2026
+                        </div>
+                        <h2>Исследование регионов: первые результаты</h2>
+                        <p>Мы начали исследование регионов для первого посёлка. Приоритетные критерии: умеренный климат, доступность земли, наличие коммуникаций рядом, транспортная доступность от крупных городов (не более 2-3 часов).</p>
+                        <p>Если вы знаете подходящие участки или регионы — напишите нам. Мы ценим экспертизу участников сообщества.</p>
+                    </article>
+
+                    <article style="margin-bottom: 3rem;">
+                        <div style="font-size: 0.85rem; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5rem;">
+                            Январь 2026
+                        </div>
+                        <h2>Идея родилась. Почему СЛОБОДА?</h2>
+                        <p>Всё началось с простого наблюдения: AI уже заменяет профессии, которые казались незаменимыми. Бухгалтеры, юристы, переводчики, программисты — все под угрозой. Что будет с людьми, которые потеряют работу? Что будет с городами, где жизнь стоит 150-200 тысяч рублей в месяц?</p>
+                        <p>СЛОБОДА — это ответ. Не утопия, а практичный план Б. Сообщество людей, которые строят альтернативу вместе: с фермой, инфраструктурой и возможностью жить достойно без зависимости от городской экономики.</p>
+                    </article>
+
+                </div>
             </div>
-        </article>
+        </section>
+
+        <!-- CTA section -->
+        <section class="section section-dark">
+            <div class="container">
+                <h2 class="section-title">Хотите быть в курсе всех новостей?</h2>
+                <div class="hero-ctas" style="margin-top: 2rem; justify-content: center;">
+                    <a href="/#join" class="cta-btn cta-btn-primary">
+                        <span>Присоединиться к проекту</span>
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M7.5 15L12.5 10L7.5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </a>
+                    <a href="/" class="cta-btn cta-btn-secondary">
+                        <span>На главную</span>
+                    </a>
+                </div>
+            </div>
+        </section>
     </main>
 
-    <div class="updates-cta">
-        <p data-ru="Хотите быть в курсе всех новостей?" data-en="Want to stay updated on all news?">Хотите быть в курсе всех новостей?</p>
-        <a href="/" class="glass-btn cta-primary" data-ru="Присоединиться к проекту" data-en="Join the project">
-            <span>Присоединиться к проекту</span>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        </a>
-    </div>
-
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-brand">
-                    <h3>SLOBODA</h3>
-                    <p data-ru="План Б, который существует в реальности" data-en="Plan B that exists in reality">План Б, который существует в реальности</p>
-                </div>
-                <div class="footer-links">
-                    <a href="https://t.me/sloboda" target="_blank" rel="noopener" data-ru="Telegram-канал" data-en="Telegram channel">Telegram-канал</a>
-                    <a href="/" data-ru="Главная" data-en="Home">Главная</a>
-                    <a href="mailto:info@sloboda.land" data-ru="Связаться" data-en="Contact">Связаться</a>
-                </div>
-            </div>
-            <div class="footer-bottom">
-                <p>&copy; 2026 SLOBODA. <span data-ru="Все права защищены." data-en="All rights reserved.">Все права защищены.</span></p>
-            </div>
-        </div>
-    </footer>
-
-    <script>
-        // Minimal language switcher for updates page
-        let currentLang = 'ru';
-        document.querySelectorAll('.lang-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const lang = btn.dataset.lang;
-                if (lang === currentLang) return;
-                currentLang = lang;
-                document.querySelectorAll('.lang-btn').forEach(b => {
-                    b.classList.remove('active');
-                    b.setAttribute('aria-pressed', 'false');
-                });
-                btn.classList.add('active');
-                btn.setAttribute('aria-pressed', 'true');
-                document.querySelectorAll('[data-ru][data-en]').forEach(el => {
-                    const text = el.dataset[lang];
-                    if (text) el.textContent = text;
-                });
-                document.documentElement.lang = lang;
-            });
-        });
-    </script>
+    <script src="script.js"></script>
 </body>
 </html>
