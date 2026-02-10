@@ -7,10 +7,10 @@
 :root {
     /* Colors - Emotional palette */
     --color-bg: #0a0a0a;
-    --color-bg-light: #1a1a1a;
-    --color-bg-lighter: #2a2a2a;
-    --color-text: #e0e0e0;
-    --color-text-muted: #999;
+    --color-bg-light: #141414;
+    --color-bg-lighter: #1f1f1f;
+    --color-text: #f0f0f0;
+    --color-text-muted: #a0a0a0;
     --color-accent: #c23616;  /* Urgency red */
     --color-accent-hover: #e74c3c;
     --color-accent-glow: rgba(194, 54, 22, 0.3);
@@ -377,14 +377,23 @@ button {
 .hero-bg {
     position: absolute;
     inset: 0;
-    background: url('https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1920&q=80') center/cover;
+    background: linear-gradient(135deg, #1a0f0f 0%, #2a1515 50%, #1a0a0a 100%);
     z-index: -2;
+}
+
+.hero-bg::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: url('https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1920&q=80') center/cover;
+    opacity: 0.3;
+    z-index: -1;
 }
 
 .hero-overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(135deg, rgba(10,10,10,0.9) 0%, rgba(194,54,22,0.3) 50%, rgba(10,10,10,0.9) 100%);
+    background: linear-gradient(135deg, rgba(10,10,10,0.6) 0%, rgba(194,54,22,0.2) 50%, rgba(10,10,10,0.7) 100%);
     z-index: -1;
 }
 
@@ -440,11 +449,12 @@ button {
 
 /* ===== SOCIAL PROOF ===== */
 .social-proof {
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.7);
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(194, 54, 22, 0.3);
     border-radius: var(--radius-md);
     padding: var(--spacing-md);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
 }
 
 .social-proof-stats {
@@ -571,8 +581,9 @@ button {
     left: 30px;
     top: 0;
     bottom: 0;
-    width: 2px;
-    background: var(--color-accent);
+    width: 3px;
+    background: linear-gradient(180deg, var(--color-accent) 0%, var(--color-cta) 50%, var(--color-accent) 100%);
+    box-shadow: 0 0 10px rgba(194, 54, 22, 0.5);
 }
 
 .timeline-item {
@@ -716,17 +727,36 @@ button {
 }
 
 .feature-card {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.03);
+    border: 2px solid rgba(255, 255, 255, 0.08);
     border-radius: var(--radius-md);
     padding: var(--spacing-md);
     transition: all var(--transition-normal);
+    position: relative;
+    overflow: hidden;
+}
+
+.feature-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--color-accent), transparent);
+    opacity: 0;
+    transition: opacity var(--transition-normal);
 }
 
 .feature-card:hover {
     transform: translateY(-4px);
-    border-color: var(--color-accent);
-    box-shadow: var(--shadow-glow);
+    border-color: rgba(194, 54, 22, 0.3);
+    box-shadow: 0 8px 32px rgba(194, 54, 22, 0.2);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.feature-card:hover::before {
+    opacity: 1;
 }
 
 .feature-number {
@@ -838,10 +868,29 @@ button {
 }
 
 .testimonial-card {
-    background: rgba(0, 0, 0, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.6);
+    border: 2px solid rgba(255, 255, 255, 0.1);
     border-radius: var(--radius-md);
     padding: var(--spacing-md);
+    transition: all var(--transition-normal);
+    position: relative;
+}
+
+.testimonial-card::before {
+    content: '"';
+    position: absolute;
+    top: -10px;
+    left: 20px;
+    font-size: 4rem;
+    color: rgba(194, 54, 22, 0.2);
+    font-family: var(--font-display);
+    line-height: 1;
+}
+
+.testimonial-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(194, 54, 22, 0.3);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
 .testimonial-quote {
@@ -931,11 +980,23 @@ button {
 .cta-box {
     max-width: 600px;
     margin: 0 auto;
-    background: rgba(194, 54, 22, 0.1);
-    border: 2px solid var(--color-accent);
+    background: linear-gradient(135deg, rgba(194, 54, 22, 0.15) 0%, rgba(10, 10, 10, 0.8) 100%);
+    border: 3px solid var(--color-accent);
     border-radius: var(--radius-lg);
     padding: var(--spacing-lg);
     text-align: center;
+    box-shadow: 0 8px 48px rgba(194, 54, 22, 0.3);
+    position: relative;
+}
+
+.cta-box::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    background: linear-gradient(135deg, var(--color-accent), var(--color-cta));
+    border-radius: var(--radius-lg);
+    z-index: -1;
+    opacity: 0.1;
 }
 
 .cta-urgency {
@@ -1046,7 +1107,7 @@ button {
 }
 
 .donation-card {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.03);
     border: 2px solid rgba(255, 255, 255, 0.1);
     border-radius: var(--radius-md);
     padding: var(--spacing-md);
@@ -1057,7 +1118,9 @@ button {
 
 .donation-card:hover {
     transform: translateY(-4px);
-    border-color: var(--color-accent);
+    border-color: rgba(194, 54, 22, 0.5);
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 32px rgba(194, 54, 22, 0.2);
 }
 
 .donation-card-popular {
