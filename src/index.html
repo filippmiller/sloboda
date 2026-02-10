@@ -741,36 +741,51 @@
     <section class="section section-donation" id="donate">
         <div class="container">
             <h2 class="section-title text-center">Поддержать проект</h2>
-            <p class="section-intro text-center">
-                Каждый рубль идёт на юридическую работу, базу знаний и инфраструктуру.<br>
-                Полная прозрачность. Без скрытых комиссий.
-            </p>
-            <div class="donation-grid">
-                <div class="donation-card">
-                    <h3>₽500</h3>
-                    <p>Покрывает 1 час юридической консультации</p>
-                    <button class="cta-btn cta-btn-secondary donation-btn" data-amount="500">Поддержать</button>
+
+            <!-- Compact donation options with icons - 4 in a row -->
+            <div class="donation-grid-compact">
+                <div class="donation-option">
+                    <div class="donation-icon">⚖️</div>
+                    <div class="donation-amount">₽500</div>
+                    <div class="donation-desc">1 час юрконсультации</div>
+                    <button class="cta-btn cta-btn-sm donation-btn" data-amount="500">Поддержать</button>
                 </div>
-                <div class="donation-card donation-card-popular">
-                    <div class="popular-badge">Популярно</div>
-                    <h3>₽2000</h3>
-                    <p>Оплачивает создание 1 стандарта в базе знаний</p>
-                    <button class="cta-btn cta-btn-primary donation-btn" data-amount="2000">Поддержать</button>
+                <div class="donation-option donation-option-popular">
+                    <div class="popular-badge-sm">Популярно</div>
+                    <div class="donation-icon">📚</div>
+                    <div class="donation-amount">₽2000</div>
+                    <div class="donation-desc">1 стандарт в базе</div>
+                    <button class="cta-btn cta-btn-primary cta-btn-sm donation-btn" data-amount="2000">Поддержать</button>
                 </div>
-                <div class="donation-card">
-                    <h3>₽5000</h3>
-                    <p>Финансирует 1 день работы эксперта-куратора</p>
-                    <button class="cta-btn cta-btn-secondary donation-btn" data-amount="5000">Поддержать</button>
+                <div class="donation-option">
+                    <div class="donation-icon">👨‍🏫</div>
+                    <div class="donation-amount">₽5000</div>
+                    <div class="donation-desc">1 день эксперта</div>
+                    <button class="cta-btn cta-btn-sm donation-btn" data-amount="5000">Поддержать</button>
                 </div>
-                <div class="donation-card">
-                    <h3>Своя сумма</h3>
-                    <p>Любая помощь имеет значение</p>
-                    <button class="cta-btn cta-btn-secondary" id="customDonationBtn">Указать сумму</button>
+                <div class="donation-option">
+                    <div class="donation-icon">💝</div>
+                    <div class="donation-amount">Своя сумма</div>
+                    <div class="donation-desc">Любая помощь важна</div>
+                    <button class="cta-btn cta-btn-sm" id="customDonationBtn">Указать</button>
                 </div>
             </div>
-            <p class="text-center">
+
+            <!-- Link to financial reports -->
+            <p class="text-center" style="margin: 2rem 0;">
                 <a href="/finance" class="text-link">Смотреть, как расходуются средства →</a>
             </p>
+
+            <!-- Transparency statement -->
+            <div class="transparency-text">
+                <p>
+                    <strong>Каждый рубль идёт на юридическую работу, базу знаний и инфраструктуру.</strong><br>
+                    В нашей организации каждый рубль подотчётен и направляется исключительно на реализацию целей социального проекта.
+                </p>
+                <p>
+                    <strong>Полная финансовая прозрачность:</strong> внутренний аудит проводится доверенными лицами сообщества, которые публикуют регулярные отчёты о расходах. Никаких скрытых комиссий, никаких «административных расходов» — только реальная работа на общие цели.
+                </p>
+            </div>
         </div>
     </section>
 
