@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>СЛОБОДА — План Б, который существует</title>
+
+    <meta name="description" content="СЛОБОДА — децентрализованная база знаний и управления для сети экопоселений: дом, еда, энергия, ремесло, кооперация.">
+    <meta name="keywords" content="слобода, план Б, исход из города, сельская жизнь, НКО, сообщество, земля">
+    <meta name="author" content="Phillip Miller">
+    <meta name="robots" content="index, follow">
+
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://sloboda.land/">
+    <meta property="og:title" content="СЛОБОДА — План Б, который существует">
+    <meta property="og:description" content="Децентрализованная база знаний и управления для сети экопоселений: дом, еда, энергия, кооперация.">
+    <meta property="og:image" content="https://sloboda.land/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:locale" content="ru_RU">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="СЛОБОДА — План Б, который существует">
+    <meta name="twitter:description" content="Децентрализованная база знаний и управления для сети экопоселений: дом, еда, энергия, кооперация.">
+    <meta name="twitter:image" content="https://sloboda.land/og-image.png">
+
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>S</text></svg>">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preload" as="image" href="https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1920&q=80">
+    <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "СЛОБОДА",
+        "alternateName": "SLOBODA",
+        "url": "https://sloboda.land",
+        "description": "Децентрализованная база знаний и управления для сети экопоселений.",
+        "foundingDate": "2026",
+        "founder": {
+            "@type": "Person",
+            "name": "Phillip Miller"
+        },
+        "contactPoint": {
+            "@type": "ContactPoint",
+            "email": "info@sloboda.land",
+            "contactType": "general"
+        },
+        "sameAs": [
+            "https://t.me/sloboda_land"
+        ]
+    }
+    </script>
+</head>
+<body>
+
+    <a class="skip-link" href="#about">Перейти к сути</a>
+
+    <!-- Sticky header (always available navigation) -->
+    <header class="sticky-header" id="stickyHeader">
+        <div class="sticky-inner">
+            <a class="sticky-logo" href="#top" aria-label="Наверх">СЛОБОДА</a>
+
+            <nav class="sticky-nav" aria-label="Разделы">
+                <a href="#about">Что это</a>
+                <a href="#how">Как работает</a>
+                <a href="#phases">Дорожная карта</a>
+                <a href="#needs">Кому сюда</a>
+                <a href="#governance">Управление</a>
+                <a href="#transparency">Финансы</a>
+                <a href="#faq">FAQ</a>
+            </nav>
+
+            <div class="sticky-actions">
+                <a href="/concept" class="sticky-link">Концепция</a>
+                <a href="#donate" class="sticky-tg">Поддержать</a>
+                <a href="#signup" class="sticky-cta">Заявить о себе</a>
+
+                <details class="sticky-menu" id="stickyMenu">
+                    <summary class="sticky-menu-btn" aria-label="Открыть меню">Меню</summary>
+                    <div class="sticky-menu-panel" role="menu">
+                        <a role="menuitem" href="#about">Что это</a>
+                        <a role="menuitem" href="#how">Как работает</a>
+                        <a role="menuitem" href="#phases">Дорожная карта</a>
+                        <a role="menuitem" href="#needs">Кому сюда</a>
+                        <a role="menuitem" href="#governance">Управление</a>
+                        <a role="menuitem" href="#transparency">Финансы</a>
+                        <a role="menuitem" href="#faq">FAQ</a>
+                        <a role="menuitem" href="#donate">Поддержать</a>
+                        <a role="menuitem" href="#signup">Заявить о себе</a>
+                        <div class="sticky-menu-divider" aria-hidden="true"></div>
+                        <a role="menuitem" href="/concept">Концепция подробно</a>
+                        <a role="menuitem" href="/library">Открыть библиотеку</a>
+                        <a role="menuitem" href="/updates">Обновления</a>
+                    </div>
+                </details>
+            </div>
+        </div>
+    </header>
+
+    <!-- 1. Hero -->
+    <section class="hero" id="top">
+        <div class="hero-bg"></div>
+        <div class="hero-content">
+            <div class="hero-topline">
+                <div class="ai-badge">⚡ Строится с помощью ИИ-сетей</div>
+                <a class="hero-toplink" href="/concept">Читать концепцию</a>
+            </div>
+
+            <div class="hero-stack">
+                <h1>СЛОБОДА</h1>
+                <div class="hero-glass">
+                    <p class="hero-subtitle">Децентрализованная база знаний и управления для сети экопоселений.</p>
+                    <p class="hero-lede">Мы собираем специалистов, курируем практические инструкции и создаём прозрачные правила кооперации, чтобы людям было проще строить автономную жизнь вне города: дом, еда, энергия, ремесло, экономика.</p>
+                </div>
+
+                <div class="hero-actions">
+                    <a href="#signup" class="cta-btn">Заявить о себе</a>
+                    <a href="#donate" class="cta-btn cta-btn-secondary">Поддержать</a>
+                    <a href="/library" class="cta-link">Перейти в библиотеку</a>
+                    <p class="social-counter" id="socialCounter"></p>
+                </div>
+
+                <div class="hero-card hero-card-wide">
+                    <p class="hero-card-title">Ключевые постулаты</p>
+                    <ul class="thesis-list">
+                        <li><a href="#how"><span class="thesis-name">База знаний</span> стандарты и чек-листы для автономной жизни</a></li>
+                        <li><a href="#how"><span class="thesis-name">Кураторство</span> материалы подтверждают и обновляют специалисты</a></li>
+                        <li><a href="#needs"><span class="thesis-name">Роли и навыки</span> реестр компетенций и сбор команд</a></li>
+                        <li><a href="#transparency"><span class="thesis-name">Прозрачные финансы</span> каждый рубль на виду, отчёты</a></li>
+                        <li><a href="#governance"><span class="thesis-name">Управление</span> репутация, выборные роли, дорожная карта</a></li>
+                    </ul>
+                    <div class="hero-jumps" aria-label="Быстрые переходы">
+                        <a href="#about" class="jump-pill">О проекте</a>
+                        <a href="#transparency" class="jump-pill">Финансы</a>
+                        <a href="#signup" class="jump-pill jump-pill-strong">Присоединиться</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 2. The Reality -->
+    <section class="section" id="reality">
+        <h2>Реальность</h2>
+        <div class="statements-grid">
+            <div class="statement">AI заменит бухгалтеров, юристов, программистов. Вопрос не «если», а «когда».</div>
+            <div class="statement">Города дорогие, потому что там работа. Уберите работу — зачем город?</div>
+            <div class="statement">Ипотека не платится без зарплаты. Квартира без работы — не актив, а ловушка.</div>
+            <div class="statement">Умный человек не ждёт кризиса. Умный человек имеет План Б.</div>
+            <div class="statement">Одному уехать в деревню — провал. Вместе, с навыками и планом — реально.</div>
+            <div class="statement">Земля не обесценивается. Навыки не отбирают. Сообщество не увольняет.</div>
+            <div class="statement">Мы не бежим от прогресса. Мы готовимся к его последствиям.</div>
+            <div class="statement">Лучшее время начать было вчера. Второе лучшее — сейчас.</div>
+        </div>
+    </section>
+
+    <!-- 2.5. Futurists-Realists -->
+    <section class="section futurist-section" id="futurists">
+        <h2>Футуристы-реалисты</h2>
+        <p class="section-intro">Мы не боимся будущего. Мы к нему готовимся.</p>
+        <div class="manifesto-grid">
+            <div class="manifesto-card">
+                <div class="manifesto-number">01</div>
+                <p>ИИ уже в разы сильнее людей в сотнях задач. Это не прогноз — это реальность. Мы её принимаем.</p>
+            </div>
+            <div class="manifesto-card">
+                <div class="manifesto-number">02</div>
+                <p>Этот проект строится с помощью нейросетей: планирование, код, документация, анализ данных.</p>
+            </div>
+            <div class="manifesto-card">
+                <div class="manifesto-number">03</div>
+                <p>Мы не паникёры и не луддиты. Мы футуристы-реалисты: признаём завтра уже сегодня.</p>
+            </div>
+            <div class="manifesto-card">
+                <div class="manifesto-number">04</div>
+                <p>Все наши финансы открыты. Каждый рубль — на виду. Прозрачность — это не опция, это принцип.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- 3. What Is SLOBODA -->
+    <section class="section" id="about">
+        <h2>Что такое СЛОБОДА</h2>
+        <div class="text-block">
+            <ul class="about-points">
+                <li><strong>НКО</strong> — некоммерческая организация с прозрачной отчётностью</li>
+                <li><strong>Сообщество специалистов</strong> — люди с реальными навыками, а не подписчики</li>
+                <li><strong>База знаний</strong> — строительство, сельское хозяйство, юридика, инженерия</li>
+                <li><strong>Коллективные решения</strong> — все финансы открыты, все решения голосуются</li>
+                <li><strong>Реальный план</strong> — земля, дома, ферма, мастерские. Шаг за шагом.</li>
+            </ul>
+            <p class="about-note">Мы не продаём участки и не обещаем доходность. Мы создаём инфраструктуру для тех, кто думает на шаг вперёд.</p>
+        </div>
+    </section>
+
+    <!-- 3.5. How It Works -->
+    <section class="section how-section" id="how">
+        <h2>Как работает</h2>
+        <p class="section-intro">Мы строим не «коммуну», а инфраструктуру: знания, роли, прозрачные правила и кооперацию между будущими поселениями.</p>
+        <div class="how-grid">
+            <div class="how-card">
+                <h3>1) Библиотека</h3>
+                <p>Практические стандарты: дом, еда, энергия, медицина, право, безопасность, экономика.</p>
+                <a class="card-link" href="/concept#library">Подробнее</a>
+            </div>
+            <div class="how-card">
+                <h3>2) Кураторство</h3>
+                <p>Эксперты подтверждают, улучшают и обновляют материалы. Ошибки исправляются публично.</p>
+                <a class="card-link" href="/concept#curation">Подробнее</a>
+            </div>
+            <div class="how-card">
+                <h3>3) Реестр компетенций</h3>
+                <p>Люди указывают навыки, чтобы собирать команды под конкретные задачи и проекты.</p>
+                <a class="card-link" href="#signup">Заявить о себе</a>
+            </div>
+            <div class="how-card">
+                <h3>4) Сеть поселений</h3>
+                <p>Обмен практиками, людьми и решениями. Система сильнее одиночек.</p>
+                <a class="card-link" href="/concept#network">Подробнее</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- 4. What We're Building -->
+    <section class="section" id="phases">
+        <h2>Что мы строим</h2>
+        <div class="phases">
+            <div class="phase phase-now">
+                <h3>Фаза 1 — сейчас</h3>
+                <ul>
+                    <li>Создание НКО (некоммерческая организация)</li>
+                    <li>Сбор пожертвований на юридическую работу</li>
+                    <li>База знаний: строительство, сельское хозяйство, юридика</li>
+                    <li>Telegram-сообщество для координации</li>
+                    <li>Регистрация участников и их навыков</li>
+                </ul>
+            </div>
+            <div class="phase">
+                <h3>Дальше</h3>
+                <ul>
+                    <li>Сид-фонд на покупку техники и материалов</li>
+                    <li>Поиск и покупка земли</li>
+                    <li>Проектирование и строительство</li>
+                    <li>Запуск фермы и мастерских</li>
+                    <li>Спутниковые проекты в других регионах</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- 5. What We Need From You -->
+    <section class="section" id="needs">
+        <h2>Что нам нужно от вас</h2>
+        <div class="needs-grid">
+            <div class="need-block">
+                <h3>Навыки</h3>
+                <p>Нам нужны люди, которые умеют делать руками. Не инвесторы на диване — а те, кто готов участвовать.</p>
+                <ul>
+                    <li>Строительство и архитектура</li>
+                    <li>Сельское хозяйство и агрономия</li>
+                    <li>Электрика и инженерные сети</li>
+                    <li>Лесное дело и деревообработка</li>
+                    <li>Семеноводство и садоводство</li>
+                    <li>Юриспруденция и документы</li>
+                    <li>Медицина и ветеринария</li>
+                    <li>Инженерия и механика</li>
+                    <li>Выживание и автономность</li>
+                </ul>
+            </div>
+            <div class="need-block">
+                <h3>Поддержка</h3>
+                <p>Деньги идут на конкретные вещи. Не на «развитие проекта», а на то, что можно потрогать.</p>
+                <ul class="support-items">
+                    <li>Регистрация и содержание НКО <span class="cost-tag">~15 000 ₽</span></li>
+                    <li>Юридическая консультация <span class="cost-tag">~30 000 ₽</span></li>
+                    <li>Хостинг и платформа <span class="cost-tag">~5 000 ₽/мес</span></li>
+                    <li>Создание и поддержка базы знаний <span class="cost-tag">~20 000 ₽</span></li>
+                    <li>Сид-фонд на оборудование и технику</li>
+                    <li>Покупка земли</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- 5.5. Governance -->
+    <section class="section" id="governance">
+        <h2>Управление и «совет мудрецов»</h2>
+        <p class="section-intro">Не культ и не «гуру». Это рабочая модель управления: репутация, открытые обсуждения и ответственность.</p>
+        <div class="governance-grid">
+            <div class="governance-card">
+                <h3>Репутация</h3>
+                <p>Влияние дают вклад и компетенции, а не харизма. Роли подтверждаются делом.</p>
+            </div>
+            <div class="governance-card">
+                <h3>Выборность</h3>
+                <p>Ключевые роли и направления выбираются участниками. Правила фиксируются публично.</p>
+            </div>
+            <div class="governance-card">
+                <h3>Дорожная карта</h3>
+                <p>Совет формирует стратегию и приоритеты, а сообщество принимает решения голосованием.</p>
+            </div>
+        </div>
+        <p class="governance-cta"><a href="/concept#governance">Читать подробно про модель управления</a></p>
+    </section>
+
+    <!-- 6. Where The Money Goes -->
+    <section class="section" id="transparency">
+        <h2>Куда идут деньги</h2>
+        <p class="section-intro">Каждый рубль — на конкретное дело. Никаких «на развитие проекта».</p>
+        <div class="finance-grid">
+            <div class="finance-item">
+                <div class="finance-bar" style="--pct: 35%"></div>
+                <div class="finance-label">
+                    <span class="finance-name">Юридическая работа</span>
+                    <span class="finance-pct">35%</span>
+                </div>
+                <p class="finance-detail">Регистрация НКО, договоры, консультации</p>
+            </div>
+            <div class="finance-item">
+                <div class="finance-bar" style="--pct: 25%"></div>
+                <div class="finance-label">
+                    <span class="finance-name">База знаний и платформа</span>
+                    <span class="finance-pct">25%</span>
+                </div>
+                <p class="finance-detail">Сайт, хостинг, разработка, документация</p>
+            </div>
+            <div class="finance-item">
+                <div class="finance-bar" style="--pct: 25%"></div>
+                <div class="finance-label">
+                    <span class="finance-name">Операционные расходы</span>
+                    <span class="finance-pct">25%</span>
+                </div>
+                <p class="finance-detail">Связь, поездки, организация встреч</p>
+            </div>
+            <div class="finance-item">
+                <div class="finance-bar" style="--pct: 15%"></div>
+                <div class="finance-label">
+                    <span class="finance-name">Резервный фонд</span>
+                    <span class="finance-pct">15%</span>
+                </div>
+                <p class="finance-detail">Непредвиденные расходы, страховка</p>
+            </div>
+        </div>
+
+        <div class="live-counter" id="liveFinance">
+            <div class="live-counter-header">
+                <h3>Финансы в реальном времени</h3>
+                <span class="live-indicator">● LIVE</span>
+            </div>
+            <div class="live-stats">
+                <div class="live-stat">
+                    <div class="live-stat-label">Собрано</div>
+                    <div class="live-stat-value live-stat-income" id="totalRaised">—</div>
+                </div>
+                <div class="live-stat">
+                    <div class="live-stat-label">Потрачено</div>
+                    <div class="live-stat-value live-stat-expense" id="totalSpent">—</div>
+                </div>
+                <div class="live-stat">
+                    <div class="live-stat-label">Баланс</div>
+                    <div class="live-stat-value" id="currentBalance">—</div>
+                </div>
+            </div>
+            <p class="live-cta">
+                <a href="/login">Войдите в личный кабинет</a> для полного финансового отчёта
+            </p>
+        </div>
+    </section>
+
+    <!-- 7. Donate -->
+    <section class="section" id="donate">
+        <h2>Поддержать проект</h2>
+        <p class="section-intro">Каждый взнос приближает нас к регистрации НКО и запуску. Выберите сумму или введите свою.</p>
+
+        <div class="donate-amounts" id="donateAmounts">
+            <button class="donate-amt" data-amount="500">500 &#8381;</button>
+            <button class="donate-amt" data-amount="1000">1 000 &#8381;</button>
+            <button class="donate-amt active" data-amount="3000">3 000 &#8381;</button>
+            <button class="donate-amt" data-amount="5000">5 000 &#8381;</button>
+            <button class="donate-amt" data-amount="10000">10 000 &#8381;</button>
+            <button class="donate-amt donate-amt-custom" data-amount="custom" id="donateCustomBtn">Другая</button>
+        </div>
+
+        <div class="donate-custom-row" id="donateCustomRow">
+            <input type="number" id="donateCustomInput" class="donate-custom-input" placeholder="Сумма в рублях" min="100" step="100">
+            <span class="donate-custom-currency">&#8381;</span>
+        </div>
+
+        <div class="donate-what">
+            <p class="donate-what-label" id="donateWhatLabel">3 000 &#8381; — это оплата хостинга на месяц</p>
+        </div>
+
+        <button class="donate-btn" id="donateBtn">Поддержать</button>
+
+        <p class="donate-note">Пожертвования добровольные. Отчёт о каждой трате — публично.</p>
+    </section>
+
+    <!-- Donate Modal -->
+    <div class="modal-overlay" id="donateModal">
+        <div class="modal-card">
+            <button class="modal-close" id="donateModalClose">&times;</button>
+            <h3>Приём платежей запускается</h3>
+            <p class="modal-text">Мы в процессе регистрации НКО. Как только юридическое лицо будет оформлено, здесь появится приём карт и переводов.</p>
+            <div class="modal-amount" id="modalAmount">3 000 &#8381;</div>
+            <div class="modal-divider"></div>
+            <p class="modal-text">Пока вы можете поддержать проект напрямую:</p>
+            <div class="modal-actions">
+                <a href="https://t.me/sloboda_land" target="_blank" rel="noopener" class="modal-action-btn modal-action-primary">Написать в Telegram</a>
+                <a href="mailto:info@sloboda.land?subject=Поддержка СЛОБОДА" class="modal-action-btn modal-action-secondary">info@sloboda.land</a>
+            </div>
+            <p class="modal-footer-note">Мы свяжемся с вами и предоставим реквизиты для перевода.</p>
+        </div>
+    </div>
+
+    <!-- 8. FAQ -->
+    <section class="section" id="faq">
+        <h2>Вопросы и ответы</h2>
+        <div class="faq-list">
+            <details class="faq-item">
+                <summary>Это не мошенничество?</summary>
+                <p>СЛОБОДА — это НКО (некоммерческая организация) с открытой отчётностью. Мы не обещаем доходность, не продаём участки и не берём деньги «на развитие». Каждый рубль расходуется на конкретные, проверяемые вещи: юридическая работа, платформа, документация. Все финансы будут публичны.</p>
+            </details>
+            <details class="faq-item">
+                <summary>Что будет с моими деньгами?</summary>
+                <p>Пожертвования идут на регистрацию НКО (~15 000 ₽), юридические консультации (~30 000 ₽), хостинг платформы (~5 000 ₽/мес) и создание базы знаний. Вы получаете отчёт о каждой трате. НКО обязана отчитываться перед Минюстом.</p>
+            </details>
+            <details class="faq-item">
+                <summary>А если ничего не получится?</summary>
+                <p>Даже если масштабный проект не состоится — база знаний, юридические шаблоны, сообщество специалистов и разведанная информация о земле останутся. Это не деньги в пустоту — это инвестиция в инфраструктуру знаний, которая полезна в любом сценарии.</p>
+            </details>
+            <details class="faq-item">
+                <summary>Мне нужно переезжать?</summary>
+                <p>Нет. На первой фазе мы собираем людей, навыки и ресурсы. Вы участвуете удалённо: вносите знания, помогаете с экспертизой, поддерживаете финансово. Переезд — это Фаза 2+, и только для тех, кто сам этого захочет.</p>
+            </details>
+            <details class="faq-item">
+                <summary>Чем вы отличаетесь от экопоселений?</summary>
+                <p>Экопоселения обычно строятся на идеологии и энтузиазме одного человека. СЛОБОДА — это юридическая структура (НКО), коллективное управление, открытые финансы и фокус на инфраструктуре, а не на образе жизни. Мы строим систему, а не коммуну.</p>
+            </details>
+        </div>
+    </section>
+
+    <!-- 8. Who's Behind This -->
+    <section class="section" id="founder">
+        <h2>Кто за этим стоит</h2>
+        <div class="founder-block">
+            <div class="founder-info">
+                <h3>Phillip Miller</h3>
+                <p class="founder-role">Основатель СЛОБОДА</p>
+                <p class="founder-bio">Предприниматель, инженер, человек, который верит, что лучшая страховка от будущего — это земля, навыки и сообщество. Не продаю мечты. Строю инфраструктуру.</p>
+                <div class="founder-contacts">
+                    <a href="https://t.me/sloboda_land" target="_blank" rel="noopener">Telegram</a>
+                    <a href="mailto:info@sloboda.land">info@sloboda.land</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 9. Signup Form -->
+    <section class="section" id="signup">
+        <h2>Заявить о себе</h2>
+        <p class="form-intro">Заполните форму. Мы свяжемся с теми, кто нам подходит.</p>
+
+        <form class="signup-form" id="signupForm">
+            <!-- Step 1: Essential info (always visible) -->
+            <div class="form-step form-step-1">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="f-name">Имя *</label>
+                        <input type="text" id="f-name" name="name" required autocomplete="name">
+                    </div>
+                    <div class="form-group">
+                        <label for="f-email">Email *</label>
+                        <input type="email" id="f-email" name="email" required autocomplete="email">
+                    </div>
+                </div>
+                <button type="button" class="expand-btn" id="expandForm">Продолжить</button>
+            </div>
+
+            <!-- Step 2: Details (expand on click) -->
+            <div class="form-step form-step-2" id="formStep2">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="f-telegram">Telegram</label>
+                        <input type="text" id="f-telegram" name="telegram" placeholder="@username" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="f-city">Город</label>
+                        <input type="text" id="f-city" name="city" autocomplete="address-level2">
+                    </div>
+                </div>
+
+                <fieldset class="form-fieldset">
+                    <legend>Навыки (отметьте все подходящие)</legend>
+                    <div class="checkbox-grid">
+                        <label><input type="checkbox" name="skills" value="construction"> Строительство</label>
+                        <label><input type="checkbox" name="skills" value="agriculture"> Сельское хозяйство</label>
+                        <label><input type="checkbox" name="skills" value="electrical"> Электрика</label>
+                        <label><input type="checkbox" name="skills" value="forestry"> Лесное дело</label>
+                        <label><input type="checkbox" name="skills" value="seeds"> Семеноводство</label>
+                        <label><input type="checkbox" name="skills" value="legal"> Юриспруденция</label>
+                        <label><input type="checkbox" name="skills" value="medical"> Медицина</label>
+                        <label><input type="checkbox" name="skills" value="engineering"> Инженерия</label>
+                        <label><input type="checkbox" name="skills" value="survival"> Выживание</label>
+                    </div>
+                </fieldset>
+
+                <div class="form-group">
+                    <label for="f-about">Что вас интересует в проекте?</label>
+                    <textarea id="f-about" name="about" rows="3" placeholder="Чем хотите заниматься, что умеете, зачем вам это"></textarea>
+                </div>
+
+                <fieldset class="form-fieldset">
+                    <legend>Готовы поддержать финансово?</legend>
+                    <div class="radio-row">
+                        <label><input type="radio" name="donate" value="yes"> Да</label>
+                        <label><input type="radio" name="donate" value="no"> Нет</label>
+                        <label><input type="radio" name="donate" value="later" checked> Позже</label>
+                    </div>
+                </fieldset>
+
+                <div class="form-group form-privacy">
+                    <label><input type="checkbox" name="privacy" required> Согласен с обработкой <a href="/privacy" target="_blank" style="color: var(--text-secondary); text-decoration: underline;">персональных данных</a></label>
+                </div>
+
+                <button type="submit" class="submit-btn" id="submitBtn">Отправить</button>
+            </div>
+
+            <div class="form-status" id="formStatus"></div>
+        </form>
+    </section>
+
+    <!-- 10. Footer -->
+    <footer class="footer">
+        <p class="footer-tagline">СЛОБОДА — План Б, который существует.</p>
+        <div class="footer-links">
+            <a href="https://t.me/sloboda_land" target="_blank" rel="noopener">Telegram</a>
+            <a href="mailto:info@sloboda.land">info@sloboda.land</a>
+            <a href="/privacy">Политика конфиденциальности</a>
+        </div>
+    </footer>
+
+    <!-- Floating Telegram button -->
+    <a href="https://t.me/sloboda_land" target="_blank" rel="noopener" class="floating-tg" title="Наш Telegram">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z" fill="currentColor"/>
+        </svg>
+    </a>
+
+    <!-- Back to top -->
+    <button class="back-to-top" id="backToTop" type="button" aria-label="Наверх">
+        ↑
+    </button>
+
+    <script src="script.js"></script>
+</body>
+</html>

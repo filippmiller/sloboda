@@ -5,6 +5,7 @@
 
 // ===== INITIALIZATION =====
 document.addEventListener('DOMContentLoaded', () => {
+    initBookmarkBanner();
     initMobileMenu();
     initVideoModal();
     initSocialProof();
@@ -13,6 +14,33 @@ document.addEventListener('DOMContentLoaded', () => {
     initFloatingCTA();
     initScrollBehavior();
 });
+
+// ===== BOOKMARK BANNER =====
+function initBookmarkBanner() {
+    const banner = document.getElementById('bookmarkBanner');
+    const closeBtn = document.getElementById('bookmarkClose');
+
+    if (!banner || !closeBtn) return;
+
+    // Check if banner was already closed
+    const bannerClosed = localStorage.getItem('bookmarkBannerClosed');
+    if (bannerClosed) {
+        banner.classList.add('hidden');
+        return;
+    }
+
+    // Close banner and remember
+    closeBtn.addEventListener('click', () => {
+        banner.classList.add('hidden');
+        localStorage.setItem('bookmarkBannerClosed', 'true');
+
+        // Adjust header position
+        const header = document.querySelector('.header');
+        if (header) {
+            header.style.top = '0';
+        }
+    });
+}
 
 // ===== MOBILE MENU =====
 function initMobileMenu() {

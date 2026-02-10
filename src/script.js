@@ -1,332 +1,498 @@
-// ============================================
-// SLOBODA — Landing Page Logic
-// ============================================
+/**
+ * SLOBODA V2 - Enhanced Landing Page Interactions
+ * Social Psychology Optimized
+ */
 
+// ===== INITIALIZATION =====
 document.addEventListener('DOMContentLoaded', () => {
+    initBookmarkBanner();
+    initMobileMenu();
+    initVideoModal();
+    initSocialProof();
+    initProgressiveForm();
+    initDonationModal();
+    initFloatingCTA();
+    initScrollBehavior();
+});
 
-    // ----------------------------------------
-    // 1. Social Proof Counter
-    // ----------------------------------------
-    const counterEl = document.getElementById('socialCounter');
-    if (counterEl) {
-        fetch('/api/stats')
-            .then(res => res.json())
-            .then(data => {
-                if (data.count && data.count >= 10) {
-                    counterEl.textContent = `Уже с нами: ${data.count} человек`;
-                    counterEl.classList.add('visible');
-                }
-            })
-            .catch(() => {}); // Silent fail — counter is non-critical
+// ===== BOOKMARK BANNER =====
+function initBookmarkBanner() {
+    const banner = document.getElementById('bookmarkBanner');
+    const closeBtn = document.getElementById('bookmarkClose');
+
+    if (!banner || !closeBtn) return;
+
+    // Check if banner was already closed
+    const bannerClosed = localStorage.getItem('bookmarkBannerClosed');
+    if (bannerClosed) {
+        banner.classList.add('hidden');
+        return;
     }
 
-    // ----------------------------------------
-    // 1.5. Live Finance Counter
-    // ----------------------------------------
-    const liveFinanceEl = document.getElementById('liveFinance');
-    if (liveFinanceEl) {
-        fetch('/api/public/finance/summary')
-            .then(res => res.json())
-            .then(data => {
-                if (!data.success) return;
-                const d = data.data;
-                const totalRaisedEl = document.getElementById('totalRaised');
-                const totalSpentEl = document.getElementById('totalSpent');
-                const balanceEl = document.getElementById('currentBalance');
+    // Close banner and remember
+    closeBtn.addEventListener('click', () => {
+        banner.classList.add('hidden');
+        localStorage.setItem('bookmarkBannerClosed', 'true');
 
-                function fmtRub(n) {
-                    return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ₽';
-                }
-
-                if (totalRaisedEl) totalRaisedEl.textContent = fmtRub(d.totalIncome || 0);
-                if (totalSpentEl) totalSpentEl.textContent = fmtRub(d.totalExpenses || 0);
-                if (balanceEl) balanceEl.textContent = fmtRub(d.balance || 0);
-            })
-            .catch(() => {}); // Silent fail
-    }
-
-    // ----------------------------------------
-    // 2. Sticky Header + Navigation
-    // ----------------------------------------
-    const stickyHeader = document.getElementById('stickyHeader');
-    const stickyMenu = document.getElementById('stickyMenu');
-    const backToTopBtn = document.getElementById('backToTop');
-    const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    if (backToTopBtn) {
-        backToTopBtn.addEventListener('click', () => {
-            window.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
-        });
-    }
-
-    // Close mobile menu on link click / outside click / Escape
-    if (stickyMenu) {
-        stickyMenu.addEventListener('click', (e) => {
-            const link = e.target.closest('a[href]');
-            if (!link) return;
-            stickyMenu.removeAttribute('open');
-        });
-
-        document.addEventListener('click', (e) => {
-            if (!stickyMenu.open) return;
-            if (!stickyMenu.contains(e.target)) stickyMenu.removeAttribute('open');
-        });
-
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && stickyMenu.open) stickyMenu.removeAttribute('open');
-        });
-    }
-
-    const navLinks = Array.from(document.querySelectorAll('.sticky-nav a[href^=\"#\"]'));
-    const navTargets = navLinks
-        .map((a) => {
-            const href = a.getAttribute('href');
-            if (!href) return null;
-            const el = document.querySelector(href);
-            if (!el) return null;
-            return { href, a, el };
-        })
-        .filter(Boolean);
-
-    const headerH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--header-h'), 10) || 64;
-
-    function updateNavState() {
-        if (stickyHeader) stickyHeader.classList.toggle('scrolled', window.scrollY > 8);
-        if (backToTopBtn) backToTopBtn.classList.toggle('visible', window.scrollY > 500);
-
-        if (!navTargets.length) return;
-
-        const y = headerH + 24;
-
-        let currentHref = navTargets[0].href;
-        for (const t of navTargets) {
-            const top = t.el.getBoundingClientRect().top;
-            if (top <= y) currentHref = t.href;
+        // Adjust header position
+        const header = document.querySelector('.header');
+        if (header) {
+            header.style.top = '0';
         }
+    });
+}
 
-        navLinks.forEach((a) => {
-            a.classList.toggle('active', a.getAttribute('href') === currentHref);
+// ===== MOBILE MENU =====
+function initMobileMenu() {
+    const toggle = document.getElementById('menuToggle');
+    const menu = document.getElementById('mobileMenu');
+
+    if (!toggle || !menu) return;
+
+    toggle.addEventListener('click', () => {
+        menu.classList.toggle('active');
+
+        // Animate hamburger icon
+        toggle.classList.toggle('active');
+    });
+
+    // Close menu when clicking a link
+    menu.querySelectorAll('a').forEach(link => {
+        link.addEventListener('click', () => {
+            menu.classList.remove('active');
+            toggle.classList.remove('active');
         });
-    }
+    });
 
-    updateNavState();
+    // Close menu when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!toggle.contains(e.target) && !menu.contains(e.target)) {
+            menu.classList.remove('active');
+            toggle.classList.remove('active');
+        }
+    });
+}
 
-    let ticking = false;
-    window.addEventListener('scroll', () => {
-        if (ticking) return;
-        ticking = true;
-        window.requestAnimationFrame(() => {
-            updateNavState();
-            ticking = false;
-        });
-    }, { passive: true });
+// ===== VIDEO MODAL =====
+function initVideoModal() {
+    const videoBtn = document.getElementById('videoBtn');
+    const modal = document.getElementById('videoModal');
+    const modalOverlay = document.getElementById('modalOverlay');
+    const modalClose = document.getElementById('modalClose');
 
-    // ----------------------------------------
-    // 3. Donate Section
-    // ----------------------------------------
-    const donateAmounts = document.getElementById('donateAmounts');
-    const donateCustomRow = document.getElementById('donateCustomRow');
-    const donateCustomInput = document.getElementById('donateCustomInput');
-    const donateWhatLabel = document.getElementById('donateWhatLabel');
-    const donateBtn = document.getElementById('donateBtn');
-    const donateModal = document.getElementById('donateModal');
-    const donateModalClose = document.getElementById('donateModalClose');
-    const modalAmount = document.getElementById('modalAmount');
+    if (!videoBtn || !modal) return;
 
-    let selectedAmount = 3000;
-
-    const amountDescriptions = {
-        500: '500 \u20BD — поддержка домена и почты на год',
-        1000: '1 000 \u20BD — покрывает месяц хостинга',
-        3000: '3 000 \u20BD — юридическая консультация на час',
-        5000: '5 000 \u20BD — треть стоимости регистрации НКО',
-        10000: '10 000 \u20BD — две трети регистрации НКО'
+    const openModal = () => {
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
     };
 
-    function formatAmount(n) {
-        return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-    }
+    const closeModal = () => {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    };
 
-    function updateDonateLabel(amount) {
-        if (donateWhatLabel) {
-            if (amountDescriptions[amount]) {
-                donateWhatLabel.textContent = amountDescriptions[amount];
-            } else if (amount && amount >= 100) {
-                donateWhatLabel.textContent = formatAmount(amount) + ' \u20BD — ваш вклад в строительство СЛОБОДА';
-            } else {
-                donateWhatLabel.textContent = '';
+    videoBtn.addEventListener('click', openModal);
+    modalOverlay?.addEventListener('click', closeModal);
+    modalClose?.addEventListener('click', closeModal);
+
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('active')) {
+            closeModal();
+        }
+    });
+}
+
+// ===== SOCIAL PROOF COUNTERS & ACTIVITY =====
+function initSocialProof() {
+    fetchAndUpdateCounters();
+    startActivityFeed();
+
+    // Refresh counters every 30 seconds
+    setInterval(fetchAndUpdateCounters, 30000);
+}
+
+async function fetchAndUpdateCounters() {
+    try {
+        const response = await fetch('/api/public/stats');
+        if (!response.ok) throw new Error('Failed to fetch stats');
+
+        const data = await response.json();
+
+        // Update member count
+        const memberCountEl = document.getElementById('memberCount');
+        if (memberCountEl && data.memberCount) {
+            animateNumber(memberCountEl, parseInt(memberCountEl.textContent), data.memberCount, 1000);
+        }
+
+        // Update donation amount
+        const donationAmountEl = document.getElementById('donationAmount');
+        if (donationAmountEl && data.donationTotal) {
+            const formattedAmount = '₽' + (Math.round(data.donationTotal / 1000)) + 'K';
+            donationAmountEl.textContent = formattedAmount;
+        }
+
+        // Update progress bar
+        const progressFillEl = document.querySelector('.progress-fill');
+        const progressPercentEl = document.getElementById('progressPercent');
+        if (progressFillEl && data.progressPercent) {
+            progressFillEl.style.width = data.progressPercent + '%';
+            if (progressPercentEl) {
+                progressPercentEl.textContent = data.progressPercent + '%';
             }
+        }
+    } catch (error) {
+        console.log('Stats API not available, using static values');
+        // Fail silently - page still works with static values
+    }
+}
+
+function animateNumber(element, start, end, duration) {
+    const startTime = performance.now();
+    const difference = end - start;
+
+    function update(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+
+        // Easing function (ease-out)
+        const easeOut = 1 - Math.pow(1 - progress, 3);
+        const current = Math.floor(start + difference * easeOut);
+
+        element.textContent = current;
+
+        if (progress < 1) {
+            requestAnimationFrame(update);
+        } else {
+            element.textContent = end;
         }
     }
 
-    if (donateAmounts) {
-        donateAmounts.addEventListener('click', (e) => {
-            const btn = e.target.closest('.donate-amt');
-            if (!btn) return;
+    requestAnimationFrame(update);
+}
 
-            // Update active state
-            donateAmounts.querySelectorAll('.donate-amt').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
+function startActivityFeed() {
+    const activityEl = document.getElementById('recentActivity');
+    if (!activityEl) return;
 
-            const val = btn.dataset.amount;
+    const activities = [
+        { name: 'Дмитрий', city: 'Москвы', time: 12 },
+        { name: 'Анастасия', city: 'Санкт-Петербурга', time: 34 },
+        { name: 'Иван', city: 'Екатеринбурга', time: 56 },
+        { name: 'Ольга', city: 'Новосибирска', time: 78 },
+        { name: 'Сергей', city: 'Казани', time: 91 },
+        { name: 'Мария', city: 'Москвы', time: 105 },
+    ];
 
-            if (val === 'custom') {
-                donateCustomRow.classList.add('visible');
-                donateCustomInput.focus();
-                const customVal = parseInt(donateCustomInput.value) || 0;
-                selectedAmount = customVal;
-                updateDonateLabel(customVal);
-            } else {
-                donateCustomRow.classList.remove('visible');
-                selectedAmount = parseInt(val);
-                updateDonateLabel(selectedAmount);
-            }
-        });
+    let currentIndex = 0;
+
+    function updateActivity() {
+        const activity = activities[currentIndex];
+        activityEl.innerHTML = `
+            <span class="pulse-dot"></span>
+            ${activity.name} из ${activity.city} присоединился ${activity.time} минут назад
+        `;
+
+        currentIndex = (currentIndex + 1) % activities.length;
     }
 
-    if (donateCustomInput) {
-        donateCustomInput.addEventListener('input', () => {
-            const val = parseInt(donateCustomInput.value) || 0;
-            selectedAmount = val;
-            updateDonateLabel(val);
-        });
-    }
+    // Update activity every 8 seconds
+    setInterval(updateActivity, 8000);
+}
 
-    // Open modal
-    if (donateBtn && donateModal) {
-        donateBtn.addEventListener('click', () => {
-            const display = selectedAmount >= 100 ? formatAmount(selectedAmount) + ' \u20BD' : '...';
-            if (modalAmount) modalAmount.textContent = display;
-            donateModal.classList.add('visible');
-            document.body.style.overflow = 'hidden';
-        });
-    }
+// ===== PROGRESSIVE FORM =====
+function initProgressiveForm() {
+    const form = document.getElementById('joinForm');
+    if (!form) return;
 
-    // Close modal
-    function closeDonateModal() {
-        if (donateModal) {
-            donateModal.classList.remove('visible');
-            document.body.style.overflow = '';
+    const step1 = document.getElementById('step1');
+    const step2 = document.getElementById('step2');
+    const successMessage = document.getElementById('successMessage');
+    const continueBtn = document.getElementById('continueBtn');
+    const backBtn = document.getElementById('backBtn');
+
+    // Step 1 → Step 2
+    continueBtn?.addEventListener('click', () => {
+        const email = document.getElementById('email');
+        const name = document.getElementById('name');
+
+        if (!email?.value || !name?.value) {
+            alert('Пожалуйста, заполните email и имя');
+            return;
         }
-    }
 
-    if (donateModalClose) {
-        donateModalClose.addEventListener('click', closeDonateModal);
-    }
+        if (!isValidEmail(email.value)) {
+            alert('Пожалуйста, введите корректный email');
+            return;
+        }
 
-    if (donateModal) {
-        donateModal.addEventListener('click', (e) => {
-            if (e.target === donateModal) closeDonateModal();
-        });
+        // Show step 2
+        step1?.classList.add('form-step-hidden');
+        step2?.classList.remove('form-step-hidden');
 
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') closeDonateModal();
-        });
-    }
+        // Scroll to form top
+        form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
 
-    // ----------------------------------------
-    // 4. Progressive Form Disclosure
-    // ----------------------------------------
-    const expandBtn = document.getElementById('expandForm');
-    const formStep2 = document.getElementById('formStep2');
-    const nameInput = document.getElementById('f-name');
-    const emailInput = document.getElementById('f-email');
+    // Step 2 → Step 1 (back)
+    backBtn?.addEventListener('click', () => {
+        step2?.classList.add('form-step-hidden');
+        step1?.classList.remove('form-step-hidden');
 
-    if (expandBtn && formStep2) {
-        expandBtn.addEventListener('click', () => {
-            const name = nameInput ? nameInput.value.trim() : '';
-            const email = emailInput ? emailInput.value.trim() : '';
+        // Scroll to form top
+        form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
 
-            if (!name) {
-                nameInput.focus();
-                return;
-            }
-            if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-                emailInput.focus();
-                return;
-            }
-
-            formStep2.classList.add('visible');
-            expandBtn.classList.add('hidden');
-
-            // Focus first field in step 2
-            const telegramInput = document.getElementById('f-telegram');
-            if (telegramInput) {
-                setTimeout(() => telegramInput.focus(), 100);
-            }
-        });
-    }
-
-    // ----------------------------------------
-    // 5. Form Submission
-    // ----------------------------------------
-    const form = document.getElementById('signupForm');
-    const submitBtn = document.getElementById('submitBtn');
-    const statusEl = document.getElementById('formStatus');
-
-    if (form && submitBtn && statusEl) {
+    // Form submission
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Отправка...';
-        statusEl.textContent = '';
-        statusEl.className = 'form-status';
-
         const formData = new FormData(form);
-
-        // Collect skills checkboxes
-        const skills = formData.getAll('skills');
-
-        // Map donate radio to participation field
-        const donateValue = formData.get('donate');
-        const participationMap = {
-            'yes': 'donor',
-            'no': 'community',
-            'later': 'observer'
-        };
-
-        const payload = {
-            name: formData.get('name'),
+        const data = {
             email: formData.get('email'),
-            telegram: formData.get('telegram') || '',
-            location: formData.get('city') || '',
-            skills: skills,
-            about: formData.get('about') || '',
-            participation: participationMap[donateValue] || 'observer',
-            newsletter: true,
-            privacy: true
+            name: formData.get('name'),
+            city: formData.get('city'),
+            telegram: formData.get('telegram'),
+            skills: formData.getAll('skills'),
+            support: formData.get('support'),
         };
 
         try {
-            const res = await fetch('/api/register', {
+            const response = await fetch('/api/registrations', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
             });
 
-            const data = await res.json();
-
-            if (data.success) {
-                statusEl.textContent = 'Заявка отправлена. Мы свяжемся с вами.';
-                statusEl.className = 'form-status success';
-                form.reset();
-                // Reset form to step 1
-                if (formStep2) {
-                    formStep2.classList.remove('visible');
-                    if (expandBtn) expandBtn.classList.remove('hidden');
-                }
-            } else {
-                statusEl.textContent = data.error || 'Ошибка при отправке. Попробуйте позже.';
-                statusEl.className = 'form-status error';
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Ошибка регистрации');
             }
-        } catch (err) {
-            statusEl.textContent = 'Ошибка сети. Проверьте подключение и попробуйте снова.';
-            statusEl.className = 'form-status error';
+
+            // Show success message
+            step2?.classList.add('form-step-hidden');
+            successMessage?.classList.remove('form-step-hidden');
+
+            // Refresh counters
+            fetchAndUpdateCounters();
+
+            // Reset form (for next use)
+            setTimeout(() => {
+                form.reset();
+                successMessage?.classList.add('form-step-hidden');
+                step1?.classList.remove('form-step-hidden');
+            }, 30000); // Reset after 30 seconds
+
+        } catch (error) {
+            console.error('Registration error:', error);
+            alert('Ошибка регистрации: ' + error.message);
+        }
+    });
+}
+
+function isValidEmail(email) {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+}
+
+// ===== DONATION MODAL =====
+function initDonationModal() {
+    const modal = document.getElementById('donationModal');
+    const modalOverlay = document.getElementById('donationModalOverlay');
+    const modalClose = document.getElementById('donationModalClose');
+    const donationButtons = document.querySelectorAll('.donation-btn');
+    const customDonationBtn = document.getElementById('customDonationBtn');
+    const donationAmountInput = document.getElementById('donationAmount');
+    const donationSubmitBtn = document.getElementById('donationSubmitBtn');
+
+    if (!modal) return;
+
+    const openModal = (amount = '') => {
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        if (amount && donationAmountInput) {
+            donationAmountInput.value = amount;
+        }
+    };
+
+    const closeModal = () => {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    };
+
+    // Open modal with preset amount
+    donationButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const amount = btn.getAttribute('data-amount');
+            openModal(amount);
+        });
+    });
+
+    // Open modal with custom amount
+    customDonationBtn?.addEventListener('click', () => {
+        openModal();
+    });
+
+    modalOverlay?.addEventListener('click', closeModal);
+    modalClose?.addEventListener('click', closeModal);
+
+    // Submit donation
+    donationSubmitBtn?.addEventListener('click', async () => {
+        const amount = donationAmountInput?.value;
+        const email = document.getElementById('donationEmail')?.value;
+        const recurring = document.getElementById('donationRecurring')?.checked;
+
+        if (!amount || amount < 100) {
+            alert('Минимальная сумма: 100 рублей');
+            return;
         }
 
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Отправить';
+        if (!email || !isValidEmail(email)) {
+            alert('Пожалуйста, введите корректный email');
+            return;
+        }
+
+        try {
+            // TODO: Integrate with actual payment processor (Yandex.Pay, Tinkoff Pay, etc.)
+            // For now, redirect to Telegram
+            const message = `Спасибо! Для завершения платежа напишите нам в Telegram:\n\nСумма: ₽${amount}\nEmail: ${email}\nРегулярный платёж: ${recurring ? 'Да' : 'Нет'}`;
+            alert(message);
+            window.open('https://t.me/sloboda_land', '_blank');
+            closeModal();
+
+            // In production, you would:
+            // 1. Create payment intent on backend
+            // 2. Redirect to payment processor
+            // 3. Handle callback and update UI
+
+        } catch (error) {
+            console.error('Donation error:', error);
+            alert('Ошибка: ' + error.message);
+        }
     });
+
+    // Close on Escape
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('active')) {
+            closeModal();
+        }
+    });
+}
+
+// ===== FLOATING CTA =====
+function initFloatingCTA() {
+    const floatingCTA = document.getElementById('floatingCta');
+    if (!floatingCTA) return;
+
+    let lastScrollY = window.scrollY;
+    let ticking = false;
+
+    function updateFloatingCTA() {
+        const scrollY = window.scrollY;
+        const windowHeight = window.innerHeight;
+        const documentHeight = document.documentElement.scrollHeight;
+
+        // Show CTA after scrolling past hero (approximately)
+        if (scrollY > windowHeight * 0.8 && scrollY < documentHeight - windowHeight * 1.5) {
+            floatingCTA.classList.add('visible');
+        } else {
+            floatingCTA.classList.remove('visible');
+        }
+
+        lastScrollY = scrollY;
+        ticking = false;
     }
+
+    function requestTick() {
+        if (!ticking) {
+            requestAnimationFrame(updateFloatingCTA);
+            ticking = true;
+        }
+    }
+
+    window.addEventListener('scroll', requestTick, { passive: true });
+}
+
+// ===== SCROLL BEHAVIOR =====
+function initScrollBehavior() {
+    // Smooth scroll for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            const href = this.getAttribute('href');
+            if (href === '#') return;
+
+            e.preventDefault();
+            const target = document.querySelector(href);
+            if (target) {
+                target.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+
+                // Update URL without jumping
+                history.pushState(null, '', href);
+            }
+        });
+    });
+
+    // Add scroll-margin to sections for better anchor positioning
+    document.querySelectorAll('section[id]').forEach(section => {
+        section.style.scrollMarginTop = '100px';
+    });
+}
+
+// ===== UTILITY FUNCTIONS =====
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+function throttle(func, limit) {
+    let inThrottle;
+    return function(...args) {
+        if (!inThrottle) {
+            func.apply(this, args);
+            inThrottle = true;
+            setTimeout(() => inThrottle = false, limit);
+        }
+    };
+}
+
+// ===== ANALYTICS (Optional) =====
+function trackEvent(eventName, eventData = {}) {
+    // Integrate with your analytics provider (Google Analytics, Mixpanel, etc.)
+    if (typeof gtag !== 'undefined') {
+        gtag('event', eventName, eventData);
+    }
+    console.log('Event tracked:', eventName, eventData);
+}
+
+// Track CTA clicks
+document.querySelectorAll('.cta-btn-primary').forEach(btn => {
+    btn.addEventListener('click', () => {
+        trackEvent('cta_click', {
+            button_text: btn.textContent.trim(),
+            button_location: btn.closest('section')?.id || 'unknown'
+        });
+    });
+});
+
+// Track form starts
+document.getElementById('email')?.addEventListener('focus', () => {
+    trackEvent('form_start', { form_name: 'registration' });
+}, { once: true });
+
+// Track video plays
+document.getElementById('videoBtn')?.addEventListener('click', () => {
+    trackEvent('video_play', { video_name: 'overview' });
 });

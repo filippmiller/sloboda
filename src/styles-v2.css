@@ -203,6 +203,70 @@ button {
     animation: fade-in 0.8s ease 0.8s both;
 }
 
+/* ===== BOOKMARK BANNER ===== */
+.bookmark-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(135deg, var(--color-accent), var(--color-cta));
+    color: #000;
+    padding: var(--spacing-xs) var(--spacing-md);
+    z-index: 1001;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    animation: slideDown 0.5s ease;
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-100%);
+    }
+    to {
+        transform: translateY(0);
+    }
+}
+
+.bookmark-banner.hidden {
+    display: none;
+}
+
+.bookmark-banner-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+}
+
+.bookmark-icon {
+    font-size: 1.5rem;
+    animation: pulse 2s infinite;
+}
+
+.bookmark-text {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.bookmark-close {
+    background: transparent;
+    color: #000;
+    border: none;
+    font-size: 1.5rem;
+    line-height: 1;
+    padding: 0.25rem 0.5rem;
+    margin-left: auto;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity var(--transition-fast);
+}
+
+.bookmark-close:hover {
+    opacity: 1;
+}
+
 /* ===== HEADER ===== */
 .header {
     position: sticky;
@@ -212,6 +276,10 @@ button {
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     padding: var(--spacing-sm) 0;
     z-index: 1000;
+}
+
+.bookmark-banner ~ .header {
+    top: 50px;
 }
 
 .header-inner {
@@ -566,6 +634,133 @@ button {
 
 .value-prop p {
     color: var(--color-text-muted);
+}
+
+/* ===== REALITY CHECK SECTION ===== */
+.section-reality {
+    background: linear-gradient(135deg, rgba(194, 54, 22, 0.05) 0%, var(--color-bg) 50%, rgba(194, 54, 22, 0.05) 100%);
+    border-top: 2px solid rgba(194, 54, 22, 0.2);
+    border-bottom: 2px solid rgba(194, 54, 22, 0.2);
+}
+
+.reality-content {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.reality-intro {
+    font-size: 1.3rem;
+    text-align: center;
+    margin-bottom: var(--spacing-lg);
+    line-height: 1.6;
+}
+
+.reality-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-lg);
+}
+
+.reality-card {
+    background: rgba(0, 0, 0, 0.5);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    transition: all var(--transition-normal);
+}
+
+.reality-card h3 {
+    margin-bottom: var(--spacing-sm);
+    font-size: 1.3rem;
+}
+
+.reality-card p {
+    margin-bottom: var(--spacing-sm);
+    line-height: 1.6;
+}
+
+.reality-card-urgent {
+    border-color: rgba(194, 54, 22, 0.5);
+    background: rgba(194, 54, 22, 0.1);
+}
+
+.reality-card-urgent:hover {
+    transform: translateY(-4px);
+    border-color: var(--color-accent);
+    box-shadow: 0 8px 32px rgba(194, 54, 22, 0.3);
+}
+
+.reality-question {
+    font-size: 1.1rem;
+    padding: var(--spacing-sm);
+    background: rgba(255, 255, 255, 0.05);
+    border-left: 4px solid var(--color-accent);
+    margin: var(--spacing-sm) 0;
+}
+
+.reality-answer {
+    font-size: 1.05rem;
+}
+
+.reality-answer em {
+    color: var(--color-accent);
+    font-style: normal;
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
+.reality-warning {
+    background: rgba(194, 54, 22, 0.2);
+    padding: var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    margin-top: var(--spacing-sm);
+    font-weight: 600;
+}
+
+.reality-card-consequence {
+    border-color: rgba(243, 156, 18, 0.5);
+}
+
+.reality-card-consequence:hover {
+    transform: translateY(-4px);
+    border-color: var(--color-cta);
+    box-shadow: 0 8px 32px rgba(243, 156, 18, 0.2);
+}
+
+.reality-card-solution {
+    border-color: rgba(39, 174, 96, 0.5);
+    background: rgba(39, 174, 96, 0.05);
+}
+
+.reality-card-solution:hover {
+    transform: translateY(-4px);
+    border-color: var(--color-success);
+    box-shadow: 0 8px 32px rgba(39, 174, 96, 0.2);
+}
+
+.reality-cta {
+    display: inline-block;
+    margin-top: var(--spacing-sm);
+    padding: 0.75rem 1.5rem;
+    background: var(--color-cta);
+    color: #000;
+    text-decoration: none;
+    border-radius: var(--radius-full);
+    font-weight: 600;
+    transition: all var(--transition-normal);
+}
+
+.reality-cta:hover {
+    background: var(--color-cta-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(243, 156, 18, 0.4);
+}
+
+@media (max-width: 768px) {
+    .reality-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* ===== TIMELINE ===== */
