@@ -72,7 +72,7 @@ router.patch('/admin/landing-content/:section', requireAuth, async (req, res) =>
     try {
         const { section } = req.params;
         const { content } = req.body;
-        const adminId = req.user.userId;
+        const adminId = req.admin.id; // Fixed: use req.admin.id instead of req.user.userId
 
         if (!content) {
             return res.status(400).json({ error: 'Content is required' });
