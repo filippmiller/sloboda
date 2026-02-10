@@ -24,7 +24,7 @@ export default function LandingContent() {
   const fetchSections = async () => {
     try {
       setLoading(true);
-      const response = await adminApi.get('/landing-content');
+      const response = await adminApi.get('/admin/landing-content');
       setSections(response.data);
     } catch (error: any) {
       console.error('Error fetching sections:', error);
@@ -47,7 +47,7 @@ export default function LandingContent() {
   const saveSection = async (sectionName: string) => {
     try {
       setSaving(true);
-      await adminApi.patch(`/landing-content/${sectionName}`, {
+      await adminApi.patch(`/admin/landing-content/${sectionName}`, {
         content: editContent
       });
       toast.success('Секция сохранена');
