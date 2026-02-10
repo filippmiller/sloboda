@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { format } from 'date-fns'
-import { ru } from 'date-fns/locale'
+import { useDateLocale } from '@/hooks/useDateLocale'
 import { motion } from 'motion/react'
 import { Eye, Newspaper, Pin, Clock } from 'lucide-react'
 import api from '@/services/api'
@@ -24,6 +25,8 @@ const staggerItem = {
 }
 
 export default function News() {
+  const { t } = useTranslation()
+  const dateLocale = useDateLocale()
   const [posts, setPosts] = useState<Post[]>([])
   const [total, setTotal] = useState(0)
   const [offset, setOffset] = useState(0)
@@ -66,7 +69,7 @@ export default function News() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold font-display">Новости</h1>
+        <h1 className="text-2xl font-bold font-display">{t('news.title')}</h1>
         <div className="space-y-4">
           {Array.from({ length: 3 }).map((_, i) => (
             <SkeletonCard key={i} />
@@ -84,7 +87,7 @@ export default function News() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        Новости
+        {t('news.title')}
       </motion.h1>
 
       {posts.length > 0 ? (
@@ -111,7 +114,7 @@ export default function News() {
                         {format(
                           new Date(post.published_at ?? post.created_at),
                           'd MMM yyyy',
-                          { locale: ru },
+                          { locale: dateLocale },
                         )}
                       </time>
                     </div>
@@ -152,7 +155,7 @@ export default function News() {
                 onClick={handleLoadMore}
                 loading={loadingMore}
               >
-                Загрузить ещё
+                {t('common.actions.loadMore')}
               </Button>
             </div>
           )}
@@ -162,7 +165,7 @@ export default function News() {
           <div className="text-center py-12 space-y-3">
             <Newspaper className="text-text-muted mx-auto" size={40} />
             <p className="text-text-secondary text-sm">
-              Пока нет опубликованных новостей
+              {t('news.empty')}
             </p>
           </div>
         </Card>

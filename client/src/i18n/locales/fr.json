@@ -1,0 +1,533 @@
+{
+  "common": {
+    "brand": {
+      "name": "SLOBODA",
+      "tagline": "Communauté de vie consciente"
+    },
+    "nav": {
+      "dashboard": "Accueil",
+      "news": "Actualités",
+      "forum": "Forum",
+      "library": "Bibliothèque",
+      "librarian": "Bibliothécaire",
+      "finance": "Finances",
+      "bookmarks": "Favoris",
+      "submit": "Soumettre",
+      "profile": "Profil",
+      "notifications": "Notifications"
+    },
+    "actions": {
+      "logout": "Se déconnecter",
+      "loadMore": "Charger plus",
+      "back": "Retour",
+      "forward": "Suivant",
+      "save": "Enregistrer",
+      "cancel": "Annuler",
+      "delete": "Supprimer",
+      "edit": "Modifier",
+      "reply": "Répondre",
+      "send": "Envoyer",
+      "tryAgain": "Réessayer",
+      "goHome": "Retour à l'accueil",
+      "goToLogin": "Aller à la connexion",
+      "goToLibrary": "Aller à la bibliothèque",
+      "restore": "Restaurer",
+      "discard": "Abandonner"
+    },
+    "errors": {
+      "sessionExpired": "La session a expiré. Veuillez vous reconnecter.",
+      "pageError": "Erreur de page",
+      "pageErrorDescription": "Cette page a rencontré une erreur. Les autres sections fonctionnent normalement.",
+      "pageNotFound": "Page introuvable",
+      "pageNotFoundDescription": "Cette page n'existe pas ou a été déplacée.",
+      "unknownError": "Une erreur inconnue s'est produite",
+      "serverError": "Erreur serveur ({{status}})"
+    },
+    "time": {
+      "readingTime": "{{count}} min de lecture"
+    },
+    "filters": {
+      "all": "Tous",
+      "allTags": "Tous les tags"
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Connexion",
+      "subtitle": "Entrez vos identifiants pour accéder à votre compte",
+      "emailLabel": "Email",
+      "emailPlaceholder": "vous@exemple.com",
+      "passwordLabel": "Mot de passe",
+      "passwordPlaceholder": "Entrez le mot de passe",
+      "rememberMe": "Se souvenir de moi",
+      "submitButton": "Se connecter",
+      "magicLinkButton": "Se connecter par lien email",
+      "forgotPassword": "Mot de passe oublié ?",
+      "hasInvite": "Vous avez une invitation ?",
+      "registerLink": "S'inscrire",
+      "welcomeToast": "Bienvenue !",
+      "loginError": "Échec de la connexion. Vérifiez votre email et votre mot de passe.",
+      "backToLogin": "Retour à la connexion"
+    },
+    "magicLink": {
+      "title": "Connexion par lien",
+      "subtitle": "Entrez votre email et nous vous enverrons un lien de connexion",
+      "sendButton": "Envoyer le lien",
+      "sentTitle": "Vérifiez votre email",
+      "sentDescription": "Nous avons envoyé un lien de connexion à votre email. Cliquez dessus pour vous connecter.",
+      "sentToast": "Lien de connexion envoyé",
+      "sendError": "Impossible d'envoyer le lien. Réessayez plus tard.",
+      "switchToPassword": "Se connecter avec un mot de passe"
+    },
+    "forgotPassword": {
+      "title": "Mot de passe oublié ?",
+      "subtitle": "Entrez votre email et nous vous enverrons un lien de réinitialisation",
+      "sendButton": "Envoyer le lien",
+      "sentTitle": "Vérifiez votre email",
+      "sentDescription": "Si un compte existe avec cet email, nous avons envoyé un lien de réinitialisation du mot de passe."
+    },
+    "resetPassword": {
+      "title": "Nouveau mot de passe",
+      "subtitle": "Entrez un nouveau mot de passe pour votre compte",
+      "newPasswordLabel": "Nouveau mot de passe",
+      "newPasswordPlaceholder": "Majuscules/minuscules + chiffre",
+      "confirmPasswordLabel": "Confirmer le mot de passe",
+      "confirmPasswordPlaceholder": "Répétez le mot de passe",
+      "submitButton": "Définir le mot de passe",
+      "successTitle": "Mot de passe modifié",
+      "successDescription": "Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.",
+      "successToast": "Mot de passe modifié avec succès",
+      "error": "Impossible de réinitialiser le mot de passe. Demandez un nouveau lien."
+    },
+    "register": {
+      "title": "Inscription",
+      "subtitle": "Complétez votre inscription pour rejoindre la communauté",
+      "verifying": "Vérification de l'invitation...",
+      "inviteError": "Erreur d'invitation",
+      "inviteInvalid": "L'invitation est invalide ou expirée",
+      "inviteMissingToken": "Le lien d'invitation ne contient pas de jeton",
+      "inviteFor": "Invitation pour :",
+      "nameLabel": "Nom",
+      "namePlaceholder": "Comment vous appelez-vous ?",
+      "passwordLabel": "Mot de passe",
+      "passwordPlaceholder": "Majuscules/minuscules + chiffre",
+      "confirmPasswordLabel": "Confirmer le mot de passe",
+      "confirmPasswordPlaceholder": "Répétez le mot de passe",
+      "submitButton": "S'inscrire",
+      "hasAccount": "Vous avez déjà un compte ?",
+      "loginLink": "Se connecter",
+      "successToast": "Inscription terminée !",
+      "error": "Échec de l'inscription. Réessayez plus tard."
+    },
+    "validation": {
+      "emailRequired": "Entrez un email valide",
+      "passwordRequired": "Entrez un mot de passe",
+      "passwordMin8": "Au moins 8 caractères",
+      "passwordUppercase": "Au moins une lettre majuscule",
+      "passwordLowercase": "Au moins une lettre minuscule",
+      "passwordDigit": "Au moins un chiffre",
+      "confirmPasswordRequired": "Confirmez votre mot de passe",
+      "passwordsMismatch": "Les mots de passe ne correspondent pas",
+      "nameMin2": "Au moins 2 caractères"
+    }
+  },
+  "dashboard": {
+    "greeting": "Bonjour, {{name}} !",
+    "greetingDefault": "Bienvenue !",
+    "subtitle": "Aperçu de l'activité de la communauté SLOBODA",
+    "stats": {
+      "news": "Actualités",
+      "articles": "Articles",
+      "mySubmissions": "Mes soumissions"
+    },
+    "recentNews": {
+      "title": "Actualités récentes",
+      "viewAll": "Toutes les actualités",
+      "empty": "Pas encore d'actualités"
+    },
+    "quickLinks": {
+      "submitKnowledge": "Soumettre un savoir",
+      "submitKnowledgeDescription": "Proposer du matériel pour la bibliothèque",
+      "library": "Bibliothèque",
+      "libraryDescription": "Matériaux et savoirs de la communauté",
+      "submitMaterial": "Soumettre un document"
+    }
+  },
+  "news": {
+    "title": "Actualités",
+    "empty": "Aucune actualité publiée pour le moment"
+  },
+  "library": {
+    "title": "Bibliothèque",
+    "searchPlaceholder": "Rechercher dans la bibliothèque...",
+    "contentTypes": {
+      "article": "Article",
+      "knowledge": "Savoir"
+    },
+    "bookmarks": {
+      "add": "Ajouter aux favoris",
+      "remove": "Retirer des favoris"
+    },
+    "empty": {
+      "default": "La bibliothèque est vide",
+      "filtered": "Aucun résultat. Essayez de modifier vos critères de recherche."
+    }
+  },
+  "librarian": {
+    "title": "Bibliothécaire",
+    "subtitle": "Assistant IA pour la base de connaissances SLOBODA",
+    "welcome": {
+      "title": "Bienvenue",
+      "description": "Je suis le Bibliothécaire SLOBODA. Posez une question et je chercherai la réponse dans notre base de connaissances. Si l'information n'est pas disponible, je vous le dirai honnêtement."
+    },
+    "suggestions": {
+      "label": "Essayez de demander",
+      "farming": "Comment se lancer dans l'agriculture ?",
+      "programs": "Quels programmes d'aide existent pour s'installer à la campagne ?",
+      "buying": "Que faut-il savoir avant d'acheter une maison à la campagne ?"
+    },
+    "chat": {
+      "thinking": "Réflexion en cours...",
+      "sourcesLabel": "Sources",
+      "inputPlaceholder": "Posez une question...",
+      "disclaimer": "Le Bibliothécaire répond sur la base des documents de la base de connaissances. Les réponses peuvent être inexactes."
+    }
+  },
+  "submit": {
+    "title": "Soumettre un document",
+    "subtitle": "Partagez vos connaissances avec la communauté. Le document sera examiné avant publication.",
+    "form": {
+      "titleLabel": "Titre",
+      "titlePlaceholder": "Titre de votre document",
+      "descriptionLabel": "Description courte",
+      "descriptionPlaceholder": "De quoi traite ce document (2-3 phrases)",
+      "categoryLabel": "Catégorie",
+      "categoryDefault": "Sans catégorie",
+      "contentLabel": "Contenu",
+      "attachmentsLabel": "Pièces jointes (jusqu'à {{max}} fichiers, max. 10 Mo chacun)",
+      "dropzoneActive": "Déposez les fichiers ici...",
+      "dropzoneDefault": "Glissez des fichiers ici ou cliquez pour sélectionner",
+      "submitButton": "Soumettre pour examen",
+      "draftSaved": "Brouillon enregistré",
+      "linkPrompt": "URL du lien :"
+    },
+    "toolbar": {
+      "bold": "Gras",
+      "italic": "Italique",
+      "heading": "Titre",
+      "list": "Liste",
+      "link": "Lien",
+      "image": "Image"
+    },
+    "validation": {
+      "titleMin3": "Au moins 3 caractères",
+      "descriptionMin10": "Au moins 10 caractères",
+      "bodyTooShort": "Le contenu est trop court",
+      "maxFiles": "Maximum {{max}} fichiers",
+      "maxFileSize": "La taille maximale par fichier est de 10 Mo"
+    },
+    "draft": {
+      "hasDraft": "Vous avez un brouillon enregistré",
+      "restore": "Restaurer",
+      "discard": "Abandonner"
+    },
+    "status": {
+      "pending": "En attente d'examen",
+      "reviewing": "En cours d'examen",
+      "approved": "Approuvé",
+      "rejected": "Refusé",
+      "published": "Publié"
+    },
+    "mySubmissions": {
+      "title": "Mes soumissions",
+      "empty": "Vous n'avez encore soumis aucun document",
+      "rejectionReason": "Motif : {{reason}}"
+    },
+    "toasts": {
+      "submitted": "Votre document a été soumis pour examen"
+    }
+  },
+  "finance": {
+    "title": "Transparence financière",
+    "subtitle": "Tous les fonds du projet sont librement accessibles aux membres.",
+    "dataNote": "Les données sont mises à jour lors du téléchargement des relevés bancaires",
+    "summary": {
+      "income": "Revenus",
+      "expenses": "Dépenses",
+      "balance": "Solde"
+    },
+    "charts": {
+      "expensesByCategory": "Dépenses par catégorie",
+      "overview": "Vue d'ensemble",
+      "incomeBar": "Revenus",
+      "expensesBar": "Dépenses"
+    },
+    "filters": {
+      "all": "Tous",
+      "income": "Revenus",
+      "expenses": "Dépenses"
+    },
+    "categories": {
+      "donation": "Dons",
+      "grant": "Subventions",
+      "other_income": "Autres revenus",
+      "legal": "Travail juridique",
+      "platform": "Plateforme et hébergement",
+      "operations": "Frais de fonctionnement",
+      "equipment": "Équipement",
+      "land": "Terrain",
+      "reserve": "Fonds de réserve",
+      "ai_tools": "Outils d'IA",
+      "other_expense": "Autres dépenses"
+    },
+    "empty": {
+      "title": "Données financières à venir",
+      "description": "La collecte de fonds a commencé. Les données apparaîtront après le premier téléchargement de relevé bancaire."
+    }
+  },
+  "bookmarks": {
+    "title": "Favoris",
+    "removeTooltip": "Retirer des favoris",
+    "savedAt": "Enregistré le {{date}}",
+    "empty": {
+      "message": "Aucun favori. Ajoutez des articles à vos favoris en cliquant sur l'icône de favori.",
+      "goToLibrary": "Aller à la bibliothèque"
+    }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Tout marquer comme lu",
+    "empty": "Aucune notification"
+  },
+  "profile": {
+    "title": "Profil",
+    "language": {
+      "heading": "Langue de l'interface",
+      "label": "Langue d'affichage",
+      "description": "Choisissez la langue de l'interface et du contenu. Le contenu sera traduit automatiquement.",
+      "savedToast": "Langue modifiée"
+    },
+    "accountInfo": {
+      "heading": "Informations du compte",
+      "email": "Email",
+      "status": "Statut",
+      "memberSince": "Membre depuis",
+      "lastLogin": "Dernière connexion",
+      "statusActive": "Membre actif",
+      "statusSuspended": "Suspendu",
+      "placeholder": "---"
+    },
+    "editProfile": {
+      "heading": "Modifier le profil",
+      "nameLabel": "Nom",
+      "namePlaceholder": "Votre nom",
+      "telegramLabel": "Telegram",
+      "telegramPlaceholder": "@identifiant",
+      "locationLabel": "Localisation",
+      "locationPlaceholder": "Ville ou région",
+      "saveButton": "Enregistrer",
+      "savedToast": "Profil mis à jour"
+    },
+    "validation": {
+      "nameMin2": "Au moins 2 caractères"
+    }
+  },
+  "forum": {
+    "title": "Forum communautaire",
+    "subtitle": "Discutez d'idées, partagez vos connaissances et connectez-vous avec la communauté SLOBODA",
+    "newThread": "Nouveau sujet",
+    "sort": {
+      "hot": "Populaires",
+      "recent": "Récents",
+      "top": "Meilleurs",
+      "controversial": "Controversés"
+    },
+    "guestPrompt": {
+      "title": "Rejoignez la discussion",
+      "description": "Créez un compte pour publier des sujets, commenter et voter",
+      "loginButton": "Se connecter"
+    },
+    "threadList": {
+      "empty": "Aucun sujet pour le moment. Soyez le premier à en créer un !",
+      "deletedByAuthor": "Supprimé par l'auteur"
+    },
+    "threadCard": {
+      "postedBy": "Publié par {{author}}",
+      "deleted": "[supprimé]",
+      "comment_one": "{{count}} commentaire",
+      "comment_other": "{{count}} commentaires",
+      "view_one": "{{count}} vue",
+      "view_other": "{{count}} vues",
+      "locked": "Verrouillé"
+    },
+    "threadView": {
+      "backToForum": "Retour au forum",
+      "threadNotFound": "Sujet introuvable",
+      "addComment": "Ajouter un commentaire",
+      "commentPlaceholder": "Qu'en pensez-vous ?",
+      "lockedMessage": "Ce sujet est verrouillé. Il n'est plus possible d'ajouter de nouveaux commentaires.",
+      "loginToComment": "Connectez-vous pour commenter",
+      "commentsTitle": "Commentaires ({{count}})",
+      "noComments": "Aucun commentaire pour le moment. Soyez le premier à commenter !",
+      "stats": {
+        "comments": "{{count}} commentaires",
+        "views": "{{count}} vues"
+      }
+    },
+    "createThread": {
+      "backToForum": "Retour au forum",
+      "title": "Créer un nouveau sujet",
+      "threadType": "Type de sujet",
+      "types": {
+        "discussion": "discussion",
+        "question": "question",
+        "announcement": "annonce"
+      },
+      "titleLabel": "Titre",
+      "titleRequired": "Le titre est obligatoire",
+      "titlePlaceholder": "De quoi souhaitez-vous discuter ?",
+      "titleCounter": "{{count}}/500 caractères",
+      "bodyLabel": "Contenu (facultatif)",
+      "bodyPlaceholder": "Ajoutez plus de détails...",
+      "submitButton": "Créer le sujet",
+      "cancelButton": "Annuler",
+      "error": "Impossible de créer le sujet",
+      "guidelines": {
+        "title": "Règles de la communauté",
+        "respectful": "Soyez respectueux et constructif",
+        "onTopic": "Restez dans le sujet et fournissez du contexte",
+        "searchFirst": "Recherchez avant de publier pour éviter les doublons",
+        "clearTitles": "Utilisez des titres clairs et descriptifs"
+      }
+    },
+    "comment": {
+      "save": "Enregistrer",
+      "cancel": "Annuler",
+      "reply": "Répondre",
+      "edit": "Modifier",
+      "delete": "Supprimer",
+      "replyPlaceholder": "Répondre à {{author}}...",
+      "deleted": "[supprimé]",
+      "failedToPost": "Impossible de publier le commentaire"
+    },
+    "moderation": {
+      "title": "Actions de modération",
+      "pin": "Épingler",
+      "unpin": "Désépingler",
+      "lock": "Verrouiller",
+      "unlock": "Déverrouiller",
+      "warn": "Avertir",
+      "ban": "Bannir",
+      "toasts": {
+        "threadPinned": "Sujet épinglé",
+        "threadUnpinned": "Sujet désépinglé",
+        "threadLocked": "Sujet verrouillé",
+        "threadUnlocked": "Sujet déverrouillé",
+        "failedToUpdate": "Impossible de mettre à jour le sujet",
+        "userBanned": "{{name}} a été banni",
+        "failedToBan": "Impossible de bannir l'utilisateur",
+        "warningIssued": "Avertissement émis à {{name}}",
+        "failedToWarn": "Impossible d'émettre l'avertissement"
+      },
+      "banModal": {
+        "title": "Bannir l'utilisateur : {{name}}",
+        "durationLabel": "Durée du bannissement",
+        "durations": {
+          "1day": "1 jour",
+          "3days": "3 jours",
+          "7days": "7 jours",
+          "30days": "30 jours",
+          "permanent": "Permanent"
+        },
+        "reasonLabel": "Motif",
+        "reasonPlaceholder": "Expliquez pourquoi cet utilisateur est banni...",
+        "reasonRequired": "Le motif du bannissement est obligatoire",
+        "reasonHelp": "Ceci sera visible par l'utilisateur et les autres modérateurs",
+        "submitButton": "Bannir l'utilisateur",
+        "cancelButton": "Annuler"
+      },
+      "warnModal": {
+        "title": "Avertir l'utilisateur : {{name}}",
+        "notice": "Les avertissements sont enregistrés et visibles par tous les modérateurs. Plusieurs avertissements peuvent entraîner un bannissement.",
+        "reasonLabel": "Motif de l'avertissement",
+        "reasonPlaceholder": "Expliquez la violation des règles ou le comportement problématique...",
+        "reasonRequired": "Le motif de l'avertissement est obligatoire",
+        "reasonHelp": "Précisez quelle règle a été enfreinte",
+        "submitButton": "Émettre l'avertissement",
+        "cancelButton": "Annuler"
+      }
+    },
+    "roles": {
+      "new_user": "Nouveau membre",
+      "member": "Membre",
+      "senior_member": "Membre confirmé",
+      "moderator": "Modérateur",
+      "super_moderator": "Super modérateur",
+      "levelTooltip": "Niveau {{level}}"
+    },
+    "reputation": {
+      "title": "Réputation",
+      "totalReputation": "Réputation totale",
+      "threadsCreated": "Sujets créés",
+      "comments": "Commentaires",
+      "upvotesReceived": "Votes positifs reçus",
+      "bestAnswers": "Meilleures réponses",
+      "howToEarn": "Comment gagner de la réputation :",
+      "howToEarnDescription": "Créez des sujets de qualité (+5), publiez des commentaires utiles (+2), recevez des votes positifs (+1) et participez activement à la communauté."
+    },
+    "roleProgress": {
+      "title": "Progression de rôle",
+      "maxRankTitle": "Rang maximum atteint",
+      "maxRankDescription": "Vous avez atteint le niveau le plus élevé de la communauté",
+      "requirementsFor": "Conditions requises pour {{role}} :",
+      "accountAge": "Ancienneté du compte",
+      "reputationPoints": "Points de réputation",
+      "commentsLabel": "Commentaires",
+      "threadsCreatedLabel": "Sujets créés",
+      "upvotesReceivedLabel": "Votes positifs reçus",
+      "daysUnit": "jours",
+      "pointsUnit": "pts",
+      "promotionReady": "Vous remplissez les conditions pour une promotion ! Elle sera accordée automatiquement prochainement."
+    },
+    "forumProfile": {
+      "title": "Statut sur le forum"
+    },
+    "commentForm": {
+      "comment": "Commenter",
+      "reply": "Répondre",
+      "cancel": "Annuler"
+    },
+    "modLog": {
+      "loading": "Chargement du journal de modération...",
+      "empty": "Aucune action de modération enregistrée",
+      "reason": "Motif :",
+      "duration": "Durée :",
+      "permanent": "Permanent",
+      "hoursUnit": "{{count}} heures",
+      "actions": {
+        "ban_user": "Utilisateur banni",
+        "warn_user": "Utilisateur averti",
+        "pin_thread": "Sujet épinglé",
+        "unpin_thread": "Sujet désépinglé",
+        "lock_thread": "Sujet verrouillé",
+        "unlock_thread": "Sujet déverrouillé",
+        "delete_thread": "Sujet supprimé",
+        "delete_comment": "Commentaire supprimé",
+        "assign_moderator": "Rôle de modérateur attribué",
+        "remove_moderator": "Rôle de modérateur retiré"
+      }
+    }
+  },
+  "notFound": {
+    "code": "404",
+    "title": "Page introuvable",
+    "description": "Cette page n'existe pas ou a été déplacée.",
+    "back": "Retour",
+    "home": "Retour à l'accueil"
+  },
+  "errorBoundary": {
+    "title": "Erreur de page",
+    "description": "Cette page a rencontré une erreur. Les autres sections fonctionnent normalement.",
+    "retry": "Réessayer"
+  }
+}

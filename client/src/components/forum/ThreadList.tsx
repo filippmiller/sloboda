@@ -1,5 +1,6 @@
 // Thread list with sorting and filtering
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ThreadCard } from './ThreadCard';
 import { useForumStore } from '@/stores/forumStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -10,6 +11,7 @@ interface ThreadListProps {
 }
 
 export function ThreadList({ categoryId }: ThreadListProps) {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
   const {
     threads,
@@ -44,7 +46,7 @@ export function ThreadList({ categoryId }: ThreadListProps) {
   if (threads.length === 0) {
     return (
       <div className="text-center py-12 text-gray-400">
-        <p className="text-lg">No threads yet. Be the first to create one!</p>
+        <p className="text-lg">{t('forum.threadList.empty')}</p>
       </div>
     );
   }
@@ -72,7 +74,7 @@ export function ThreadList({ categoryId }: ThreadListProps) {
           createdAt={thread.created_at}
           currentUserId={user?.id ? Number(user.id) : undefined}
           onVote={(value) => voteThread(thread.id, value)}
-          onDelete={() => deleteThread(thread.id, 'Deleted by author')}
+          onDelete={() => deleteThread(thread.id, t('forum.threadList.deletedByAuthor'))}
           compact={false}
         />
       ))}

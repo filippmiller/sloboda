@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { format } from 'date-fns'
-import { ru } from 'date-fns/locale'
+import { useDateLocale } from '@/hooks/useDateLocale'
 import { BookmarkCheck, BookOpen, Clock, Loader2 } from 'lucide-react'
 import api from '@/services/api'
 import type { BookmarkedPost } from '@/types'
@@ -9,6 +10,8 @@ import Card from '@/components/ui/Card'
 import { estimateReadingTime, formatReadingTime } from '@/utils/readingTime'
 
 export default function Bookmarks() {
+  const { t } = useTranslation()
+  const dateLocale = useDateLocale()
   const [bookmarks, setBookmarks] = useState<BookmarkedPost[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -39,7 +42,7 @@ export default function Bookmarks() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold font-display">Закладки</h1>
+      <h1 className="text-2xl font-bold font-display">{t('bookmarks.title')}</h1>
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
@@ -74,7 +77,7 @@ export default function Bookmarks() {
                   <button
                     onClick={() => handleUnbookmark(post.id)}
                     className="flex-shrink-0 p-1.5 rounded-lg text-accent hover:bg-accent/10 transition-colors"
-                    title="Убрать из закладок"
+                    title={t('bookmarks.removeTooltip')}
                   >
                     <BookmarkCheck size={18} />
                   </button>
@@ -85,7 +88,7 @@ export default function Bookmarks() {
                     {format(
                       new Date(post.published_at ?? post.created_at),
                       'd MMM yyyy',
-                      { locale: ru },
+                      { locale: dateLocale },
                     )}
                   </time>
                   <span className="flex items-center gap-1">
@@ -93,9 +96,10 @@ export default function Bookmarks() {
                     {formatReadingTime(estimateReadingTime(post.body))}
                   </span>
                   <span className="text-text-muted">
-                    Сохранено{' '}
-                    {format(new Date(post.bookmarked_at), 'd MMM yyyy', {
-                      locale: ru,
+                    {t('bookmarks.savedAt', {
+                      date: format(new Date(post.bookmarked_at), 'd MMM yyyy', {
+                        locale: dateLocale,
+                      }),
                     })}
                   </span>
                 </div>
@@ -108,13 +112,13 @@ export default function Bookmarks() {
           <div className="text-center py-12 space-y-3">
             <BookOpen className="text-text-muted mx-auto" size={40} />
             <p className="text-text-secondary text-sm">
-              Нет закладок. Добавляйте статьи в закладки, нажимая на иконку закладки.
+              {t('bookmarks.empty.message')}
             </p>
             <Link
               to="/library"
               className="inline-block text-sm text-accent hover:text-accent-hover transition-colors"
             >
-              Перейти в библиотеку
+              {t('bookmarks.empty.goToLibrary')}
             </Link>
           </div>
         </Card>

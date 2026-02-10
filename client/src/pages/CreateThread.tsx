@@ -1,6 +1,7 @@
 // Create new thread page
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input, { Textarea } from '@/components/ui/Input';
@@ -8,6 +9,7 @@ import { useForumStore } from '@/stores/forumStore';
 import { useAuthStore } from '@/stores/authStore';
 
 export default function CreateThread() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { createThread } = useForumStore();
@@ -28,7 +30,7 @@ export default function CreateThread() {
     e.preventDefault();
 
     if (!title.trim()) {
-      setError('Title is required');
+      setError(t('forum.createThread.titleRequired'));
       return;
     }
 
@@ -45,7 +47,7 @@ export default function CreateThread() {
       // Navigate to the new thread
       navigate(`/forum/thread/${thread.id}`);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to create thread');
+      setError(err.response?.data?.error || t('forum.createThread.error'));
       setIsSubmitting(false);
     }
   };
@@ -55,30 +57,30 @@ export default function CreateThread() {
       {/* Back button */}
       <Button variant="ghost" className="mb-4" onClick={() => navigate('/forum')}>
         <ArrowLeft size={18} className="mr-2" />
-        Back to Forum
+        {t('forum.createThread.backToForum')}
       </Button>
 
       {/* Form */}
       <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
-        <h1 className="text-2xl font-bold mb-6">Create New Thread</h1>
+        <h1 className="text-2xl font-bold mb-6">{t('forum.createThread.title')}</h1>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Type selector */}
           <div>
-            <label className="block text-sm font-medium mb-2">Thread Type</label>
+            <label className="block text-sm font-medium mb-2">{t('forum.createThread.threadType')}</label>
             <div className="flex gap-2">
-              {(['discussion', 'question', 'announcement'] as const).map((t) => (
+              {(['discussion', 'question', 'announcement'] as const).map((typeKey) => (
                 <button
-                  key={t}
+                  key={typeKey}
                   type="button"
-                  onClick={() => setType(t)}
+                  onClick={() => setType(typeKey)}
                   className={`px-4 py-2 rounded-lg border transition-colors capitalize ${
-                    type === t
+                    type === typeKey
                       ? 'bg-[#c23616] border-[#c23616] text-white'
                       : 'bg-[#0a0a0a] border-gray-700 text-gray-400 hover:border-gray-600'
                   }`}
                 >
-                  {t}
+                  {t(`forum.createThread.types.${typeKey}`)}
                 </button>
               ))}
             </div>
@@ -87,32 +89,32 @@ export default function CreateThread() {
           {/* Title */}
           <div>
             <label htmlFor="title" className="block text-sm font-medium mb-2">
-              Title <span className="text-red-500">*</span>
+              {t('forum.createThread.titleLabel')} <span className="text-red-500">*</span>
             </label>
             <Input
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="What would you like to discuss?"
+              placeholder={t('forum.createThread.titlePlaceholder')}
               maxLength={500}
               disabled={isSubmitting}
               autoFocus
             />
             <p className="text-sm text-gray-500 mt-1">
-              {title.length}/500 characters
+              {t('forum.createThread.titleCounter', { count: title.length })}
             </p>
           </div>
 
           {/* Body */}
           <div>
             <label htmlFor="body" className="block text-sm font-medium mb-2">
-              Body (optional)
+              {t('forum.createThread.bodyLabel')}
             </label>
             <Textarea
               id="body"
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              placeholder="Add more details..."
+              placeholder={t('forum.createThread.bodyPlaceholder')}
               rows={8}
               disabled={isSubmitting}
               className="resize-none"
@@ -133,7 +135,7 @@ export default function CreateThread() {
               disabled={!title.trim() || isSubmitting}
               loading={isSubmitting}
             >
-              Create Thread
+              {t('forum.createThread.submitButton')}
             </Button>
             <Button
               type="button"
@@ -141,7 +143,7 @@ export default function CreateThread() {
               onClick={() => navigate('/forum')}
               disabled={isSubmitting}
             >
-              Cancel
+              {t('forum.createThread.cancelButton')}
             </Button>
           </div>
         </form>
@@ -149,12 +151,12 @@ export default function CreateThread() {
 
       {/* Guidelines */}
       <div className="mt-6 p-4 bg-white/5 border border-gray-800 rounded-lg">
-        <h3 className="font-bold mb-2">Community Guidelines</h3>
+        <h3 className="font-bold mb-2">{t('forum.createThread.guidelines.title')}</h3>
         <ul className="text-sm text-gray-400 space-y-1 list-disc list-inside">
-          <li>Be respectful and constructive</li>
-          <li>Stay on topic and provide context</li>
-          <li>Search before posting to avoid duplicates</li>
-          <li>Use clear, descriptive titles</li>
+          <li>{t('forum.createThread.guidelines.respectful')}</li>
+          <li>{t('forum.createThread.guidelines.onTopic')}</li>
+          <li>{t('forum.createThread.guidelines.searchFirst')}</li>
+          <li>{t('forum.createThread.guidelines.clearTitles')}</li>
         </ul>
       </div>
     </div>

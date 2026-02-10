@@ -4,6 +4,8 @@ const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const { upload } = require('../services/fileStorage');
 
+const { triggerTranslation } = require('../services/translation');
+
 // Will be injected from main app
 let db;
 let emailService;
@@ -207,6 +209,11 @@ router.post('/posts', requireAuth, async (req, res) => {
             tags: Array.isArray(tags) ? tags : null
         });
 
+        // Trigger auto-translation if published
+        if ((status || 'draft') === 'published') {
+            triggerTranslation(db, post.id, 'post', { title, summary, body });
+        }
+
         res.json({ success: true, data: post });
     } catch (err) {
         console.error('Error creating post:', err);
@@ -252,6 +259,15 @@ router.patch('/posts/:id', requireAuth, async (req, res) => {
         const post = await db.updatePost(postId, updates);
         if (!post) {
             return res.status(404).json({ success: false, error: 'Post not found' });
+        }
+
+        // Trigger auto-translation when published or content updated on published post
+        if (status === 'published' || (post.status === 'published' && (title || summary || body))) {
+            triggerTranslation(db, post.id, 'post', {
+                title: post.title,
+                summary: post.summary,
+                body: post.body
+            });
         }
 
         res.json({ success: true, data: post });
@@ -516,6 +532,13 @@ router.post('/knowledge/:id/publish', requireAuth, async (req, res) => {
             publishedPostId: post.id,
             reviewedBy: req.admin.id,
             reviewedAt: new Date()
+        });
+
+        // Trigger auto-translation for published knowledge
+        triggerTranslation(db, post.id, 'post', {
+            title: post.title,
+            summary: post.summary || submission.ai_summary || submission.description,
+            body: post.body || submission.body || submission.description
         });
 
         res.json({ success: true, data: post });

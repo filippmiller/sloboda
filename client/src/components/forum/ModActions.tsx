@@ -1,5 +1,6 @@
 // Moderator action buttons for threads
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Pin, Lock, Unlock, AlertTriangle, Ban, Trash2 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import axios from 'axios';
@@ -22,6 +23,7 @@ export function ModActions({
   onUpdate,
   className
 }: ModActionsProps) {
+  const { t } = useTranslation();
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handlePin = async () => {
@@ -30,10 +32,10 @@ export function ModActions({
       await axios.post(`/api/moderation/threads/${threadId}/pin`, {
         is_pinned: !isPinned
       });
-      toast.success(isPinned ? 'Thread unpinned' : 'Thread pinned');
+      toast.success(isPinned ? t('forum.moderation.toasts.threadUnpinned') : t('forum.moderation.toasts.threadPinned'));
       onUpdate();
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to update thread');
+      toast.error(error.response?.data?.error || t('forum.moderation.toasts.failedToUpdate'));
     } finally {
       setIsProcessing(false);
     }
@@ -45,10 +47,10 @@ export function ModActions({
       await axios.post(`/api/moderation/threads/${threadId}/lock`, {
         is_locked: !isLocked
       });
-      toast.success(isLocked ? 'Thread unlocked' : 'Thread locked');
+      toast.success(isLocked ? t('forum.moderation.toasts.threadUnlocked') : t('forum.moderation.toasts.threadLocked'));
       onUpdate();
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to update thread');
+      toast.error(error.response?.data?.error || t('forum.moderation.toasts.failedToUpdate'));
     } finally {
       setIsProcessing(false);
     }
@@ -59,7 +61,7 @@ export function ModActions({
       <div className="flex items-center gap-2 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
         <div className="flex items-center gap-2 text-sm text-yellow-500">
           <AlertTriangle size={16} />
-          <span className="font-medium">Moderator Actions</span>
+          <span className="font-medium">{t('forum.moderation.title')}</span>
         </div>
 
         <div className="flex gap-2 ml-auto">
@@ -71,7 +73,7 @@ export function ModActions({
             className="text-yellow-500 hover:text-yellow-400"
           >
             <Pin size={14} className={isPinned ? 'fill-current' : ''} />
-            {isPinned ? 'Unpin' : 'Pin'}
+            {isPinned ? t('forum.moderation.unpin') : t('forum.moderation.pin')}
           </Button>
 
           <Button
@@ -82,7 +84,7 @@ export function ModActions({
             className="text-yellow-500 hover:text-yellow-400"
           >
             {isLocked ? <Unlock size={14} /> : <Lock size={14} />}
-            {isLocked ? 'Unlock' : 'Lock'}
+            {isLocked ? t('forum.moderation.unlock') : t('forum.moderation.lock')}
           </Button>
         </div>
       </div>

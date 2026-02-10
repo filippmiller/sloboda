@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { toast } from 'sonner'
+import i18n from '@/i18n'
 
 const api = axios.create({
   baseURL: '/api',
@@ -7,6 +8,15 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+})
+
+// Automatically append current language to GET requests for translated content
+api.interceptors.request.use((config) => {
+  const lang = i18n.language
+  if (lang && lang !== 'ru' && config.method === 'get') {
+    config.params = { ...config.params, lang }
+  }
+  return config
 })
 
 // Debounce 401 redirects to prevent redirect storms from concurrent requests
@@ -21,7 +31,7 @@ api.interceptors.response.use(
 
       if (!isAuthRoute) {
         redirecting = true
-        toast.error('Сессия истекла. Войдите снова.')
+        toast.error(i18n.t('common.errors.sessionExpired'))
         setTimeout(() => {
           window.location.replace('/login')
         }, 300)

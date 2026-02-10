@@ -1,5 +1,6 @@
 // Forum-specific profile section showing role and reputation
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { RoleBadge } from './RoleBadge';
 import { RoleProgress } from './RoleProgress';
 import { ReputationCard } from './ReputationCard';
@@ -11,6 +12,7 @@ interface ForumProfileProps {
 }
 
 export function ForumProfile({ userId }: ForumProfileProps) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [roleData, setRoleData] = useState<any>(null);
@@ -71,7 +73,7 @@ export function ForumProfile({ userId }: ForumProfileProps) {
     <div className="space-y-6">
       {/* Current role badge */}
       <div className="flex items-center gap-3">
-        <h2 className="text-xl font-bold">Forum Status</h2>
+        <h2 className="text-xl font-bold">{t('forum.forumProfile.title')}</h2>
         <RoleBadge
           role={roleData.role}
           level={roleData.level}

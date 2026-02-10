@@ -386,6 +386,36 @@ async function initDatabase() {
             ON CONFLICT (slug) DO NOTHING
         `);
 
+        // Content translations table (i18n)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS content_translations (
+                id SERIAL PRIMARY KEY,
+                content_type VARCHAR(50) NOT NULL,
+                content_id INTEGER NOT NULL,
+                language VARCHAR(10) NOT NULL,
+                title TEXT,
+                summary TEXT,
+                body TEXT,
+                status VARCHAR(50) DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(content_type, content_id, language)
+            )
+        `);
+
+        // Add preferred_language column to users table (migration)
+        await client.query(`
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'users' AND column_name = 'preferred_language'
+                ) THEN
+                    ALTER TABLE users ADD COLUMN preferred_language VARCHAR(10) DEFAULT 'ru';
+                END IF;
+            END $$
+        `);
+
         // Landing page content management
         await client.query(`
             CREATE TABLE IF NOT EXISTS landing_page_content (
@@ -445,6 +475,7 @@ async function initDatabase() {
             CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at DESC);
             CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
             CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
+            CREATE INDEX IF NOT EXISTS idx_content_translations_lookup ON content_translations(content_type, content_id, language);
         `);
 
         console.log('Database tables initialized');
@@ -1151,7 +1182,8 @@ async function updateUser(id, data) {
             'name', 'telegram', 'location', 'status', 'password_hash',
             'magic_link_token', 'magic_link_expires', 'invite_token',
             'invite_expires', 'last_login', 'email',
-            'password_reset_token', 'password_reset_expires'
+            'password_reset_token', 'password_reset_expires',
+            'preferred_language'
         ];
 
         for (const [key, value] of Object.entries(data)) {
@@ -3158,6 +3190,68 @@ async function assignModeratorCategories(userId, categoryIds) {
 }
 
 // ============================================
+// CONTENT TRANSLATIONS (i18n)
+// ============================================
+
+async function saveContentTranslation({ contentType, contentId, language, title, summary, body, status }) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `INSERT INTO content_translations (content_type, content_id, language, title, summary, body, status, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
+             ON CONFLICT (content_type, content_id, language)
+             DO UPDATE SET title = $4, summary = $5, body = $6, status = $7, updated_at = CURRENT_TIMESTAMP
+             RETURNING *`,
+            [contentType, contentId, language, title, summary, body, status || 'completed']
+        );
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function getContentTranslation(contentType, contentId, language) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `SELECT * FROM content_translations
+             WHERE content_type = $1 AND content_id = $2 AND language = $3 AND status = 'completed'`,
+            [contentType, contentId, language]
+        );
+        return result.rows[0] || null;
+    } finally {
+        client.release();
+    }
+}
+
+async function getContentTranslations(contentType, contentId) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `SELECT * FROM content_translations
+             WHERE content_type = $1 AND content_id = $2 AND status = 'completed'
+             ORDER BY language`,
+            [contentType, contentId]
+        );
+        return result.rows;
+    } finally {
+        client.release();
+    }
+}
+
+async function deleteContentTranslations(contentType, contentId) {
+    const client = await pool.connect();
+    try {
+        await client.query(
+            `DELETE FROM content_translations WHERE content_type = $1 AND content_id = $2`,
+            [contentType, contentId]
+        );
+    } finally {
+        client.release();
+    }
+}
+
+// ============================================
 // LANDING PAGE CONTENT MANAGEMENT
 // ============================================
 
@@ -3366,6 +3460,11 @@ module.exports = {
     createUserBan,
     getActiveBan,
     assignModeratorCategories,
+    // Content Translations (i18n)
+    saveContentTranslation,
+    getContentTranslation,
+    getContentTranslations,
+    deleteContentTranslations,
     // Landing Page Content Management
     getLandingPageContent,
     updateLandingPageContent,

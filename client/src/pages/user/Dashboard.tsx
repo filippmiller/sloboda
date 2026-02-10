@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { format } from 'date-fns'
-import { ru } from 'date-fns/locale'
 import { motion } from 'motion/react'
 import {
   Newspaper,
@@ -18,6 +18,7 @@ import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import { SkeletonCard } from '@/components/ui/Skeleton'
 import { estimateReadingTime, formatReadingTime } from '@/utils/readingTime'
+import { useDateLocale } from '@/hooks/useDateLocale'
 
 interface DashboardStats {
   newsCount: number
@@ -61,6 +62,8 @@ const staggerItem = {
 }
 
 export default function Dashboard() {
+  const { t } = useTranslation()
+  const dateLocale = useDateLocale()
   const user = useAuthStore((s) => s.user)
   const [stats, setStats] = useState<DashboardStats>({
     newsCount: 0,
@@ -106,7 +109,7 @@ export default function Dashboard() {
 
   const statCards = [
     {
-      label: 'Новости',
+      label: t('dashboard.stats.news'),
       value: stats.newsCount,
       icon: Newspaper,
       to: '/news',
@@ -115,7 +118,7 @@ export default function Dashboard() {
       glow: 'shadow-[0_0_12px_var(--color-accent-glow)]',
     },
     {
-      label: 'Статьи',
+      label: t('dashboard.stats.articles'),
       value: stats.articlesCount,
       icon: BookOpen,
       to: '/library',
@@ -124,7 +127,7 @@ export default function Dashboard() {
       glow: 'shadow-[0_0_12px_rgba(74,124,89,0.15)]',
     },
     {
-      label: 'Мои заявки',
+      label: t('dashboard.stats.mySubmissions'),
       value: stats.mySubmissionsCount,
       icon: FileText,
       to: '/submit',
@@ -144,10 +147,10 @@ export default function Dashboard() {
         animate="visible"
       >
         <h1 className="text-2xl font-bold font-display mb-2">
-          {user?.name ? `Привет, ${user.name}!` : 'Добро пожаловать!'}
+          {user?.name ? t('dashboard.greeting', { name: user.name }) : t('dashboard.greetingDefault')}
         </h1>
         <p className="text-text-secondary text-sm">
-          Обзор активности сообщества SLOBODA
+          {t('dashboard.subtitle')}
         </p>
       </motion.div>
 
@@ -192,9 +195,9 @@ export default function Dashboard() {
         animate="visible"
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold font-display">Последние новости</h2>
+          <h2 className="text-lg font-semibold font-display">{t('dashboard.recentNews.title')}</h2>
           <Link to="/news" className="text-sm text-accent hover:text-accent-hover transition-colors flex items-center gap-1">
-            Все новости
+            {t('dashboard.recentNews.viewAll')}
             <ArrowRight size={14} />
           </Link>
         </div>
@@ -230,7 +233,7 @@ export default function Dashboard() {
                         <div className="flex items-center gap-3 text-xs text-text-muted mt-1">
                           <time>
                             {format(new Date(post.published_at ?? post.created_at), 'd MMM yyyy', {
-                              locale: ru,
+                              locale: dateLocale,
                             })}
                           </time>
                           {post.body && (
@@ -250,7 +253,7 @@ export default function Dashboard() {
         ) : (
           <Card>
             <p className="text-text-secondary text-sm text-center py-4">
-              Пока нет новостей
+              {t('dashboard.recentNews.empty')}
             </p>
           </Card>
         )}
@@ -266,9 +269,9 @@ export default function Dashboard() {
                   <Upload className="text-accent" size={20} />
                 </div>
                 <div>
-                  <p className="font-medium text-sm">Подать знания</p>
+                  <p className="font-medium text-sm">{t('dashboard.quickLinks.submitKnowledge')}</p>
                   <p className="text-xs text-text-secondary">
-                    Предложите материал для библиотеки
+                    {t('dashboard.quickLinks.submitKnowledgeDescription')}
                   </p>
                 </div>
               </div>
@@ -284,9 +287,9 @@ export default function Dashboard() {
                   <BookOpen className="text-green" size={20} />
                 </div>
                 <div>
-                  <p className="font-medium text-sm">Библиотека</p>
+                  <p className="font-medium text-sm">{t('dashboard.quickLinks.library')}</p>
                   <p className="text-xs text-text-secondary">
-                    Материалы и знания сообщества
+                    {t('dashboard.quickLinks.libraryDescription')}
                   </p>
                 </div>
               </div>
@@ -300,7 +303,7 @@ export default function Dashboard() {
         <Link to="/submit">
           <Button className="w-full">
             <Upload size={16} />
-            Предложить материал
+            {t('dashboard.quickLinks.submitMaterial')}
           </Button>
         </Link>
       </div>

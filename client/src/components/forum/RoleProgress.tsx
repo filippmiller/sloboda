@@ -1,4 +1,5 @@
 // Display progress toward next role tier
+import { useTranslation } from 'react-i18next';
 import Card from '@/components/ui/Card';
 import { RoleBadge } from './RoleBadge';
 import { TrendingUp, CheckCircle2 } from 'lucide-react';
@@ -33,6 +34,8 @@ export function RoleProgress({
   progress,
   canPromote = true
 }: RoleProgressProps) {
+  const { t } = useTranslation();
+
   // If no next role, user is at max tier
   if (!nextRole || !canPromote) {
     return (
@@ -40,9 +43,9 @@ export function RoleProgress({
         <div className="flex items-center gap-3 mb-4">
           <CheckCircle2 size={24} className="text-green-500" />
           <div>
-            <h3 className="text-lg font-bold">Maximum Rank Achieved</h3>
+            <h3 className="text-lg font-bold">{t('forum.roleProgress.maxRankTitle')}</h3>
             <p className="text-sm text-gray-400">
-              You've reached the highest community tier
+              {t('forum.roleProgress.maxRankDescription')}
             </p>
           </div>
         </div>
@@ -61,7 +64,7 @@ export function RoleProgress({
     <Card className="p-6">
       <div className="flex items-center gap-3 mb-4">
         <TrendingUp size={20} className="text-[#c23616]" />
-        <h3 className="text-lg font-bold">Role Progression</h3>
+        <h3 className="text-lg font-bold">{t('forum.roleProgress.title')}</h3>
       </div>
 
       {/* Current and next role */}
@@ -80,32 +83,32 @@ export function RoleProgress({
       {progress && (
         <div className="space-y-3">
           <p className="text-sm font-medium text-gray-400 mb-2">
-            Requirements for {nextRole.replace('_', ' ')}:
+            {t('forum.roleProgress.requirementsFor', { role: nextRole.replace('_', ' ') })}
           </p>
 
           {progress.days && (
             <ProgressBar
-              label="Account Age"
+              label={t('forum.roleProgress.accountAge')}
               current={progress.days.current}
               required={progress.days.required}
               percentage={progress.days.percentage}
-              unit="days"
+              unit={t('forum.roleProgress.daysUnit')}
             />
           )}
 
           {progress.total_points && (
             <ProgressBar
-              label="Reputation Points"
+              label={t('forum.roleProgress.reputationPoints')}
               current={progress.total_points.current}
               required={progress.total_points.required}
               percentage={progress.total_points.percentage}
-              unit="pts"
+              unit={t('forum.roleProgress.pointsUnit')}
             />
           )}
 
           {progress.comments_made && (
             <ProgressBar
-              label="Comments"
+              label={t('forum.roleProgress.commentsLabel')}
               current={progress.comments_made.current}
               required={progress.comments_made.required}
               percentage={progress.comments_made.percentage}
@@ -114,7 +117,7 @@ export function RoleProgress({
 
           {progress.threads_created && (
             <ProgressBar
-              label="Threads Created"
+              label={t('forum.roleProgress.threadsCreatedLabel')}
               current={progress.threads_created.current}
               required={progress.threads_created.required}
               percentage={progress.threads_created.percentage}
@@ -123,7 +126,7 @@ export function RoleProgress({
 
           {progress.upvotes_received && (
             <ProgressBar
-              label="Upvotes Received"
+              label={t('forum.roleProgress.upvotesReceivedLabel')}
               current={progress.upvotes_received.current}
               required={progress.upvotes_received.required}
               percentage={progress.upvotes_received.percentage}
@@ -134,7 +137,7 @@ export function RoleProgress({
 
       {overallProgress >= 100 && (
         <div className="mt-4 p-3 bg-green-500/10 border border-green-500/30 rounded-lg text-sm text-green-400">
-          ✓ You qualify for promotion! It will be granted automatically soon.
+          {t('forum.roleProgress.promotionReady')}
         </div>
       )}
     </Card>

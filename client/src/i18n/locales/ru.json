@@ -1,0 +1,535 @@
+{
+  "common": {
+    "brand": {
+      "name": "SLOBODA",
+      "tagline": "Сообщество осознанной жизни"
+    },
+    "nav": {
+      "dashboard": "Главная",
+      "news": "Новости",
+      "forum": "Форум",
+      "library": "Библиотека",
+      "librarian": "Библиотекарь",
+      "finance": "Финансы",
+      "bookmarks": "Закладки",
+      "submit": "Предложить",
+      "profile": "Профиль",
+      "notifications": "Уведомления"
+    },
+    "actions": {
+      "logout": "Выйти",
+      "loadMore": "Загрузить ещё",
+      "back": "Назад",
+      "forward": "Далее",
+      "save": "Сохранить",
+      "cancel": "Отмена",
+      "delete": "Удалить",
+      "edit": "Редактировать",
+      "reply": "Ответить",
+      "send": "Отправить",
+      "tryAgain": "Попробовать снова",
+      "goHome": "На главную",
+      "goToLogin": "Перейти к входу",
+      "goToLibrary": "Перейти в библиотеку",
+      "restore": "Восстановить",
+      "discard": "Удалить"
+    },
+    "errors": {
+      "sessionExpired": "Сессия истекла. Войдите снова.",
+      "pageError": "Ошибка на странице",
+      "pageErrorDescription": "Эта страница столкнулась с ошибкой. Остальные разделы работают нормально.",
+      "pageNotFound": "Страница не найдена",
+      "pageNotFoundDescription": "Такой страницы не существует или она была перемещена.",
+      "unknownError": "Произошла неизвестная ошибка",
+      "serverError": "Ошибка сервера ({{status}})"
+    },
+    "time": {
+      "readingTime": "{{count}} мин чтения"
+    },
+    "filters": {
+      "all": "Все",
+      "allTags": "Все теги"
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Вход",
+      "subtitle": "Введите данные для входа в личный кабинет",
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@example.com",
+      "passwordLabel": "Пароль",
+      "passwordPlaceholder": "Введите пароль",
+      "rememberMe": "Запомнить меня",
+      "submitButton": "Войти",
+      "magicLinkButton": "Войти по ссылке на email",
+      "forgotPassword": "Забыли пароль?",
+      "hasInvite": "Получили приглашение?",
+      "registerLink": "Зарегистрироваться",
+      "welcomeToast": "Добро пожаловать!",
+      "loginError": "Ошибка входа. Проверьте email и пароль.",
+      "backToLogin": "Вернуться к входу"
+    },
+    "magicLink": {
+      "title": "Вход по ссылке",
+      "subtitle": "Введите email и мы отправим вам ссылку для входа",
+      "sendButton": "Отправить ссылку",
+      "sentTitle": "Проверьте почту",
+      "sentDescription": "Мы отправили ссылку для входа на вашу почту. Перейдите по ней, чтобы войти в систему.",
+      "sentToast": "Ссылка для входа отправлена",
+      "sendError": "Не удалось отправить ссылку. Попробуйте позже.",
+      "switchToPassword": "Войти с паролем"
+    },
+    "forgotPassword": {
+      "title": "Забыли пароль?",
+      "subtitle": "Введите email и мы отправим ссылку для сброса пароля",
+      "sendButton": "Отправить ссылку",
+      "sentTitle": "Проверьте почту",
+      "sentDescription": "Если аккаунт с таким email существует, мы отправили ссылку для сброса пароля."
+    },
+    "resetPassword": {
+      "title": "Новый пароль",
+      "subtitle": "Введите новый пароль для вашего аккаунта",
+      "newPasswordLabel": "Новый пароль",
+      "newPasswordPlaceholder": "Буквы верхнего/нижнего регистра + цифра",
+      "confirmPasswordLabel": "Подтвердите пароль",
+      "confirmPasswordPlaceholder": "Повторите пароль",
+      "submitButton": "Установить пароль",
+      "successTitle": "Пароль изменён",
+      "successDescription": "Теперь вы можете войти с новым паролем.",
+      "successToast": "Пароль успешно изменён",
+      "error": "Не удалось сбросить пароль. Попробуйте запросить новую ссылку."
+    },
+    "register": {
+      "title": "Регистрация",
+      "subtitle": "Завершите регистрацию, чтобы присоединиться к сообществу",
+      "verifying": "Проверяем приглашение...",
+      "inviteError": "Ошибка приглашения",
+      "inviteInvalid": "Приглашение недействительно или истекло",
+      "inviteMissingToken": "Ссылка-приглашение не содержит токен",
+      "inviteFor": "Приглашение для:",
+      "nameLabel": "Имя",
+      "namePlaceholder": "Как вас зовут",
+      "passwordLabel": "Пароль",
+      "passwordPlaceholder": "Буквы верхнего/нижнего регистра + цифра",
+      "confirmPasswordLabel": "Подтвердите пароль",
+      "confirmPasswordPlaceholder": "Повторите пароль",
+      "submitButton": "Зарегистрироваться",
+      "hasAccount": "Уже есть аккаунт?",
+      "loginLink": "Войти",
+      "successToast": "Регистрация завершена!",
+      "error": "Ошибка регистрации. Попробуйте позже."
+    },
+    "validation": {
+      "emailRequired": "Введите корректный email",
+      "passwordRequired": "Введите пароль",
+      "passwordMin8": "Минимум 8 символов",
+      "passwordUppercase": "Нужна хотя бы одна заглавная буква",
+      "passwordLowercase": "Нужна хотя бы одна строчная буква",
+      "passwordDigit": "Нужна хотя бы одна цифра",
+      "confirmPasswordRequired": "Подтвердите пароль",
+      "passwordsMismatch": "Пароли не совпадают",
+      "nameMin2": "Минимум 2 символа"
+    }
+  },
+  "dashboard": {
+    "greeting": "Привет, {{name}}!",
+    "greetingDefault": "Добро пожаловать!",
+    "subtitle": "Обзор активности сообщества SLOBODA",
+    "stats": {
+      "news": "Новости",
+      "articles": "Статьи",
+      "mySubmissions": "Мои заявки"
+    },
+    "recentNews": {
+      "title": "Последние новости",
+      "viewAll": "Все новости",
+      "empty": "Пока нет новостей"
+    },
+    "quickLinks": {
+      "submitKnowledge": "Подать знания",
+      "submitKnowledgeDescription": "Предложите материал для библиотеки",
+      "library": "Библиотека",
+      "libraryDescription": "Материалы и знания сообщества",
+      "submitMaterial": "Предложить материал"
+    }
+  },
+  "news": {
+    "title": "Новости",
+    "empty": "Пока нет опубликованных новостей"
+  },
+  "library": {
+    "title": "Библиотека",
+    "searchPlaceholder": "Поиск по библиотеке...",
+    "contentTypes": {
+      "article": "Статья",
+      "knowledge": "Знания"
+    },
+    "bookmarks": {
+      "add": "В закладки",
+      "remove": "Убрать из закладок"
+    },
+    "empty": {
+      "default": "Библиотека пока пуста",
+      "filtered": "Ничего не найдено. Попробуйте изменить параметры поиска."
+    }
+  },
+  "librarian": {
+    "title": "Библиотекарь",
+    "subtitle": "AI-помощник по базе знаний SLOBODA",
+    "welcome": {
+      "title": "Добро пожаловать",
+      "description": "Я Библиотекарь SLOBODA. Задайте вопрос, и я найду ответ в материалах нашей базы знаний. Если нужной информации нет, я честно об этом скажу."
+    },
+    "suggestions": {
+      "label": "Попробуйте спросить",
+      "farming": "Как начать вести хозяйство на земле?",
+      "programs": "Какие есть программы поддержки для переезда в село?",
+      "buying": "Что нужно знать перед покупкой дома в деревне?"
+    },
+    "chat": {
+      "thinking": "Думаю...",
+      "sourcesLabel": "Источники",
+      "inputPlaceholder": "Задайте вопрос...",
+      "disclaimer": "Библиотекарь отвечает на основе материалов базы знаний. Ответы могут быть неточными."
+    }
+  },
+  "submit": {
+    "title": "Предложить материал",
+    "subtitle": "Поделитесь знаниями с сообществом. Материал будет проверен перед публикацией.",
+    "form": {
+      "titleLabel": "Название",
+      "titlePlaceholder": "Заголовок вашего материала",
+      "descriptionLabel": "Краткое описание",
+      "descriptionPlaceholder": "О чём этот материал (2-3 предложения)",
+      "categoryLabel": "Категория",
+      "categoryDefault": "Без категории",
+      "contentLabel": "Содержание",
+      "attachmentsLabel": "Вложения (до {{max}} файлов, макс. 10 МБ каждый)",
+      "dropzoneActive": "Отпустите файлы...",
+      "dropzoneDefault": "Перетащите файлы сюда или нажмите для выбора",
+      "submitButton": "Отправить на модерацию",
+      "draftSaved": "Черновик сохранён",
+      "linkPrompt": "URL ссылки:"
+    },
+    "toolbar": {
+      "bold": "Жирный",
+      "italic": "Курсив",
+      "heading": "Заголовок",
+      "list": "Список",
+      "link": "Ссылка",
+      "image": "Изображение"
+    },
+    "validation": {
+      "titleMin3": "Минимум 3 символа",
+      "descriptionMin10": "Минимум 10 символов",
+      "bodyTooShort": "Содержание слишком короткое",
+      "maxFiles": "Максимум {{max}} файлов",
+      "maxFileSize": "Максимальный размер файла - 10 МБ"
+    },
+    "draft": {
+      "hasDraft": "У вас есть сохранённый черновик",
+      "restore": "Восстановить",
+      "discard": "Удалить"
+    },
+    "status": {
+      "pending": "На модерации",
+      "reviewing": "Рассматривается",
+      "approved": "Одобрено",
+      "rejected": "Отклонено",
+      "published": "Опубликовано"
+    },
+    "mySubmissions": {
+      "title": "Мои материалы",
+      "empty": "Вы ещё не подавали материалов",
+      "rejectionReason": "Причина: {{reason}}"
+    },
+    "toasts": {
+      "submitted": "Ваши знания отправлены на модерацию"
+    }
+  },
+  "finance": {
+    "title": "Финансовая прозрачность",
+    "subtitle": "Все средства проекта — в открытом доступе для участников.",
+    "dataNote": "Данные обновляются при загрузке банковских выписок",
+    "summary": {
+      "income": "Поступления",
+      "expenses": "Расходы",
+      "balance": "Баланс"
+    },
+    "charts": {
+      "expensesByCategory": "Расходы по категориям",
+      "overview": "Сводка",
+      "incomeBar": "Доходы",
+      "expensesBar": "Расходы"
+    },
+    "filters": {
+      "all": "Все",
+      "income": "Доходы",
+      "expenses": "Расходы"
+    },
+    "categories": {
+      "donation": "Пожертвования",
+      "grant": "Гранты",
+      "other_income": "Прочие поступления",
+      "legal": "Юридическая работа",
+      "platform": "Платформа и хостинг",
+      "operations": "Операционные расходы",
+      "equipment": "Оборудование",
+      "land": "Земля",
+      "reserve": "Резервный фонд",
+      "ai_tools": "ИИ-инструменты",
+      "other_expense": "Прочие расходы"
+    },
+    "empty": {
+      "title": "Финансовые данные скоро появятся",
+      "description": "Сбор средств начался. Первые данные появятся после загрузки банковской выписки."
+    }
+  },
+  "bookmarks": {
+    "title": "Закладки",
+    "removeTooltip": "Убрать из закладок",
+    "savedAt": "Сохранено {{date}}",
+    "empty": {
+      "message": "Нет закладок. Добавляйте статьи в закладки, нажимая на иконку закладки.",
+      "goToLibrary": "Перейти в библиотеку"
+    }
+  },
+  "notifications": {
+    "title": "Уведомления",
+    "markAllRead": "Прочитать все",
+    "empty": "Нет уведомлений"
+  },
+  "profile": {
+    "title": "Профиль",
+    "language": {
+      "heading": "Язык интерфейса",
+      "label": "Язык отображения",
+      "description": "Выберите язык интерфейса и контента. Материалы будут переведены автоматически.",
+      "savedToast": "Язык изменён"
+    },
+    "accountInfo": {
+      "heading": "Информация об аккаунте",
+      "email": "Email",
+      "status": "Статус",
+      "memberSince": "Участник с",
+      "lastLogin": "Последний вход",
+      "statusActive": "Активный участник",
+      "statusSuspended": "Приостановлен",
+      "placeholder": "---"
+    },
+    "editProfile": {
+      "heading": "Редактировать профиль",
+      "nameLabel": "Имя",
+      "namePlaceholder": "Ваше имя",
+      "telegramLabel": "Telegram",
+      "telegramPlaceholder": "@username",
+      "locationLabel": "Местоположение",
+      "locationPlaceholder": "Город или регион",
+      "saveButton": "Сохранить",
+      "savedToast": "Профиль обновлён"
+    },
+    "validation": {
+      "nameMin2": "Минимум 2 символа"
+    }
+  },
+  "forum": {
+    "title": "Форум сообщества",
+    "subtitle": "Обсуждайте идеи, делитесь знаниями и общайтесь с сообществом SLOBODA",
+    "newThread": "Новая тема",
+    "sort": {
+      "hot": "Популярное",
+      "recent": "Новое",
+      "top": "Лучшее",
+      "controversial": "Спорное"
+    },
+    "guestPrompt": {
+      "title": "Присоединяйтесь к обсуждению",
+      "description": "Создайте аккаунт, чтобы создавать темы, комментировать и голосовать",
+      "loginButton": "Войти"
+    },
+    "threadList": {
+      "empty": "Тем пока нет. Создайте первую!",
+      "deletedByAuthor": "Удалено автором"
+    },
+    "threadCard": {
+      "postedBy": "Автор: {{author}}",
+      "deleted": "[удалено]",
+      "comment_one": "{{count}} комментарий",
+      "comment_few": "{{count}} комментария",
+      "comment_many": "{{count}} комментариев",
+      "view_one": "{{count}} просмотр",
+      "view_few": "{{count}} просмотра",
+      "view_many": "{{count}} просмотров",
+      "locked": "Заблокировано"
+    },
+    "threadView": {
+      "backToForum": "Назад к форуму",
+      "threadNotFound": "Тема не найдена",
+      "addComment": "Добавить комментарий",
+      "commentPlaceholder": "Что вы думаете?",
+      "lockedMessage": "Эта тема заблокирована. Новые комментарии невозможны.",
+      "loginToComment": "Войдите, чтобы комментировать",
+      "commentsTitle": "Комментарии ({{count}})",
+      "noComments": "Комментариев пока нет. Будьте первым!",
+      "stats": {
+        "comments": "{{count}} комментариев",
+        "views": "{{count}} просмотров"
+      }
+    },
+    "createThread": {
+      "backToForum": "Назад к форуму",
+      "title": "Создать тему",
+      "threadType": "Тип темы",
+      "types": {
+        "discussion": "обсуждение",
+        "question": "вопрос",
+        "announcement": "объявление"
+      },
+      "titleLabel": "Заголовок",
+      "titleRequired": "Заголовок обязателен",
+      "titlePlaceholder": "О чём хотите поговорить?",
+      "titleCounter": "{{count}}/500 символов",
+      "bodyLabel": "Текст (необязательно)",
+      "bodyPlaceholder": "Добавьте подробности...",
+      "submitButton": "Создать тему",
+      "cancelButton": "Отмена",
+      "error": "Не удалось создать тему",
+      "guidelines": {
+        "title": "Правила сообщества",
+        "respectful": "Будьте уважительны и конструктивны",
+        "onTopic": "Придерживайтесь темы и предоставляйте контекст",
+        "searchFirst": "Ищите перед публикацией, чтобы избежать дублей",
+        "clearTitles": "Используйте понятные, описательные заголовки"
+      }
+    },
+    "comment": {
+      "save": "Сохранить",
+      "cancel": "Отмена",
+      "reply": "Ответить",
+      "edit": "Редактировать",
+      "delete": "Удалить",
+      "replyPlaceholder": "Ответить {{author}}...",
+      "deleted": "[удалено]",
+      "failedToPost": "Не удалось отправить комментарий"
+    },
+    "moderation": {
+      "title": "Действия модератора",
+      "pin": "Закрепить",
+      "unpin": "Открепить",
+      "lock": "Заблокировать",
+      "unlock": "Разблокировать",
+      "warn": "Предупредить",
+      "ban": "Заблокировать",
+      "toasts": {
+        "threadPinned": "Тема закреплена",
+        "threadUnpinned": "Тема откреплена",
+        "threadLocked": "Тема заблокирована",
+        "threadUnlocked": "Тема разблокирована",
+        "failedToUpdate": "Не удалось обновить тему",
+        "userBanned": "{{name}} заблокирован",
+        "failedToBan": "Не удалось заблокировать",
+        "warningIssued": "Предупреждение отправлено {{name}}",
+        "failedToWarn": "Не удалось отправить предупреждение"
+      },
+      "banModal": {
+        "title": "Заблокировать: {{name}}",
+        "durationLabel": "Срок блокировки",
+        "durations": {
+          "1day": "1 день",
+          "3days": "3 дня",
+          "7days": "7 дней",
+          "30days": "30 дней",
+          "permanent": "Навсегда"
+        },
+        "reasonLabel": "Причина",
+        "reasonPlaceholder": "Объясните причину блокировки...",
+        "reasonRequired": "Укажите причину",
+        "reasonHelp": "Причина будет видна пользователю и модераторам",
+        "submitButton": "Заблокировать",
+        "cancelButton": "Отмена"
+      },
+      "warnModal": {
+        "title": "Предупредить: {{name}}",
+        "notice": "Предупреждения фиксируются и видны модераторам. Несколько предупреждений могут привести к блокировке.",
+        "reasonLabel": "Причина предупреждения",
+        "reasonPlaceholder": "Опишите нарушение...",
+        "reasonRequired": "Укажите причину",
+        "reasonHelp": "Укажите, какое правило было нарушено",
+        "submitButton": "Отправить предупреждение",
+        "cancelButton": "Отмена"
+      }
+    },
+    "roles": {
+      "new_user": "Новичок",
+      "member": "Участник",
+      "senior_member": "Старший участник",
+      "moderator": "Модератор",
+      "super_moderator": "Главный модератор",
+      "levelTooltip": "Уровень {{level}}"
+    },
+    "reputation": {
+      "title": "Репутация",
+      "totalReputation": "Общая репутация",
+      "threadsCreated": "Создано тем",
+      "comments": "Комментарии",
+      "upvotesReceived": "Получено голосов",
+      "bestAnswers": "Лучшие ответы",
+      "howToEarn": "Как заработать репутацию:",
+      "howToEarnDescription": "Создавайте качественные темы (+5), публикуйте полезные комментарии (+2), получайте голоса (+1) и взаимодействуйте с сообществом."
+    },
+    "roleProgress": {
+      "title": "Прогресс роли",
+      "maxRankTitle": "Достигнут максимальный ранг",
+      "maxRankDescription": "Вы достигли наивысшего уровня в сообществе",
+      "requirementsFor": "Требования для {{role}}:",
+      "accountAge": "Возраст аккаунта",
+      "reputationPoints": "Очки репутации",
+      "commentsLabel": "Комментарии",
+      "threadsCreatedLabel": "Создано тем",
+      "upvotesReceivedLabel": "Получено голосов",
+      "daysUnit": "дней",
+      "pointsUnit": "очк.",
+      "promotionReady": "Вы подходите для повышения! Оно будет назначено автоматически в ближайшее время."
+    },
+    "forumProfile": {
+      "title": "Статус на форуме"
+    },
+    "commentForm": {
+      "comment": "Комментировать",
+      "reply": "Ответить",
+      "cancel": "Отмена"
+    },
+    "modLog": {
+      "loading": "Загрузка журнала модерации...",
+      "empty": "Нет записей о действиях модерации",
+      "reason": "Причина:",
+      "duration": "Срок:",
+      "permanent": "Навсегда",
+      "hoursUnit": "{{count}} часов",
+      "actions": {
+        "ban_user": "Заблокировал пользователя",
+        "warn_user": "Предупредил пользователя",
+        "pin_thread": "Закрепил тему",
+        "unpin_thread": "Открепил тему",
+        "lock_thread": "Заблокировал тему",
+        "unlock_thread": "Разблокировал тему",
+        "delete_thread": "Удалил тему",
+        "delete_comment": "Удалил комментарий",
+        "assign_moderator": "Назначил модератора",
+        "remove_moderator": "Снял роль модератора"
+      }
+    }
+  },
+  "notFound": {
+    "code": "404",
+    "title": "Страница не найдена",
+    "description": "Такой страницы не существует или она была перемещена.",
+    "back": "Назад",
+    "home": "На главную"
+  },
+  "errorBoundary": {
+    "title": "Ошибка на странице",
+    "description": "Эта страница столкнулась с ошибкой. Остальные разделы работают нормально.",
+    "retry": "Попробовать снова"
+  }
+}

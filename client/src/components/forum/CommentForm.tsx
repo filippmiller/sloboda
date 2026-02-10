@@ -2,6 +2,7 @@
 // Source: https://github.com/DurgeshPatil24/Reddit-Clone
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import Button from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Input';
 import { cn } from '@/lib/utils';
@@ -21,13 +22,16 @@ export function CommentForm({
   parentCommentId,
   onSubmit,
   onCancel,
-  placeholder = 'What are your thoughts?',
+  placeholder,
   autoFocus = false,
   className
 }: CommentFormProps) {
+  const { t } = useTranslation();
   const [body, setBody] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const resolvedPlaceholder = placeholder ?? t('forum.threadView.commentPlaceholder');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +46,7 @@ export function CommentForm({
       setBody('');
       if (onCancel) onCancel();
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to post comment');
+      setError(err.response?.data?.error || t('forum.comment.failedToPost'));
     } finally {
       setIsSubmitting(false);
     }
@@ -55,7 +59,7 @@ export function CommentForm({
       <Textarea
         value={body}
         onChange={(e) => setBody(e.target.value)}
-        placeholder={placeholder}
+        placeholder={resolvedPlaceholder}
         rows={isReply ? 3 : 5}
         autoFocus={autoFocus}
         disabled={isSubmitting}
@@ -72,7 +76,7 @@ export function CommentForm({
           disabled={!body.trim() || isSubmitting}
           loading={isSubmitting}
         >
-          {isReply ? 'Reply' : 'Comment'}
+          {isReply ? t('forum.commentForm.reply') : t('forum.commentForm.comment')}
         </Button>
 
         {isReply && onCancel && (
@@ -82,7 +86,7 @@ export function CommentForm({
             onClick={onCancel}
             disabled={isSubmitting}
           >
-            Cancel
+            {t('forum.commentForm.cancel')}
           </Button>
         )}
       </div>

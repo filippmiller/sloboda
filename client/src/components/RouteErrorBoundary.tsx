@@ -1,5 +1,6 @@
 import { Component, type ReactNode } from 'react'
 import { AlertTriangle, RefreshCw } from 'lucide-react'
+import i18n from '@/i18n'
 
 interface Props {
   children: ReactNode
@@ -38,10 +39,10 @@ export default class RouteErrorBoundary extends Component<Props, State> {
             </div>
             <div>
               <h2 className="text-lg font-display font-semibold text-text mb-1">
-                Ошибка на странице
+                {i18n.t('errorBoundary.title')}
               </h2>
               <p className="text-text-secondary text-sm">
-                Эта страница столкнулась с ошибкой. Остальные разделы работают нормально.
+                {i18n.t('errorBoundary.description')}
               </p>
             </div>
             {this.state.error && (
@@ -54,7 +55,7 @@ export default class RouteErrorBoundary extends Component<Props, State> {
               className="px-4 py-2 text-sm rounded-lg bg-accent text-white hover:bg-accent-hover transition-colors inline-flex items-center gap-2"
             >
               <RefreshCw size={14} />
-              Попробовать снова
+              {i18n.t('errorBoundary.retry')}
             </button>
           </div>
         </div>

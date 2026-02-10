@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { formatDistanceToNow } from 'date-fns'
-import { ru } from 'date-fns/locale'
+import { useDateLocale } from '@/hooks/useDateLocale'
 import {
   Bell,
   CheckCircle,
@@ -29,6 +30,8 @@ const typeColors: Record<string, string> = {
 
 export default function Notifications() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
+  const dateLocale = useDateLocale()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
   const [markingAll, setMarkingAll] = useState(false)
@@ -84,7 +87,7 @@ export default function Notifications() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold font-display">Уведомления</h1>
+        <h1 className="text-2xl font-bold font-display">{t('notifications.title')}</h1>
         {hasUnread && (
           <Button
             variant="ghost"
@@ -93,7 +96,7 @@ export default function Notifications() {
             loading={markingAll}
           >
             <CheckCheck size={16} />
-            Прочитать все
+            {t('notifications.markAllRead')}
           </Button>
         )}
       </div>
@@ -142,7 +145,7 @@ export default function Notifications() {
                   <time className="text-xs text-text-muted mt-1 block">
                     {formatDistanceToNow(new Date(notification.created_at), {
                       addSuffix: true,
-                      locale: ru,
+                      locale: dateLocale,
                     })}
                   </time>
                 </div>
@@ -157,7 +160,7 @@ export default function Notifications() {
         <Card>
           <div className="text-center py-12 space-y-3">
             <Bell className="text-text-muted mx-auto" size={40} />
-            <p className="text-text-secondary text-sm">Нет уведомлений</p>
+            <p className="text-text-secondary text-sm">{t('notifications.empty')}</p>
           </div>
         </Card>
       )}

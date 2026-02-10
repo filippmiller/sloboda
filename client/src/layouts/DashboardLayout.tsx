@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
 import { ROUTES } from '@/config/routes'
 import { useAuthStore } from '@/stores/authStore'
 import api from '@/services/api'
+import LanguageSwitcher from '@/components/LanguageSwitcher'
 import {
   LayoutDashboard,
   Newspaper,
@@ -20,19 +22,20 @@ import {
   MessageSquare,
 } from 'lucide-react'
 
-const navItems = [
-  { to: ROUTES.DASHBOARD, label: 'Главная', icon: LayoutDashboard },
-  { to: ROUTES.NEWS, label: 'Новости', icon: Newspaper },
-  { to: ROUTES.FORUM, label: 'Форум', icon: MessageSquare },
-  { to: ROUTES.LIBRARY, label: 'Библиотека', icon: BookOpen },
-  { to: ROUTES.LIBRARIAN, label: 'Библиотекарь', icon: Sparkles },
-  { to: ROUTES.FINANCE, label: 'Финансы', icon: Wallet },
-  { to: ROUTES.BOOKMARKS, label: 'Закладки', icon: Bookmark },
-  { to: ROUTES.SUBMIT, label: 'Предложить', icon: Upload },
-  { to: ROUTES.PROFILE, label: 'Профиль', icon: User },
+const navKeys = [
+  { to: ROUTES.DASHBOARD, key: 'common.nav.dashboard', icon: LayoutDashboard },
+  { to: ROUTES.NEWS, key: 'common.nav.news', icon: Newspaper },
+  { to: ROUTES.FORUM, key: 'common.nav.forum', icon: MessageSquare },
+  { to: ROUTES.LIBRARY, key: 'common.nav.library', icon: BookOpen },
+  { to: ROUTES.LIBRARIAN, key: 'common.nav.librarian', icon: Sparkles },
+  { to: ROUTES.FINANCE, key: 'common.nav.finance', icon: Wallet },
+  { to: ROUTES.BOOKMARKS, key: 'common.nav.bookmarks', icon: Bookmark },
+  { to: ROUTES.SUBMIT, key: 'common.nav.submit', icon: Upload },
+  { to: ROUTES.PROFILE, key: 'common.nav.profile', icon: User },
 ]
 
 export default function DashboardLayout() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
   const logout = useAuthStore((s) => s.logout)
@@ -72,7 +75,7 @@ export default function DashboardLayout() {
         <button
           onClick={() => navigate(ROUTES.NOTIFICATIONS)}
           className="relative p-1.5 rounded-lg text-text-secondary hover:text-text hover:bg-bg-elevated transition-colors"
-          title="Уведомления"
+          title={t('common.nav.notifications')}
         >
           <Bell size={18} />
           {unreadCount > 0 && (
@@ -87,7 +90,7 @@ export default function DashboardLayout() {
       <div className="h-px bg-gradient-to-r from-transparent via-accent/20 to-transparent mx-4" />
 
       <nav className="flex-1 px-3 mt-3 relative">
-        {navItems.map((item) => (
+        {navKeys.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
@@ -110,14 +113,15 @@ export default function DashboardLayout() {
                   />
                 )}
                 <item.icon size={18} className="transition-transform duration-200 group-hover:scale-105" />
-                {item.label}
+                {t(item.key)}
               </>
             )}
           </NavLink>
         ))}
       </nav>
 
-      <div className="p-3 border-t border-border">
+      <div className="p-3 border-t border-border space-y-1">
+        <LanguageSwitcher />
         <button
           onClick={handleLogout}
           className="
@@ -128,7 +132,7 @@ export default function DashboardLayout() {
           "
         >
           <LogOut size={18} />
-          Выйти
+          {t('common.actions.logout')}
         </button>
       </div>
     </>

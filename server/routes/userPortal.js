@@ -12,6 +12,28 @@ function setDb(database) {
     db = database;
 }
 
+/**
+ * Apply translations to a post if a non-Russian language is requested.
+ * Overlays translated title/summary/body from content_translations table.
+ */
+async function applyTranslation(post, lang) {
+    if (!lang || lang === 'ru' || !post) return post;
+    const translation = await db.getContentTranslation('post', post.id, lang);
+    if (!translation) return post;
+    return {
+        ...post,
+        title: translation.title || post.title,
+        summary: translation.summary || post.summary,
+        body: translation.body || post.body,
+        _translated: lang
+    };
+}
+
+async function applyTranslations(posts, lang) {
+    if (!lang || lang === 'ru' || !posts || posts.length === 0) return posts;
+    return Promise.all(posts.map(post => applyTranslation(post, lang)));
+}
+
 // ============================================
 // NEWS & ARTICLES
 // ============================================
@@ -31,7 +53,9 @@ router.get('/news', requireUserAuth, async (req, res) => {
         };
 
         const posts = await db.getPublishedPosts(filters);
-        res.json({ success: true, data: posts });
+        const lang = req.query.lang;
+        const translated = await applyTranslations(posts, lang);
+        res.json({ success: true, data: translated });
     } catch (err) {
         console.error('Error fetching news:', err);
         res.status(500).json({ success: false, error: 'Failed to fetch news' });
@@ -53,7 +77,9 @@ router.get('/articles', requireUserAuth, async (req, res) => {
         };
 
         const posts = await db.getPublishedPosts(filters);
-        res.json({ success: true, data: posts });
+        const lang = req.query.lang;
+        const translated = await applyTranslations(posts, lang);
+        res.json({ success: true, data: translated });
     } catch (err) {
         console.error('Error fetching articles:', err);
         res.status(500).json({ success: false, error: 'Failed to fetch articles' });
@@ -76,7 +102,9 @@ router.get('/posts/:slug', requireUserAuth, async (req, res) => {
             console.error('Error incrementing views:', err)
         );
 
-        res.json({ success: true, data: post });
+        const lang = req.query.lang;
+        const translated = await applyTranslation(post, lang);
+        res.json({ success: true, data: translated });
     } catch (err) {
         console.error('Error fetching post:', err);
         res.status(500).json({ success: false, error: 'Failed to fetch post' });
@@ -418,6 +446,7 @@ router.get('/profile', requireUserAuth, async (req, res) => {
                 telegram: user.telegram,
                 location: user.location,
                 status: user.status,
+                preferredLanguage: user.preferred_language || 'ru',
                 lastLogin: user.last_login,
                 createdAt: user.created_at
             }
@@ -434,7 +463,7 @@ router.get('/profile', requireUserAuth, async (req, res) => {
  */
 router.patch('/profile', requireUserAuth, async (req, res) => {
     try {
-        const { name, telegram, location } = req.body;
+        const { name, telegram, location, preferredLanguage } = req.body;
 
         if (name !== undefined && (!name || name.trim().length === 0)) {
             return res.status(400).json({
@@ -443,10 +472,18 @@ router.patch('/profile', requireUserAuth, async (req, res) => {
             });
         }
 
+        if (preferredLanguage !== undefined && !['ru', 'en', 'es', 'de', 'fr'].includes(preferredLanguage)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid language. Use: ru, en, es, de, fr'
+            });
+        }
+
         const updates = {};
         if (name !== undefined) updates.name = name.trim();
         if (telegram !== undefined) updates.telegram = telegram;
         if (location !== undefined) updates.location = location;
+        if (preferredLanguage !== undefined) updates.preferred_language = preferredLanguage;
 
         if (Object.keys(updates).length === 0) {
             return res.status(400).json({
@@ -464,7 +501,8 @@ router.patch('/profile', requireUserAuth, async (req, res) => {
                 email: user.email,
                 name: user.name,
                 telegram: user.telegram,
-                location: user.location
+                location: user.location,
+                preferredLanguage: user.preferred_language || 'ru'
             }
         });
     } catch (err) {

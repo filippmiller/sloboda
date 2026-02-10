@@ -1,0 +1,533 @@
+{
+  "common": {
+    "brand": {
+      "name": "SLOBODA",
+      "tagline": "Gemeinschaft für bewusstes Leben"
+    },
+    "nav": {
+      "dashboard": "Startseite",
+      "news": "Neuigkeiten",
+      "forum": "Forum",
+      "library": "Bibliothek",
+      "librarian": "Bibliothekar",
+      "finance": "Finanzen",
+      "bookmarks": "Lesezeichen",
+      "submit": "Einreichen",
+      "profile": "Profil",
+      "notifications": "Benachrichtigungen"
+    },
+    "actions": {
+      "logout": "Abmelden",
+      "loadMore": "Mehr laden",
+      "back": "Zurück",
+      "forward": "Weiter",
+      "save": "Speichern",
+      "cancel": "Abbrechen",
+      "delete": "Löschen",
+      "edit": "Bearbeiten",
+      "reply": "Antworten",
+      "send": "Senden",
+      "tryAgain": "Erneut versuchen",
+      "goHome": "Zur Startseite",
+      "goToLogin": "Zur Anmeldung",
+      "goToLibrary": "Zur Bibliothek",
+      "restore": "Wiederherstellen",
+      "discard": "Verwerfen"
+    },
+    "errors": {
+      "sessionExpired": "Die Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.",
+      "pageError": "Seitenfehler",
+      "pageErrorDescription": "Auf dieser Seite ist ein Fehler aufgetreten. Andere Bereiche funktionieren normal.",
+      "pageNotFound": "Seite nicht gefunden",
+      "pageNotFoundDescription": "Diese Seite existiert nicht oder wurde verschoben.",
+      "unknownError": "Ein unbekannter Fehler ist aufgetreten",
+      "serverError": "Serverfehler ({{status}})"
+    },
+    "time": {
+      "readingTime": "{{count}} Min. Lesezeit"
+    },
+    "filters": {
+      "all": "Alle",
+      "allTags": "Alle Tags"
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Anmelden",
+      "subtitle": "Geben Sie Ihre Zugangsdaten ein, um auf Ihr Konto zuzugreifen",
+      "emailLabel": "Email",
+      "emailPlaceholder": "sie@beispiel.de",
+      "passwordLabel": "Passwort",
+      "passwordPlaceholder": "Passwort eingeben",
+      "rememberMe": "Angemeldet bleiben",
+      "submitButton": "Anmelden",
+      "magicLinkButton": "Mit Email-Link anmelden",
+      "forgotPassword": "Passwort vergessen?",
+      "hasInvite": "Einladung erhalten?",
+      "registerLink": "Registrieren",
+      "welcomeToast": "Willkommen!",
+      "loginError": "Anmeldung fehlgeschlagen. Überprüfen Sie Ihre Email und Ihr Passwort.",
+      "backToLogin": "Zurück zur Anmeldung"
+    },
+    "magicLink": {
+      "title": "Mit Link anmelden",
+      "subtitle": "Geben Sie Ihre Email-Adresse ein und wir senden Ihnen einen Anmeldelink",
+      "sendButton": "Link senden",
+      "sentTitle": "Prüfen Sie Ihre Email",
+      "sentDescription": "Wir haben einen Anmeldelink an Ihre Email gesendet. Klicken Sie darauf, um sich anzumelden.",
+      "sentToast": "Anmeldelink gesendet",
+      "sendError": "Link konnte nicht gesendet werden. Versuchen Sie es später erneut.",
+      "switchToPassword": "Mit Passwort anmelden"
+    },
+    "forgotPassword": {
+      "title": "Passwort vergessen?",
+      "subtitle": "Geben Sie Ihre Email-Adresse ein und wir senden Ihnen einen Link zum Zurücksetzen",
+      "sendButton": "Link senden",
+      "sentTitle": "Prüfen Sie Ihre Email",
+      "sentDescription": "Falls ein Konto mit dieser Email existiert, haben wir einen Link zum Zurücksetzen des Passworts gesendet."
+    },
+    "resetPassword": {
+      "title": "Neues Passwort",
+      "subtitle": "Geben Sie ein neues Passwort für Ihr Konto ein",
+      "newPasswordLabel": "Neues Passwort",
+      "newPasswordPlaceholder": "Groß-/Kleinbuchstaben + Ziffer",
+      "confirmPasswordLabel": "Passwort bestätigen",
+      "confirmPasswordPlaceholder": "Passwort wiederholen",
+      "submitButton": "Passwort festlegen",
+      "successTitle": "Passwort geändert",
+      "successDescription": "Sie können sich jetzt mit Ihrem neuen Passwort anmelden.",
+      "successToast": "Passwort erfolgreich geändert",
+      "error": "Passwort konnte nicht zurückgesetzt werden. Fordern Sie einen neuen Link an."
+    },
+    "register": {
+      "title": "Registrierung",
+      "subtitle": "Schließen Sie die Registrierung ab, um der Gemeinschaft beizutreten",
+      "verifying": "Einladung wird überprüft...",
+      "inviteError": "Einladungsfehler",
+      "inviteInvalid": "Die Einladung ist ungültig oder abgelaufen",
+      "inviteMissingToken": "Der Einladungslink enthält keinen Token",
+      "inviteFor": "Einladung für:",
+      "nameLabel": "Name",
+      "namePlaceholder": "Wie heißen Sie?",
+      "passwordLabel": "Passwort",
+      "passwordPlaceholder": "Groß-/Kleinbuchstaben + Ziffer",
+      "confirmPasswordLabel": "Passwort bestätigen",
+      "confirmPasswordPlaceholder": "Passwort wiederholen",
+      "submitButton": "Registrieren",
+      "hasAccount": "Haben Sie bereits ein Konto?",
+      "loginLink": "Anmelden",
+      "successToast": "Registrierung abgeschlossen!",
+      "error": "Registrierung fehlgeschlagen. Versuchen Sie es später erneut."
+    },
+    "validation": {
+      "emailRequired": "Geben Sie eine gültige Email-Adresse ein",
+      "passwordRequired": "Geben Sie ein Passwort ein",
+      "passwordMin8": "Mindestens 8 Zeichen",
+      "passwordUppercase": "Mindestens ein Großbuchstabe",
+      "passwordLowercase": "Mindestens ein Kleinbuchstabe",
+      "passwordDigit": "Mindestens eine Ziffer",
+      "confirmPasswordRequired": "Bestätigen Sie Ihr Passwort",
+      "passwordsMismatch": "Die Passwörter stimmen nicht überein",
+      "nameMin2": "Mindestens 2 Zeichen"
+    }
+  },
+  "dashboard": {
+    "greeting": "Hallo, {{name}}!",
+    "greetingDefault": "Willkommen!",
+    "subtitle": "Übersicht der SLOBODA-Gemeinschaftsaktivitäten",
+    "stats": {
+      "news": "Neuigkeiten",
+      "articles": "Artikel",
+      "mySubmissions": "Meine Einreichungen"
+    },
+    "recentNews": {
+      "title": "Aktuelle Neuigkeiten",
+      "viewAll": "Alle Neuigkeiten",
+      "empty": "Noch keine Neuigkeiten"
+    },
+    "quickLinks": {
+      "submitKnowledge": "Wissen einreichen",
+      "submitKnowledgeDescription": "Material für die Bibliothek vorschlagen",
+      "library": "Bibliothek",
+      "libraryDescription": "Materialien und Wissen der Gemeinschaft",
+      "submitMaterial": "Material einreichen"
+    }
+  },
+  "news": {
+    "title": "Neuigkeiten",
+    "empty": "Noch keine Neuigkeiten veröffentlicht"
+  },
+  "library": {
+    "title": "Bibliothek",
+    "searchPlaceholder": "In der Bibliothek suchen...",
+    "contentTypes": {
+      "article": "Artikel",
+      "knowledge": "Wissen"
+    },
+    "bookmarks": {
+      "add": "Zu Lesezeichen hinzufügen",
+      "remove": "Aus Lesezeichen entfernen"
+    },
+    "empty": {
+      "default": "Die Bibliothek ist leer",
+      "filtered": "Nichts gefunden. Versuchen Sie, Ihre Suchkriterien zu ändern."
+    }
+  },
+  "librarian": {
+    "title": "Bibliothekar",
+    "subtitle": "KI-Assistent für die SLOBODA-Wissensdatenbank",
+    "welcome": {
+      "title": "Willkommen",
+      "description": "Ich bin der SLOBODA-Bibliothekar. Stellen Sie eine Frage und ich suche die Antwort in unserer Wissensdatenbank. Falls die Information nicht verfügbar ist, sage ich Ihnen das ehrlich."
+    },
+    "suggestions": {
+      "label": "Probieren Sie es aus",
+      "farming": "Wie fängt man mit der Landwirtschaft an?",
+      "programs": "Welche Förderprogramme gibt es für den Umzug aufs Land?",
+      "buying": "Was sollte ich vor dem Kauf eines Hauses auf dem Land wissen?"
+    },
+    "chat": {
+      "thinking": "Denkt nach...",
+      "sourcesLabel": "Quellen",
+      "inputPlaceholder": "Stellen Sie eine Frage...",
+      "disclaimer": "Der Bibliothekar antwortet auf Basis der Wissensdatenbank-Materialien. Antworten können ungenau sein."
+    }
+  },
+  "submit": {
+    "title": "Material einreichen",
+    "subtitle": "Teilen Sie Wissen mit der Gemeinschaft. Das Material wird vor der Veröffentlichung geprüft.",
+    "form": {
+      "titleLabel": "Titel",
+      "titlePlaceholder": "Titel Ihres Materials",
+      "descriptionLabel": "Kurzbeschreibung",
+      "descriptionPlaceholder": "Worum geht es in diesem Material? (2-3 Sätze)",
+      "categoryLabel": "Kategorie",
+      "categoryDefault": "Keine Kategorie",
+      "contentLabel": "Inhalt",
+      "attachmentsLabel": "Anhänge (bis zu {{max}} Dateien, max. 10 MB pro Datei)",
+      "dropzoneActive": "Dateien hier ablegen...",
+      "dropzoneDefault": "Dateien hierher ziehen oder klicken zum Auswählen",
+      "submitButton": "Zur Prüfung einreichen",
+      "draftSaved": "Entwurf gespeichert",
+      "linkPrompt": "Link-URL:"
+    },
+    "toolbar": {
+      "bold": "Fett",
+      "italic": "Kursiv",
+      "heading": "Überschrift",
+      "list": "Liste",
+      "link": "Link",
+      "image": "Bild"
+    },
+    "validation": {
+      "titleMin3": "Mindestens 3 Zeichen",
+      "descriptionMin10": "Mindestens 10 Zeichen",
+      "bodyTooShort": "Der Inhalt ist zu kurz",
+      "maxFiles": "Maximal {{max}} Dateien",
+      "maxFileSize": "Maximale Dateigröße ist 10 MB"
+    },
+    "draft": {
+      "hasDraft": "Sie haben einen gespeicherten Entwurf",
+      "restore": "Wiederherstellen",
+      "discard": "Verwerfen"
+    },
+    "status": {
+      "pending": "In Prüfung",
+      "reviewing": "Wird geprüft",
+      "approved": "Genehmigt",
+      "rejected": "Abgelehnt",
+      "published": "Veröffentlicht"
+    },
+    "mySubmissions": {
+      "title": "Meine Einreichungen",
+      "empty": "Sie haben noch kein Material eingereicht",
+      "rejectionReason": "Grund: {{reason}}"
+    },
+    "toasts": {
+      "submitted": "Ihr Material wurde zur Prüfung eingereicht"
+    }
+  },
+  "finance": {
+    "title": "Finanztransparenz",
+    "subtitle": "Alle Projektgelder sind für Mitglieder offen einsehbar.",
+    "dataNote": "Die Daten werden aktualisiert, wenn Kontoauszüge hochgeladen werden",
+    "summary": {
+      "income": "Einnahmen",
+      "expenses": "Ausgaben",
+      "balance": "Saldo"
+    },
+    "charts": {
+      "expensesByCategory": "Ausgaben nach Kategorie",
+      "overview": "Übersicht",
+      "incomeBar": "Einnahmen",
+      "expensesBar": "Ausgaben"
+    },
+    "filters": {
+      "all": "Alle",
+      "income": "Einnahmen",
+      "expenses": "Ausgaben"
+    },
+    "categories": {
+      "donation": "Spenden",
+      "grant": "Zuschüsse",
+      "other_income": "Sonstige Einnahmen",
+      "legal": "Rechtsarbeit",
+      "platform": "Plattform & Hosting",
+      "operations": "Betriebskosten",
+      "equipment": "Ausstattung",
+      "land": "Grundstück",
+      "reserve": "Rücklagenfonds",
+      "ai_tools": "KI-Werkzeuge",
+      "other_expense": "Sonstige Ausgaben"
+    },
+    "empty": {
+      "title": "Finanzdaten folgen in Kürze",
+      "description": "Die Spendensammlung hat begonnen. Daten erscheinen nach dem Hochladen des ersten Kontoauszugs."
+    }
+  },
+  "bookmarks": {
+    "title": "Lesezeichen",
+    "removeTooltip": "Aus Lesezeichen entfernen",
+    "savedAt": "Gespeichert am {{date}}",
+    "empty": {
+      "message": "Keine Lesezeichen. Fügen Sie Artikel zu Ihren Lesezeichen hinzu, indem Sie auf das Lesezeichen-Symbol klicken.",
+      "goToLibrary": "Zur Bibliothek"
+    }
+  },
+  "notifications": {
+    "title": "Benachrichtigungen",
+    "markAllRead": "Alle als gelesen markieren",
+    "empty": "Keine Benachrichtigungen"
+  },
+  "profile": {
+    "title": "Profil",
+    "language": {
+      "heading": "Sprache der Benutzeroberfläche",
+      "label": "Anzeigesprache",
+      "description": "Wählen Sie die Sprache der Benutzeroberfläche und des Inhalts. Inhalte werden automatisch übersetzt.",
+      "savedToast": "Sprache geändert"
+    },
+    "accountInfo": {
+      "heading": "Kontoinformationen",
+      "email": "Email",
+      "status": "Status",
+      "memberSince": "Mitglied seit",
+      "lastLogin": "Letzte Anmeldung",
+      "statusActive": "Aktives Mitglied",
+      "statusSuspended": "Gesperrt",
+      "placeholder": "---"
+    },
+    "editProfile": {
+      "heading": "Profil bearbeiten",
+      "nameLabel": "Name",
+      "namePlaceholder": "Ihr Name",
+      "telegramLabel": "Telegram",
+      "telegramPlaceholder": "@benutzername",
+      "locationLabel": "Standort",
+      "locationPlaceholder": "Stadt oder Region",
+      "saveButton": "Speichern",
+      "savedToast": "Profil aktualisiert"
+    },
+    "validation": {
+      "nameMin2": "Mindestens 2 Zeichen"
+    }
+  },
+  "forum": {
+    "title": "Community-Forum",
+    "subtitle": "Diskutieren Sie Ideen, teilen Sie Wissen und vernetzen Sie sich mit der SLOBODA-Gemeinschaft",
+    "newThread": "Neues Thema",
+    "sort": {
+      "hot": "Beliebt",
+      "recent": "Neueste",
+      "top": "Beste",
+      "controversial": "Kontrovers"
+    },
+    "guestPrompt": {
+      "title": "Beteiligen Sie sich an der Diskussion",
+      "description": "Erstellen Sie ein Konto, um Themen zu veröffentlichen, zu kommentieren und abzustimmen",
+      "loginButton": "Anmelden"
+    },
+    "threadList": {
+      "empty": "Noch keine Themen. Erstellen Sie das erste!",
+      "deletedByAuthor": "Vom Autor gelöscht"
+    },
+    "threadCard": {
+      "postedBy": "Erstellt von {{author}}",
+      "deleted": "[gelöscht]",
+      "comment_one": "{{count}} Kommentar",
+      "comment_other": "{{count}} Kommentare",
+      "view_one": "{{count}} Aufruf",
+      "view_other": "{{count}} Aufrufe",
+      "locked": "Gesperrt"
+    },
+    "threadView": {
+      "backToForum": "Zurück zum Forum",
+      "threadNotFound": "Thema nicht gefunden",
+      "addComment": "Kommentar hinzufügen",
+      "commentPlaceholder": "Was denken Sie?",
+      "lockedMessage": "Dieses Thema ist gesperrt. Neue Kommentare können nicht hinzugefügt werden.",
+      "loginToComment": "Melden Sie sich an, um zu kommentieren",
+      "commentsTitle": "Kommentare ({{count}})",
+      "noComments": "Noch keine Kommentare. Schreiben Sie den ersten!",
+      "stats": {
+        "comments": "{{count}} Kommentare",
+        "views": "{{count}} Aufrufe"
+      }
+    },
+    "createThread": {
+      "backToForum": "Zurück zum Forum",
+      "title": "Neues Thema erstellen",
+      "threadType": "Thementyp",
+      "types": {
+        "discussion": "Diskussion",
+        "question": "Frage",
+        "announcement": "Ankündigung"
+      },
+      "titleLabel": "Titel",
+      "titleRequired": "Ein Titel ist erforderlich",
+      "titlePlaceholder": "Was möchten Sie diskutieren?",
+      "titleCounter": "{{count}}/500 Zeichen",
+      "bodyLabel": "Inhalt (optional)",
+      "bodyPlaceholder": "Weitere Details hinzufügen...",
+      "submitButton": "Thema erstellen",
+      "cancelButton": "Abbrechen",
+      "error": "Thema konnte nicht erstellt werden",
+      "guidelines": {
+        "title": "Gemeinschaftsrichtlinien",
+        "respectful": "Seien Sie respektvoll und konstruktiv",
+        "onTopic": "Bleiben Sie beim Thema und liefern Sie Kontext",
+        "searchFirst": "Suchen Sie vor dem Posten, um Duplikate zu vermeiden",
+        "clearTitles": "Verwenden Sie klare, aussagekräftige Titel"
+      }
+    },
+    "comment": {
+      "save": "Speichern",
+      "cancel": "Abbrechen",
+      "reply": "Antworten",
+      "edit": "Bearbeiten",
+      "delete": "Löschen",
+      "replyPlaceholder": "Antwort an {{author}}...",
+      "deleted": "[gelöscht]",
+      "failedToPost": "Kommentar konnte nicht veröffentlicht werden"
+    },
+    "moderation": {
+      "title": "Moderationsaktionen",
+      "pin": "Anheften",
+      "unpin": "Lösen",
+      "lock": "Sperren",
+      "unlock": "Entsperren",
+      "warn": "Verwarnen",
+      "ban": "Sperren",
+      "toasts": {
+        "threadPinned": "Thema angeheftet",
+        "threadUnpinned": "Thema gelöst",
+        "threadLocked": "Thema gesperrt",
+        "threadUnlocked": "Thema entsperrt",
+        "failedToUpdate": "Thema konnte nicht aktualisiert werden",
+        "userBanned": "{{name}} wurde gesperrt",
+        "failedToBan": "Benutzer konnte nicht gesperrt werden",
+        "warningIssued": "Verwarnung an {{name}} ausgesprochen",
+        "failedToWarn": "Verwarnung konnte nicht ausgesprochen werden"
+      },
+      "banModal": {
+        "title": "Benutzer sperren: {{name}}",
+        "durationLabel": "Sperrdauer",
+        "durations": {
+          "1day": "1 Tag",
+          "3days": "3 Tage",
+          "7days": "7 Tage",
+          "30days": "30 Tage",
+          "permanent": "Dauerhaft"
+        },
+        "reasonLabel": "Grund",
+        "reasonPlaceholder": "Erklären Sie, warum dieser Benutzer gesperrt wird...",
+        "reasonRequired": "Ein Sperrgrund ist erforderlich",
+        "reasonHelp": "Dies ist für den Benutzer und andere Moderatoren sichtbar",
+        "submitButton": "Benutzer sperren",
+        "cancelButton": "Abbrechen"
+      },
+      "warnModal": {
+        "title": "Benutzer verwarnen: {{name}}",
+        "notice": "Verwarnungen werden protokolliert und sind für alle Moderatoren sichtbar. Mehrere Verwarnungen können zu einer Sperrung führen.",
+        "reasonLabel": "Verwarnungsgrund",
+        "reasonPlaceholder": "Erklären Sie den Regelverstoß oder das Fehlverhalten...",
+        "reasonRequired": "Ein Verwarnungsgrund ist erforderlich",
+        "reasonHelp": "Geben Sie genau an, welche Regel verletzt wurde",
+        "submitButton": "Verwarnung aussprechen",
+        "cancelButton": "Abbrechen"
+      }
+    },
+    "roles": {
+      "new_user": "Neues Mitglied",
+      "member": "Mitglied",
+      "senior_member": "Erfahrenes Mitglied",
+      "moderator": "Moderator",
+      "super_moderator": "Obermoderator",
+      "levelTooltip": "Stufe {{level}}"
+    },
+    "reputation": {
+      "title": "Reputation",
+      "totalReputation": "Gesamtreputation",
+      "threadsCreated": "Erstellte Themen",
+      "comments": "Kommentare",
+      "upvotesReceived": "Erhaltene Upvotes",
+      "bestAnswers": "Beste Antworten",
+      "howToEarn": "So verdienen Sie Reputation:",
+      "howToEarnDescription": "Erstellen Sie qualitativ hochwertige Themen (+5), schreiben Sie hilfreiche Kommentare (+2), erhalten Sie Upvotes (+1) und engagieren Sie sich in der Gemeinschaft."
+    },
+    "roleProgress": {
+      "title": "Rollenaufstieg",
+      "maxRankTitle": "Höchster Rang erreicht",
+      "maxRankDescription": "Sie haben die höchste Gemeinschaftsstufe erreicht",
+      "requirementsFor": "Voraussetzungen für {{role}}:",
+      "accountAge": "Kontoalter",
+      "reputationPoints": "Reputationspunkte",
+      "commentsLabel": "Kommentare",
+      "threadsCreatedLabel": "Erstellte Themen",
+      "upvotesReceivedLabel": "Erhaltene Upvotes",
+      "daysUnit": "Tage",
+      "pointsUnit": "Pkt.",
+      "promotionReady": "Sie erfüllen die Voraussetzungen für eine Beförderung! Diese wird in Kürze automatisch vergeben."
+    },
+    "forumProfile": {
+      "title": "Forumstatus"
+    },
+    "commentForm": {
+      "comment": "Kommentieren",
+      "reply": "Antworten",
+      "cancel": "Abbrechen"
+    },
+    "modLog": {
+      "loading": "Moderationsprotokoll wird geladen...",
+      "empty": "Keine Moderationsaktionen verzeichnet",
+      "reason": "Grund:",
+      "duration": "Dauer:",
+      "permanent": "Dauerhaft",
+      "hoursUnit": "{{count}} Stunden",
+      "actions": {
+        "ban_user": "Benutzer gesperrt",
+        "warn_user": "Benutzer verwarnt",
+        "pin_thread": "Thema angeheftet",
+        "unpin_thread": "Thema gelöst",
+        "lock_thread": "Thema gesperrt",
+        "unlock_thread": "Thema entsperrt",
+        "delete_thread": "Thema gelöscht",
+        "delete_comment": "Kommentar gelöscht",
+        "assign_moderator": "Moderatorrolle zugewiesen",
+        "remove_moderator": "Moderatorrolle entzogen"
+      }
+    }
+  },
+  "notFound": {
+    "code": "404",
+    "title": "Seite nicht gefunden",
+    "description": "Diese Seite existiert nicht oder wurde verschoben.",
+    "back": "Zurück",
+    "home": "Zur Startseite"
+  },
+  "errorBoundary": {
+    "title": "Seitenfehler",
+    "description": "Auf dieser Seite ist ein Fehler aufgetreten. Andere Bereiche funktionieren normal.",
+    "retry": "Erneut versuchen"
+  }
+}

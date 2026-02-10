@@ -1,5 +1,6 @@
 // Moderation controls for user profiles and content
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AlertTriangle, Ban } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import { BanUserModal } from './BanUserModal';
@@ -12,6 +13,7 @@ interface UserModControlsProps {
 }
 
 export function UserModControls({ userId, userName, onAction }: UserModControlsProps) {
+  const { t } = useTranslation();
   const [showBanModal, setShowBanModal] = useState(false);
   const [showWarnModal, setShowWarnModal] = useState(false);
 
@@ -25,7 +27,7 @@ export function UserModControls({ userId, userName, onAction }: UserModControlsP
           className="text-yellow-500 hover:text-yellow-400"
         >
           <AlertTriangle size={14} />
-          Warn
+          {t('forum.moderation.warn')}
         </Button>
 
         <Button
@@ -35,7 +37,7 @@ export function UserModControls({ userId, userName, onAction }: UserModControlsP
           className="text-red-500 hover:text-red-400"
         >
           <Ban size={14} />
-          Ban
+          {t('forum.moderation.ban')}
         </Button>
       </div>
 

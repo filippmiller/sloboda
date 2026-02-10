@@ -1,4 +1,5 @@
 // Display user reputation statistics
+import { useTranslation } from 'react-i18next';
 import Card from '@/components/ui/Card';
 import { TrendingUp, MessageSquare, FileText, ThumbsUp, Award } from 'lucide-react';
 
@@ -16,33 +17,35 @@ interface ReputationCardProps {
 }
 
 export function ReputationCard({ stats }: ReputationCardProps) {
+  const { t } = useTranslation();
+
   const metrics = [
     {
-      label: 'Total Reputation',
+      label: t('forum.reputation.totalReputation'),
       value: stats.total_points,
       icon: TrendingUp,
       color: 'text-[#c23616]'
     },
     {
-      label: 'Threads Created',
+      label: t('forum.reputation.threadsCreated'),
       value: stats.threads_created,
       icon: FileText,
       color: 'text-blue-400'
     },
     {
-      label: 'Comments',
+      label: t('forum.reputation.comments'),
       value: stats.comments_made,
       icon: MessageSquare,
       color: 'text-purple-400'
     },
     {
-      label: 'Upvotes Received',
+      label: t('forum.reputation.upvotesReceived'),
       value: stats.upvotes_received,
       icon: ThumbsUp,
       color: 'text-green-400'
     },
     {
-      label: 'Best Answers',
+      label: t('forum.reputation.bestAnswers'),
       value: stats.best_answers || 0,
       icon: Award,
       color: 'text-yellow-400'
@@ -53,7 +56,7 @@ export function ReputationCard({ stats }: ReputationCardProps) {
     <Card className="p-6">
       <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
         <Award size={20} className="text-[#c23616]" />
-        Reputation
+        {t('forum.reputation.title')}
       </h3>
 
       <div className="grid grid-cols-2 gap-4">
@@ -77,8 +80,8 @@ export function ReputationCard({ stats }: ReputationCardProps) {
       {/* Points breakdown info */}
       <div className="mt-4 p-3 bg-white/5 rounded-lg border border-gray-800">
         <p className="text-xs text-gray-400">
-          <span className="font-medium">How to earn reputation:</span> Create quality threads (+5),
-          post helpful comments (+2), receive upvotes (+1), and engage with the community.
+          <span className="font-medium">{t('forum.reputation.howToEarn')}</span>{' '}
+          {t('forum.reputation.howToEarnDescription')}
         </p>
       </div>
     </Card>

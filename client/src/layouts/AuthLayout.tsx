@@ -1,7 +1,10 @@
 import { Outlet } from 'react-router-dom'
 import { motion } from 'motion/react'
+import { useTranslation } from 'react-i18next'
 
 export default function AuthLayout() {
+  const { t } = useTranslation()
+
   return (
     <div className="min-h-screen bg-bg flex items-center justify-center p-4 relative overflow-hidden">
       {/* Animated gradient mesh background */}
@@ -42,7 +45,7 @@ export default function AuthLayout() {
             SLOBODA
           </h1>
           <p className="text-text-secondary mt-2 text-sm">
-            Сообщество осознанной жизни
+            {t('common.brand.tagline')}
           </p>
         </motion.div>
         <motion.div

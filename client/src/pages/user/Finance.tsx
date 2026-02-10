@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Wallet,
   TrendingUp,
@@ -41,19 +42,11 @@ interface Transaction {
   is_verified: boolean
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  donation: 'Пожертвования',
-  grant: 'Гранты',
-  other_income: 'Прочие поступления',
-  legal: 'Юридическая работа',
-  platform: 'Платформа и хостинг',
-  operations: 'Операционные расходы',
-  equipment: 'Оборудование',
-  land: 'Земля',
-  reserve: 'Резервный фонд',
-  ai_tools: 'ИИ-инструменты',
-  other_expense: 'Прочие расходы',
-}
+// Category keys for i18n lookup
+const CATEGORY_KEYS = [
+  'donation', 'grant', 'other_income', 'legal', 'platform',
+  'operations', 'equipment', 'land', 'reserve', 'ai_tools', 'other_expense',
+] as const
 
 const CATEGORY_COLORS: Record<string, string> = {
   legal: '#3b82f6',
@@ -74,6 +67,15 @@ function formatRubles(amount: number): string {
 }
 
 export default function Finance() {
+  const { t } = useTranslation()
+
+  const getCategoryLabel = (category: string): string => {
+    if (CATEGORY_KEYS.includes(category as typeof CATEGORY_KEYS[number])) {
+      return t(`finance.categories.${category}`)
+    }
+    return category
+  }
+
   const [summary, setSummary] = useState<FinanceSummary | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [total, setTotal] = useState(0)
@@ -118,12 +120,12 @@ export default function Finance() {
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold font-display mb-2">Финансовая прозрачность</h1>
+        <h1 className="text-2xl font-bold font-display mb-2">{t('finance.title')}</h1>
         <p className="text-text-secondary text-sm">
-          Все средства проекта — в открытом доступе для участников.
+          {t('finance.subtitle')}
         </p>
         <p className="text-text-muted text-xs mt-1">
-          Данные обновляются при загрузке банковских выписок
+          {t('finance.dataNote')}
         </p>
       </div>
 
@@ -139,7 +141,7 @@ export default function Finance() {
                 <p className="text-2xl font-bold font-display text-green">
                   {formatRubles(summary.totalIncome)}
                 </p>
-                <p className="text-xs text-text-secondary">Поступления</p>
+                <p className="text-xs text-text-secondary">{t('finance.summary.income')}</p>
               </div>
             </div>
           </Card>
@@ -152,7 +154,7 @@ export default function Finance() {
                 <p className="text-2xl font-bold font-display text-accent">
                   {formatRubles(summary.totalExpenses)}
                 </p>
-                <p className="text-xs text-text-secondary">Расходы</p>
+                <p className="text-xs text-text-secondary">{t('finance.summary.expenses')}</p>
               </div>
             </div>
           </Card>
@@ -165,7 +167,7 @@ export default function Finance() {
                 <p className="text-2xl font-bold font-display">
                   {formatRubles(summary.balance)}
                 </p>
-                <p className="text-xs text-text-secondary">Баланс</p>
+                <p className="text-xs text-text-secondary">{t('finance.summary.balance')}</p>
               </div>
             </div>
           </Card>
@@ -180,12 +182,12 @@ export default function Finance() {
       {summary && summary.expenseBreakdown.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card>
-            <h3 className="text-sm font-semibold font-display mb-4">Расходы по категориям</h3>
+            <h3 className="text-sm font-semibold font-display mb-4">{t('finance.charts.expensesByCategory')}</h3>
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
                 <Pie
                   data={summary.expenseBreakdown.map((e) => ({
-                    name: CATEGORY_LABELS[e.category] || e.category,
+                    name: getCategoryLabel(e.category),
                     value: e.total,
                     fill: CATEGORY_COLORS[e.category] || '#6b7280',
                   }))}
@@ -214,19 +216,19 @@ export default function Finance() {
                     className="w-2.5 h-2.5 rounded-full"
                     style={{ background: CATEGORY_COLORS[e.category] || '#6b7280' }}
                   />
-                  {CATEGORY_LABELS[e.category] || e.category}
+                  {getCategoryLabel(e.category)}
                 </div>
               ))}
             </div>
           </Card>
 
           <Card>
-            <h3 className="text-sm font-semibold font-display mb-4">Сводка</h3>
+            <h3 className="text-sm font-semibold font-display mb-4">{t('finance.charts.overview')}</h3>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart
                 data={[
-                  { name: 'Доходы', amount: summary.totalIncome },
-                  { name: 'Расходы', amount: summary.totalExpenses },
+                  { name: t('finance.charts.incomeBar'), amount: summary.totalIncome },
+                  { name: t('finance.charts.expensesBar'), amount: summary.totalExpenses },
                 ]}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#222" />
@@ -258,7 +260,7 @@ export default function Finance() {
                 : 'text-text-secondary hover:text-text hover:bg-bg-card'
             }`}
           >
-            {f === 'all' ? 'Все' : f === 'income' ? 'Доходы' : 'Расходы'}
+            {f === 'all' ? t('finance.filters.all') : f === 'income' ? t('finance.filters.income') : t('finance.filters.expenses')}
           </button>
         ))}
       </div>
@@ -270,15 +272,15 @@ export default function Finance() {
         </div>
       ) : transactions.length > 0 ? (
         <div className="space-y-2">
-          {transactions.map((t) => (
-            <Card key={t.id} padding="sm" className="flex items-center justify-between gap-4">
+          {transactions.map((tx) => (
+            <Card key={tx.id} padding="sm" className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3 min-w-0 flex-1">
                 <div
                   className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                    t.type === 'income' ? 'bg-green/10' : 'bg-accent/10'
+                    tx.type === 'income' ? 'bg-green/10' : 'bg-accent/10'
                   }`}
                 >
-                  {t.type === 'income' ? (
+                  {tx.type === 'income' ? (
                     <ArrowUpRight className="text-green" size={16} />
                   ) : (
                     <ArrowDownRight className="text-accent" size={16} />
@@ -286,26 +288,26 @@ export default function Finance() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-text truncate">{t.description}</p>
-                    {t.is_verified && (
+                    <p className="text-sm font-medium text-text truncate">{tx.description}</p>
+                    {tx.is_verified && (
                       <CheckCircle2 size={14} className="text-green flex-shrink-0" />
                     )}
                   </div>
                   <div className="flex items-center gap-2 text-xs text-text-muted mt-0.5">
-                    <span>{new Date(t.date).toLocaleDateString('ru-RU')}</span>
+                    <span>{new Date(tx.date).toLocaleDateString('ru-RU')}</span>
                     <span className="px-1.5 py-0.5 rounded bg-bg-elevated text-text-secondary">
-                      {CATEGORY_LABELS[t.category] || t.category}
+                      {getCategoryLabel(tx.category)}
                     </span>
                   </div>
                 </div>
               </div>
               <p
                 className={`text-sm font-bold font-display flex-shrink-0 ${
-                  t.type === 'income' ? 'text-green' : 'text-accent'
+                  tx.type === 'income' ? 'text-green' : 'text-accent'
                 }`}
               >
-                {t.type === 'income' ? '+' : '-'}
-                {formatRubles(parseFloat(t.amount))}
+                {tx.type === 'income' ? '+' : '-'}
+                {formatRubles(parseFloat(tx.amount))}
               </p>
             </Card>
           ))}
@@ -315,10 +317,10 @@ export default function Finance() {
           <div className="text-center py-8">
             <Wallet className="mx-auto text-text-muted mb-3" size={32} />
             <p className="text-text-secondary text-sm">
-              Финансовые данные скоро появятся
+              {t('finance.empty.title')}
             </p>
             <p className="text-text-muted text-xs mt-1">
-              Сбор средств начался. Первые данные появятся после загрузки банковской выписки.
+              {t('finance.empty.description')}
             </p>
           </div>
         </Card>
@@ -332,7 +334,7 @@ export default function Finance() {
             disabled={page === 0}
             className="px-3 py-1.5 text-sm rounded-lg bg-bg-card border border-border text-text-secondary hover:text-text disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            Назад
+            {t('common.actions.back')}
           </button>
           <span className="text-sm text-text-muted">
             {page + 1} / {totalPages}
@@ -342,7 +344,7 @@ export default function Finance() {
             disabled={page >= totalPages - 1}
             className="px-3 py-1.5 text-sm rounded-lg bg-bg-card border border-border text-text-secondary hover:text-text disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            Далее
+            {t('common.actions.forward')}
           </button>
         </div>
       )}

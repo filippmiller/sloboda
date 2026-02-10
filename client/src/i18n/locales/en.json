@@ -1,0 +1,533 @@
+{
+  "common": {
+    "brand": {
+      "name": "SLOBODA",
+      "tagline": "Conscious Living Community"
+    },
+    "nav": {
+      "dashboard": "Home",
+      "news": "News",
+      "forum": "Forum",
+      "library": "Library",
+      "librarian": "Librarian",
+      "finance": "Finance",
+      "bookmarks": "Bookmarks",
+      "submit": "Submit",
+      "profile": "Profile",
+      "notifications": "Notifications"
+    },
+    "actions": {
+      "logout": "Log out",
+      "loadMore": "Load more",
+      "back": "Back",
+      "forward": "Next",
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "edit": "Edit",
+      "reply": "Reply",
+      "send": "Send",
+      "tryAgain": "Try again",
+      "goHome": "Go home",
+      "goToLogin": "Go to login",
+      "goToLibrary": "Go to library",
+      "restore": "Restore",
+      "discard": "Discard"
+    },
+    "errors": {
+      "sessionExpired": "Session expired. Please log in again.",
+      "pageError": "Page error",
+      "pageErrorDescription": "This page encountered an error. Other sections are working normally.",
+      "pageNotFound": "Page not found",
+      "pageNotFoundDescription": "This page does not exist or has been moved.",
+      "unknownError": "An unknown error occurred",
+      "serverError": "Server error ({{status}})"
+    },
+    "time": {
+      "readingTime": "{{count}} min read"
+    },
+    "filters": {
+      "all": "All",
+      "allTags": "All tags"
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Sign In",
+      "subtitle": "Enter your credentials to access your account",
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@example.com",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "Enter password",
+      "rememberMe": "Remember me",
+      "submitButton": "Sign In",
+      "magicLinkButton": "Sign in with email link",
+      "forgotPassword": "Forgot password?",
+      "hasInvite": "Got an invite?",
+      "registerLink": "Register",
+      "welcomeToast": "Welcome!",
+      "loginError": "Login failed. Check your email and password.",
+      "backToLogin": "Back to login"
+    },
+    "magicLink": {
+      "title": "Sign in with link",
+      "subtitle": "Enter your email and we'll send you a login link",
+      "sendButton": "Send link",
+      "sentTitle": "Check your email",
+      "sentDescription": "We sent a login link to your email. Click it to sign in.",
+      "sentToast": "Login link sent",
+      "sendError": "Failed to send link. Try again later.",
+      "switchToPassword": "Sign in with password"
+    },
+    "forgotPassword": {
+      "title": "Forgot password?",
+      "subtitle": "Enter your email and we'll send a reset link",
+      "sendButton": "Send link",
+      "sentTitle": "Check your email",
+      "sentDescription": "If an account with this email exists, we sent a password reset link."
+    },
+    "resetPassword": {
+      "title": "New password",
+      "subtitle": "Enter a new password for your account",
+      "newPasswordLabel": "New password",
+      "newPasswordPlaceholder": "Upper/lowercase letters + digit",
+      "confirmPasswordLabel": "Confirm password",
+      "confirmPasswordPlaceholder": "Repeat password",
+      "submitButton": "Set password",
+      "successTitle": "Password changed",
+      "successDescription": "You can now sign in with your new password.",
+      "successToast": "Password changed successfully",
+      "error": "Failed to reset password. Try requesting a new link."
+    },
+    "register": {
+      "title": "Registration",
+      "subtitle": "Complete registration to join the community",
+      "verifying": "Verifying invitation...",
+      "inviteError": "Invitation error",
+      "inviteInvalid": "Invitation is invalid or expired",
+      "inviteMissingToken": "Invite link does not contain a token",
+      "inviteFor": "Invitation for:",
+      "nameLabel": "Name",
+      "namePlaceholder": "What's your name",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "Upper/lowercase letters + digit",
+      "confirmPasswordLabel": "Confirm password",
+      "confirmPasswordPlaceholder": "Repeat password",
+      "submitButton": "Register",
+      "hasAccount": "Already have an account?",
+      "loginLink": "Sign In",
+      "successToast": "Registration complete!",
+      "error": "Registration failed. Try again later."
+    },
+    "validation": {
+      "emailRequired": "Enter a valid email",
+      "passwordRequired": "Enter a password",
+      "passwordMin8": "At least 8 characters",
+      "passwordUppercase": "At least one uppercase letter",
+      "passwordLowercase": "At least one lowercase letter",
+      "passwordDigit": "At least one digit",
+      "confirmPasswordRequired": "Confirm your password",
+      "passwordsMismatch": "Passwords don't match",
+      "nameMin2": "At least 2 characters"
+    }
+  },
+  "dashboard": {
+    "greeting": "Hello, {{name}}!",
+    "greetingDefault": "Welcome!",
+    "subtitle": "SLOBODA community activity overview",
+    "stats": {
+      "news": "News",
+      "articles": "Articles",
+      "mySubmissions": "My submissions"
+    },
+    "recentNews": {
+      "title": "Recent news",
+      "viewAll": "All news",
+      "empty": "No news yet"
+    },
+    "quickLinks": {
+      "submitKnowledge": "Submit knowledge",
+      "submitKnowledgeDescription": "Suggest material for the library",
+      "library": "Library",
+      "libraryDescription": "Community materials and knowledge",
+      "submitMaterial": "Submit material"
+    }
+  },
+  "news": {
+    "title": "News",
+    "empty": "No published news yet"
+  },
+  "library": {
+    "title": "Library",
+    "searchPlaceholder": "Search the library...",
+    "contentTypes": {
+      "article": "Article",
+      "knowledge": "Knowledge"
+    },
+    "bookmarks": {
+      "add": "Add to bookmarks",
+      "remove": "Remove from bookmarks"
+    },
+    "empty": {
+      "default": "Library is empty",
+      "filtered": "Nothing found. Try changing your search criteria."
+    }
+  },
+  "librarian": {
+    "title": "Librarian",
+    "subtitle": "AI assistant for the SLOBODA knowledge base",
+    "welcome": {
+      "title": "Welcome",
+      "description": "I'm the SLOBODA Librarian. Ask a question and I'll find the answer in our knowledge base. If the information isn't available, I'll honestly tell you."
+    },
+    "suggestions": {
+      "label": "Try asking",
+      "farming": "How to start farming on land?",
+      "programs": "What support programs exist for moving to the countryside?",
+      "buying": "What should I know before buying a house in the countryside?"
+    },
+    "chat": {
+      "thinking": "Thinking...",
+      "sourcesLabel": "Sources",
+      "inputPlaceholder": "Ask a question...",
+      "disclaimer": "The Librarian answers based on knowledge base materials. Answers may be inaccurate."
+    }
+  },
+  "submit": {
+    "title": "Submit Material",
+    "subtitle": "Share knowledge with the community. Material will be reviewed before publication.",
+    "form": {
+      "titleLabel": "Title",
+      "titlePlaceholder": "Title of your material",
+      "descriptionLabel": "Short description",
+      "descriptionPlaceholder": "What is this material about (2-3 sentences)",
+      "categoryLabel": "Category",
+      "categoryDefault": "No category",
+      "contentLabel": "Content",
+      "attachmentsLabel": "Attachments (up to {{max}} files, max 10 MB each)",
+      "dropzoneActive": "Drop files here...",
+      "dropzoneDefault": "Drag files here or click to select",
+      "submitButton": "Submit for review",
+      "draftSaved": "Draft saved",
+      "linkPrompt": "Link URL:"
+    },
+    "toolbar": {
+      "bold": "Bold",
+      "italic": "Italic",
+      "heading": "Heading",
+      "list": "List",
+      "link": "Link",
+      "image": "Image"
+    },
+    "validation": {
+      "titleMin3": "At least 3 characters",
+      "descriptionMin10": "At least 10 characters",
+      "bodyTooShort": "Content is too short",
+      "maxFiles": "Maximum {{max}} files",
+      "maxFileSize": "Maximum file size is 10 MB"
+    },
+    "draft": {
+      "hasDraft": "You have a saved draft",
+      "restore": "Restore",
+      "discard": "Discard"
+    },
+    "status": {
+      "pending": "Under review",
+      "reviewing": "Being reviewed",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "published": "Published"
+    },
+    "mySubmissions": {
+      "title": "My submissions",
+      "empty": "You haven't submitted any materials yet",
+      "rejectionReason": "Reason: {{reason}}"
+    },
+    "toasts": {
+      "submitted": "Your knowledge has been submitted for review"
+    }
+  },
+  "finance": {
+    "title": "Financial Transparency",
+    "subtitle": "All project funds are openly available to members.",
+    "dataNote": "Data is updated when bank statements are uploaded",
+    "summary": {
+      "income": "Income",
+      "expenses": "Expenses",
+      "balance": "Balance"
+    },
+    "charts": {
+      "expensesByCategory": "Expenses by category",
+      "overview": "Overview",
+      "incomeBar": "Income",
+      "expensesBar": "Expenses"
+    },
+    "filters": {
+      "all": "All",
+      "income": "Income",
+      "expenses": "Expenses"
+    },
+    "categories": {
+      "donation": "Donations",
+      "grant": "Grants",
+      "other_income": "Other income",
+      "legal": "Legal work",
+      "platform": "Platform & hosting",
+      "operations": "Operating expenses",
+      "equipment": "Equipment",
+      "land": "Land",
+      "reserve": "Reserve fund",
+      "ai_tools": "AI tools",
+      "other_expense": "Other expenses"
+    },
+    "empty": {
+      "title": "Financial data coming soon",
+      "description": "Fundraising has begun. Data will appear after the first bank statement is uploaded."
+    }
+  },
+  "bookmarks": {
+    "title": "Bookmarks",
+    "removeTooltip": "Remove from bookmarks",
+    "savedAt": "Saved {{date}}",
+    "empty": {
+      "message": "No bookmarks. Add articles to bookmarks by clicking the bookmark icon.",
+      "goToLibrary": "Go to library"
+    }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Mark all as read",
+    "empty": "No notifications"
+  },
+  "profile": {
+    "title": "Profile",
+    "language": {
+      "heading": "Interface Language",
+      "label": "Display language",
+      "description": "Choose the interface and content language. Content will be auto-translated.",
+      "savedToast": "Language changed"
+    },
+    "accountInfo": {
+      "heading": "Account Information",
+      "email": "Email",
+      "status": "Status",
+      "memberSince": "Member since",
+      "lastLogin": "Last login",
+      "statusActive": "Active member",
+      "statusSuspended": "Suspended",
+      "placeholder": "---"
+    },
+    "editProfile": {
+      "heading": "Edit Profile",
+      "nameLabel": "Name",
+      "namePlaceholder": "Your name",
+      "telegramLabel": "Telegram",
+      "telegramPlaceholder": "@username",
+      "locationLabel": "Location",
+      "locationPlaceholder": "City or region",
+      "saveButton": "Save",
+      "savedToast": "Profile updated"
+    },
+    "validation": {
+      "nameMin2": "At least 2 characters"
+    }
+  },
+  "forum": {
+    "title": "Community Forum",
+    "subtitle": "Discuss ideas, share knowledge, and connect with the SLOBODA community",
+    "newThread": "New Thread",
+    "sort": {
+      "hot": "Hot",
+      "recent": "Recent",
+      "top": "Top",
+      "controversial": "Controversial"
+    },
+    "guestPrompt": {
+      "title": "Join the Discussion",
+      "description": "Create an account to post threads, comment, and vote",
+      "loginButton": "Log In"
+    },
+    "threadList": {
+      "empty": "No threads yet. Be the first to create one!",
+      "deletedByAuthor": "Deleted by author"
+    },
+    "threadCard": {
+      "postedBy": "Posted by {{author}}",
+      "deleted": "[deleted]",
+      "comment_one": "{{count}} comment",
+      "comment_other": "{{count}} comments",
+      "view_one": "{{count}} view",
+      "view_other": "{{count}} views",
+      "locked": "Locked"
+    },
+    "threadView": {
+      "backToForum": "Back to Forum",
+      "threadNotFound": "Thread not found",
+      "addComment": "Add a Comment",
+      "commentPlaceholder": "What are your thoughts?",
+      "lockedMessage": "This thread is locked. New comments cannot be added.",
+      "loginToComment": "Log in to comment",
+      "commentsTitle": "Comments ({{count}})",
+      "noComments": "No comments yet. Be the first to comment!",
+      "stats": {
+        "comments": "{{count}} comments",
+        "views": "{{count}} views"
+      }
+    },
+    "createThread": {
+      "backToForum": "Back to Forum",
+      "title": "Create New Thread",
+      "threadType": "Thread Type",
+      "types": {
+        "discussion": "discussion",
+        "question": "question",
+        "announcement": "announcement"
+      },
+      "titleLabel": "Title",
+      "titleRequired": "Title is required",
+      "titlePlaceholder": "What would you like to discuss?",
+      "titleCounter": "{{count}}/500 characters",
+      "bodyLabel": "Body (optional)",
+      "bodyPlaceholder": "Add more details...",
+      "submitButton": "Create Thread",
+      "cancelButton": "Cancel",
+      "error": "Failed to create thread",
+      "guidelines": {
+        "title": "Community Guidelines",
+        "respectful": "Be respectful and constructive",
+        "onTopic": "Stay on topic and provide context",
+        "searchFirst": "Search before posting to avoid duplicates",
+        "clearTitles": "Use clear, descriptive titles"
+      }
+    },
+    "comment": {
+      "save": "Save",
+      "cancel": "Cancel",
+      "reply": "Reply",
+      "edit": "Edit",
+      "delete": "Delete",
+      "replyPlaceholder": "Reply to {{author}}...",
+      "deleted": "[deleted]",
+      "failedToPost": "Failed to post comment"
+    },
+    "moderation": {
+      "title": "Moderator Actions",
+      "pin": "Pin",
+      "unpin": "Unpin",
+      "lock": "Lock",
+      "unlock": "Unlock",
+      "warn": "Warn",
+      "ban": "Ban",
+      "toasts": {
+        "threadPinned": "Thread pinned",
+        "threadUnpinned": "Thread unpinned",
+        "threadLocked": "Thread locked",
+        "threadUnlocked": "Thread unlocked",
+        "failedToUpdate": "Failed to update thread",
+        "userBanned": "{{name}} has been banned",
+        "failedToBan": "Failed to ban user",
+        "warningIssued": "Warning issued to {{name}}",
+        "failedToWarn": "Failed to issue warning"
+      },
+      "banModal": {
+        "title": "Ban User: {{name}}",
+        "durationLabel": "Ban Duration",
+        "durations": {
+          "1day": "1 day",
+          "3days": "3 days",
+          "7days": "7 days",
+          "30days": "30 days",
+          "permanent": "Permanent"
+        },
+        "reasonLabel": "Reason",
+        "reasonPlaceholder": "Explain why this user is being banned...",
+        "reasonRequired": "Ban reason is required",
+        "reasonHelp": "This will be visible to the user and other moderators",
+        "submitButton": "Ban User",
+        "cancelButton": "Cancel"
+      },
+      "warnModal": {
+        "title": "Warn User: {{name}}",
+        "notice": "Warnings are logged and visible to all moderators. Multiple warnings may result in a ban.",
+        "reasonLabel": "Warning Reason",
+        "reasonPlaceholder": "Explain the rule violation or behavior issue...",
+        "reasonRequired": "Warning reason is required",
+        "reasonHelp": "Be specific about what rule was violated",
+        "submitButton": "Issue Warning",
+        "cancelButton": "Cancel"
+      }
+    },
+    "roles": {
+      "new_user": "New User",
+      "member": "Member",
+      "senior_member": "Senior Member",
+      "moderator": "Moderator",
+      "super_moderator": "Super Moderator",
+      "levelTooltip": "Level {{level}}"
+    },
+    "reputation": {
+      "title": "Reputation",
+      "totalReputation": "Total Reputation",
+      "threadsCreated": "Threads Created",
+      "comments": "Comments",
+      "upvotesReceived": "Upvotes Received",
+      "bestAnswers": "Best Answers",
+      "howToEarn": "How to earn reputation:",
+      "howToEarnDescription": "Create quality threads (+5), post helpful comments (+2), receive upvotes (+1), and engage with the community."
+    },
+    "roleProgress": {
+      "title": "Role Progression",
+      "maxRankTitle": "Maximum Rank Achieved",
+      "maxRankDescription": "You've reached the highest community tier",
+      "requirementsFor": "Requirements for {{role}}:",
+      "accountAge": "Account Age",
+      "reputationPoints": "Reputation Points",
+      "commentsLabel": "Comments",
+      "threadsCreatedLabel": "Threads Created",
+      "upvotesReceivedLabel": "Upvotes Received",
+      "daysUnit": "days",
+      "pointsUnit": "pts",
+      "promotionReady": "You qualify for promotion! It will be granted automatically soon."
+    },
+    "forumProfile": {
+      "title": "Forum Status"
+    },
+    "commentForm": {
+      "comment": "Comment",
+      "reply": "Reply",
+      "cancel": "Cancel"
+    },
+    "modLog": {
+      "loading": "Loading moderation log...",
+      "empty": "No moderation actions recorded",
+      "reason": "Reason:",
+      "duration": "Duration:",
+      "permanent": "Permanent",
+      "hoursUnit": "{{count}} hours",
+      "actions": {
+        "ban_user": "Banned user",
+        "warn_user": "Warned user",
+        "pin_thread": "Pinned thread",
+        "unpin_thread": "Unpinned thread",
+        "lock_thread": "Locked thread",
+        "unlock_thread": "Unlocked thread",
+        "delete_thread": "Deleted thread",
+        "delete_comment": "Deleted comment",
+        "assign_moderator": "Assigned moderator role",
+        "remove_moderator": "Removed moderator role"
+      }
+    }
+  },
+  "notFound": {
+    "code": "404",
+    "title": "Page not found",
+    "description": "This page does not exist or has been moved.",
+    "back": "Back",
+    "home": "Go home"
+  },
+  "errorBoundary": {
+    "title": "Page error",
+    "description": "This page encountered an error. Other sections are working normally.",
+    "retry": "Try again"
+  }
+}

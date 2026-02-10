@@ -2,6 +2,7 @@
 // Source: https://github.com/DurgeshPatil24/Reddit-Clone
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { MessageSquare, Edit2, Trash2 } from 'lucide-react';
 import { VoteButtons } from './VoteButtons';
 import { CommentForm } from './CommentForm';
@@ -9,6 +10,7 @@ import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
+import { useDateLocale } from '@/hooks/useDateLocale';
 
 interface CommentProps {
   id: number;
@@ -49,12 +51,14 @@ export function Comment({
   onDelete,
   children
 }: CommentProps) {
+  const { t } = useTranslation();
+  const dateLocale = useDateLocale();
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editBody, setEditBody] = useState(body);
 
   const isAuthor = currentUserId === authorId;
-  const deletedText = '[deleted]';
+  const deletedText = t('forum.comment.deleted');
 
   const handleReply = async (replyBody: string) => {
     await onReply(replyBody);
@@ -91,7 +95,7 @@ export function Comment({
               </span>
               <span>•</span>
               <span title={new Date(createdAt).toLocaleString()}>
-                {formatDistanceToNow(new Date(createdAt), { addSuffix: true })}
+                {formatDistanceToNow(new Date(createdAt), { addSuffix: true, locale: dateLocale })}
               </span>
             </div>
 
@@ -110,7 +114,7 @@ export function Comment({
                     onClick={handleEdit}
                     disabled={!editBody.trim()}
                   >
-                    Save
+                    {t('forum.comment.save')}
                   </Button>
                   <Button
                     size="sm"
@@ -120,7 +124,7 @@ export function Comment({
                       setEditBody(body);
                     }}
                   >
-                    Cancel
+                    {t('forum.comment.cancel')}
                   </Button>
                 </div>
               </div>
@@ -141,7 +145,7 @@ export function Comment({
                   className="flex items-center gap-1.5 px-2 py-1 rounded text-gray-400 hover:bg-white/5 hover:text-gray-300 transition-colors"
                 >
                   <MessageSquare size={14} />
-                  Reply
+                  {t('forum.comment.reply')}
                 </button>
 
                 {isAuthor && !isEditing && onEdit && (
@@ -150,7 +154,7 @@ export function Comment({
                     className="flex items-center gap-1.5 px-2 py-1 rounded text-gray-400 hover:bg-white/5 hover:text-gray-300 transition-colors"
                   >
                     <Edit2 size={14} />
-                    Edit
+                    {t('forum.comment.edit')}
                   </button>
                 )}
 
@@ -160,7 +164,7 @@ export function Comment({
                     className="flex items-center gap-1.5 px-2 py-1 rounded text-gray-400 hover:bg-white/5 hover:text-red-400 transition-colors"
                   >
                     <Trash2 size={14} />
-                    Delete
+                    {t('forum.comment.delete')}
                   </button>
                 )}
               </div>
@@ -174,7 +178,7 @@ export function Comment({
                   parentCommentId={id}
                   onSubmit={handleReply}
                   onCancel={() => setShowReplyForm(false)}
-                  placeholder={`Reply to ${authorName}...`}
+                  placeholder={t('forum.comment.replyPlaceholder', { author: authorName })}
                   autoFocus
                 />
               </div>

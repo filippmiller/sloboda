@@ -1,3 +1,5 @@
+import i18n from '@/i18n'
+
 /**
  * Estimate reading time from HTML or plain text content.
  * Strips HTML tags, counts words, divides by 200 wpm.
@@ -11,5 +13,5 @@ export function estimateReadingTime(html: string | null | undefined): number {
 }
 
 export function formatReadingTime(minutes: number): string {
-  return `${minutes} мин чтения`
+  return i18n.t('common.time.readingTime', { count: minutes })
 }

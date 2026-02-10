@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { format } from 'date-fns'
-import { ru } from 'date-fns/locale'
+import { useDateLocale } from '@/hooks/useDateLocale'
 import { motion, AnimatePresence } from 'motion/react'
 import { Search, BookOpen, X, Clock, Bookmark, BookmarkCheck } from 'lucide-react'
 import api from '@/services/api'
@@ -34,6 +35,8 @@ const staggerItem = {
 }
 
 export default function Library() {
+  const { t } = useTranslation()
+  const dateLocale = useDateLocale()
   const [items, setItems] = useState<ContentItem[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
@@ -216,7 +219,7 @@ export default function Library() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        Библиотека
+        {t('library.title')}
       </motion.h1>
 
       {/* Search */}
@@ -234,7 +237,7 @@ export default function Library() {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Поиск по библиотеке..."
+          placeholder={t('library.searchPlaceholder')}
           className="
             w-full pl-9 pr-9 py-2.5 rounded-lg
             bg-bg-card border border-border
@@ -275,7 +278,7 @@ export default function Library() {
               }
             `}
           >
-            Все
+            {t('common.filters.all')}
           </button>
           {categories.map((cat) => (
             <button
@@ -312,7 +315,7 @@ export default function Library() {
               }
             `}
           >
-            Все теги
+            {t('common.filters.allTags')}
           </button>
           {allTags.map((tag) => (
             <button
@@ -365,14 +368,14 @@ export default function Library() {
                           <Badge>{getItemCategoryName(item)}</Badge>
                         )}
                         <Badge variant={item._type === 'article' ? 'success' : 'danger'}>
-                          {item._type === 'article' ? 'Статья' : 'Знания'}
+                          {item._type === 'article' ? t('library.contentTypes.article') : t('library.contentTypes.knowledge')}
                         </Badge>
                       </div>
                       {item._type === 'article' && (
                         <button
                           onClick={(e) => handleToggleBookmark(e, item.id)}
                           className="flex-shrink-0 p-1 rounded text-text-muted hover:text-accent transition-colors"
-                          title={bookmarkedIds.has(item.id) ? 'Убрать из закладок' : 'В закладки'}
+                          title={bookmarkedIds.has(item.id) ? t('library.bookmarks.remove') : t('library.bookmarks.add')}
                         >
                           {bookmarkedIds.has(item.id) ? (
                             <BookmarkCheck size={16} className="text-accent" />
@@ -426,7 +429,7 @@ export default function Library() {
                     <div className="flex items-center gap-3 text-xs text-text-muted pt-1">
                       <time>
                         {format(new Date(item.created_at), 'd MMM yyyy', {
-                          locale: ru,
+                          locale: dateLocale,
                         })}
                       </time>
                       <span className="flex items-center gap-1">
@@ -447,7 +450,7 @@ export default function Library() {
                 onClick={handleLoadMore}
                 loading={loadingMore}
               >
-                Загрузить ещё
+                {t('common.actions.loadMore')}
               </Button>
             </div>
           )}
@@ -458,8 +461,8 @@ export default function Library() {
             <BookOpen className="text-text-muted mx-auto" size={40} />
             <p className="text-text-secondary text-sm">
               {debouncedSearch || selectedCategory
-                ? 'Ничего не найдено. Попробуйте изменить параметры поиска.'
-                : 'Библиотека пока пуста'}
+                ? t('library.empty.filtered')
+                : t('library.empty.default')}
             </p>
           </div>
         </Card>

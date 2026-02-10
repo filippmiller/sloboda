@@ -3,12 +3,14 @@
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { MessageSquare, Edit2, Trash2, Pin, Lock } from 'lucide-react';
 import { VoteButtons } from './VoteButtons';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
+import { useDateLocale } from '@/hooks/useDateLocale';
 
 interface ThreadCardProps {
   id: number;
@@ -57,10 +59,12 @@ export function ThreadCard({
   onDelete,
   compact = false
 }: ThreadCardProps) {
+  const { t } = useTranslation();
+  const dateLocale = useDateLocale();
   const [isEditing, setIsEditing] = useState(false);
   const isAuthor = currentUserId === authorId;
   const isTextPost = type === 'discussion';
-  const deletedText = '[deleted]';
+  const deletedText = t('forum.threadCard.deleted');
 
   return (
     <Card className="p-4">
@@ -87,10 +91,10 @@ export function ThreadCard({
                 <span>•</span>
               </>
             )}
-            <span>Posted by {isDeleted ? deletedText : authorName}</span>
+            <span>{t('forum.threadCard.postedBy', { author: isDeleted ? deletedText : authorName })}</span>
             <span>•</span>
             <span title={new Date(createdAt).toLocaleString()}>
-              {formatDistanceToNow(new Date(createdAt), { addSuffix: true })}
+              {formatDistanceToNow(new Date(createdAt), { addSuffix: true, locale: dateLocale })}
             </span>
             {isPinned && (
               <>
@@ -130,12 +134,12 @@ export function ThreadCard({
               className="flex items-center gap-2 px-2 py-1 rounded hover:bg-white/5 transition-colors"
             >
               <MessageSquare size={16} />
-              <span>{commentCount} {commentCount === 1 ? 'comment' : 'comments'}</span>
+              <span>{t('forum.threadCard.comment', { count: commentCount })}</span>
             </Link>
 
             {viewCount > 0 && (
               <span className="px-2 py-1">
-                {viewCount} {viewCount === 1 ? 'view' : 'views'}
+                {t('forum.threadCard.view', { count: viewCount })}
               </span>
             )}
           </div>

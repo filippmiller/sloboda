@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Sparkles, Send, BookOpen, AlertCircle } from 'lucide-react'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
@@ -16,13 +17,8 @@ interface ChatMessage {
   sources?: Source[]
 }
 
-const WELCOME_SUGGESTIONS = [
-  'Как начать вести хозяйство на земле?',
-  'Какие есть программы поддержки для переезда в село?',
-  'Что нужно знать перед покупкой дома в деревне?',
-]
-
 export default function Librarian() {
+  const { t } = useTranslation()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
@@ -86,11 +82,11 @@ export default function Librarian() {
 
       if (!response.ok) {
         const errData = await response.json().catch(() => null)
-        throw new Error(errData?.error || `Ошибка сервера (${response.status})`)
+        throw new Error(errData?.error || t('common.errors.serverError', { status: response.status }))
       }
 
       const reader = response.body?.getReader()
-      if (!reader) throw new Error('Streaming не поддерживается')
+      if (!reader) throw new Error(t('common.errors.unknownError'))
 
       const decoder = new TextDecoder()
       let buffer = ''
@@ -177,7 +173,7 @@ export default function Librarian() {
         // User cancelled, leave partial message
         return
       }
-      const message = err instanceof Error ? err.message : 'Произошла неизвестная ошибка'
+      const message = err instanceof Error ? err.message : t('common.errors.unknownError')
       setError(message)
       // Remove the empty assistant message on error
       setMessages(prev => {
@@ -237,8 +233,8 @@ export default function Librarian() {
           <Sparkles size={18} className="text-accent" />
         </div>
         <div>
-          <h1 className="text-lg font-bold font-display">Библиотекарь</h1>
-          <p className="text-xs text-text-muted">AI-помощник по базе знаний SLOBODA</p>
+          <h1 className="text-lg font-bold font-display">{t('librarian.title')}</h1>
+          <p className="text-xs text-text-muted">{t('librarian.subtitle')}</p>
         </div>
       </div>
 
@@ -251,18 +247,20 @@ export default function Librarian() {
               <BookOpen size={28} className="text-accent" />
             </div>
             <h2 className="text-xl font-display font-bold text-text mb-2">
-              Добро пожаловать
+              {t('librarian.welcome.title')}
             </h2>
             <p className="text-sm text-text-secondary max-w-md mb-8 leading-relaxed">
-              Я Библиотекарь SLOBODA. Задайте вопрос, и я найду ответ
-              в материалах нашей базы знаний. Если нужной информации нет,
-              я честно об этом скажу.
+              {t('librarian.welcome.description')}
             </p>
             <div className="flex flex-col gap-2 w-full max-w-md">
               <p className="text-xs text-text-muted uppercase tracking-wide mb-1">
-                Попробуйте спросить
+                {t('librarian.suggestions.label')}
               </p>
-              {WELCOME_SUGGESTIONS.map((suggestion) => (
+              {[
+                t('librarian.suggestions.farming'),
+                t('librarian.suggestions.programs'),
+                t('librarian.suggestions.buying'),
+              ].map((suggestion) => (
                 <button
                   key={suggestion}
                   type="button"
@@ -310,14 +308,14 @@ export default function Librarian() {
                           <span className="w-1.5 h-1.5 rounded-full bg-accent/60 animate-bounce" style={{ animationDelay: '150ms' }} />
                           <span className="w-1.5 h-1.5 rounded-full bg-accent/60 animate-bounce" style={{ animationDelay: '300ms' }} />
                         </div>
-                        Думаю...
+                        {t('librarian.chat.thinking')}
                       </div>
                     )}
                     {/* Source references */}
                     {msg.sources && msg.sources.length > 0 && msg.content && (
                       <div className="mt-3 pt-2 border-t border-border/50">
                         <p className="text-[10px] uppercase tracking-wide text-text-muted mb-1.5">
-                          Источники
+                          {t('librarian.chat.sourcesLabel')}
                         </p>
                         <div className="flex flex-wrap gap-1.5">
                           {msg.sources.map((src, j) => (
@@ -370,7 +368,7 @@ export default function Librarian() {
             value={input}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            placeholder="Задайте вопрос..."
+            placeholder={t('librarian.chat.inputPlaceholder')}
             rows={1}
             maxLength={1000}
             disabled={isStreaming}
@@ -393,7 +391,7 @@ export default function Librarian() {
           </Button>
         </div>
         <p className="text-[10px] text-text-muted mt-2 text-center">
-          Библиотекарь отвечает на основе материалов базы знаний. Ответы могут быть неточными.
+          {t('librarian.chat.disclaimer')}
         </p>
       </div>
     </div>

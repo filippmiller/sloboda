@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { UserPlus, Loader2, AlertCircle } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
@@ -11,22 +12,8 @@ import type { InviteInfo } from '@/types'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 
-const registerSchema = z.object({
-  name: z.string().min(2, 'Минимум 2 символа'),
-  password: z.string()
-    .min(8, 'Минимум 8 символов')
-    .regex(/[A-Z]/, 'Нужна хотя бы одна заглавная буква')
-    .regex(/[a-z]/, 'Нужна хотя бы одна строчная буква')
-    .regex(/[0-9]/, 'Нужна хотя бы одна цифра'),
-  confirmPassword: z.string().min(1, 'Подтвердите пароль'),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: 'Пароли не совпадают',
-  path: ['confirmPassword'],
-})
-
-type RegisterForm = z.infer<typeof registerSchema>
-
 export default function Register() {
+  const { t } = useTranslation()
   const { token } = useParams<{ token: string }>()
   const navigate = useNavigate()
   const login = useAuthStore((s) => s.login)
@@ -35,6 +22,21 @@ export default function Register() {
   const [verifying, setVerifying] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const registerSchema = useMemo(() => z.object({
+    name: z.string().min(2, t('auth.validation.nameMin2')),
+    password: z.string()
+      .min(8, t('auth.validation.passwordMin8'))
+      .regex(/[A-Z]/, t('auth.validation.passwordUppercase'))
+      .regex(/[a-z]/, t('auth.validation.passwordLowercase'))
+      .regex(/[0-9]/, t('auth.validation.passwordDigit')),
+    confirmPassword: z.string().min(1, t('auth.validation.confirmPasswordRequired')),
+  }).refine((data) => data.password === data.confirmPassword, {
+    message: t('auth.validation.passwordsMismatch'),
+    path: ['confirmPassword'],
+  }), [t])
+
+  type RegisterForm = z.infer<typeof registerSchema>
 
   const form = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
@@ -48,7 +50,7 @@ export default function Register() {
   useEffect(() => {
     async function verifyInvite() {
       if (!token) {
-        setError('Ссылка-приглашение не содержит токен')
+        setError(t('auth.register.inviteMissingToken'))
         setVerifying(false)
         return
       }
@@ -63,7 +65,7 @@ export default function Register() {
       } catch (err: unknown) {
         const message =
           (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-          'Приглашение недействительно или истекло'
+          t('auth.register.inviteInvalid')
         setError(message)
       } finally {
         setVerifying(false)
@@ -71,7 +73,7 @@ export default function Register() {
     }
 
     verifyInvite()
-  }, [token, form])
+  }, [token, form, t])
 
   const handleSubmit = async (data: RegisterForm) => {
     if (!token) return
@@ -83,7 +85,7 @@ export default function Register() {
         password: data.password,
         name: data.name,
       })
-      toast.success('Регистрация завершена!')
+      toast.success(t('auth.register.successToast'))
 
       // Auto-login with new credentials
       if (inviteInfo?.email) {
@@ -100,7 +102,7 @@ export default function Register() {
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        'Ошибка регистрации. Попробуйте позже.'
+        t('auth.register.error')
       toast.error(message)
     } finally {
       setIsSubmitting(false)
@@ -112,7 +114,7 @@ export default function Register() {
       <div className="flex flex-col items-center justify-center py-8 space-y-3">
         <Loader2 className="animate-spin text-text-secondary" size={32} />
         <p className="text-sm text-text-secondary">
-          Проверяем приглашение...
+          {t('auth.register.verifying')}
         </p>
       </div>
     )
@@ -125,7 +127,7 @@ export default function Register() {
           <AlertCircle className="text-red-400" size={24} />
         </div>
         <h2 className="text-xl font-semibold font-display">
-          Ошибка приглашения
+          {t('auth.register.inviteError')}
         </h2>
         <p className="text-text-secondary text-sm leading-relaxed">
           {error}
@@ -134,7 +136,7 @@ export default function Register() {
           to="/login"
           className="inline-block text-sm text-accent hover:text-accent-hover transition-colors"
         >
-          Перейти к входу
+          {t('common.actions.goToLogin')}
         </Link>
       </div>
     )
@@ -144,17 +146,17 @@ export default function Register() {
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold font-display mb-1">
-          Регистрация
+          {t('auth.register.title')}
         </h2>
         <p className="text-text-secondary text-sm">
-          Завершите регистрацию, чтобы присоединиться к сообществу
+          {t('auth.register.subtitle')}
         </p>
       </div>
 
       {inviteInfo && (
         <div className="bg-bg-elevated border border-border rounded-lg p-3">
           <p className="text-sm text-text-secondary">
-            Приглашение для:{' '}
+            {t('auth.register.inviteFor')}{' '}
             <span className="text-text font-medium">{inviteInfo.email}</span>
           </p>
         </div>
@@ -162,41 +164,41 @@ export default function Register() {
 
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
         <Input
-          label="Имя"
-          placeholder="Как вас зовут"
+          label={t('auth.register.nameLabel')}
+          placeholder={t('auth.register.namePlaceholder')}
           {...form.register('name')}
           error={form.formState.errors.name?.message}
         />
 
         <Input
-          label="Пароль"
+          label={t('auth.register.passwordLabel')}
           type="password"
-          placeholder="Буквы верхнего/нижнего регистра + цифра"
+          placeholder={t('auth.register.passwordPlaceholder')}
           {...form.register('password')}
           error={form.formState.errors.password?.message}
         />
 
         <Input
-          label="Подтвердите пароль"
+          label={t('auth.register.confirmPasswordLabel')}
           type="password"
-          placeholder="Повторите пароль"
+          placeholder={t('auth.register.confirmPasswordPlaceholder')}
           {...form.register('confirmPassword')}
           error={form.formState.errors.confirmPassword?.message}
         />
 
         <Button type="submit" loading={isSubmitting} className="w-full">
           <UserPlus size={16} />
-          Зарегистрироваться
+          {t('auth.register.submitButton')}
         </Button>
       </form>
 
       <p className="text-center text-xs text-text-muted">
-        Уже есть аккаунт?{' '}
+        {t('auth.register.hasAccount')}{' '}
         <Link
           to="/login"
           className="text-accent hover:text-accent-hover transition-colors"
         >
-          Войти
+          {t('auth.register.loginLink')}
         </Link>
       </p>
     </div>

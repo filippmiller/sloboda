@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, type ChangeEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -9,7 +10,7 @@ import LinkExtension from '@tiptap/extension-link'
 import ImageExtension from '@tiptap/extension-image'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
-import { ru } from 'date-fns/locale'
+import { useDateLocale } from '@/hooks/useDateLocale'
 import {
   Upload,
   FileText,
@@ -36,21 +37,19 @@ import Input from '@/components/ui/Input'
 const MAX_FILES = 5
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 
-const submitSchema = z.object({
-  title: z.string().min(3, 'Минимум 3 символа'),
-  description: z.string().min(10, 'Минимум 10 символов'),
-  category_id: z.string().optional(),
-  body: z.string().min(20, 'Содержание слишком короткое'),
-})
+type SubmitForm = {
+  title: string
+  description: string
+  category_id?: string
+  body: string
+}
 
-type SubmitForm = z.infer<typeof submitSchema>
-
-const statusConfig: Record<string, { label: string; icon: typeof Clock; color: string }> = {
-  pending: { label: 'На модерации', icon: Clock, color: 'text-yellow-400' },
-  reviewing: { label: 'Рассматривается', icon: Eye, color: 'text-blue-400' },
-  approved: { label: 'Одобрено', icon: CheckCircle, color: 'text-green' },
-  rejected: { label: 'Отклонено', icon: XCircle, color: 'text-red-400' },
-  published: { label: 'Опубликовано', icon: BookCheck, color: 'text-green' },
+const statusIcons: Record<string, { icon: typeof Clock; color: string }> = {
+  pending: { icon: Clock, color: 'text-yellow-400' },
+  reviewing: { icon: Eye, color: 'text-blue-400' },
+  approved: { icon: CheckCircle, color: 'text-green' },
+  rejected: { icon: XCircle, color: 'text-red-400' },
+  published: { icon: BookCheck, color: 'text-green' },
 }
 
 function ToolbarButton({
@@ -80,6 +79,16 @@ function ToolbarButton({
 }
 
 export default function KnowledgeSubmit() {
+  const { t } = useTranslation()
+  const dateLocale = useDateLocale()
+
+  const submitSchema = z.object({
+    title: z.string().min(3, t('submit.validation.titleMin3')),
+    description: z.string().min(10, t('submit.validation.descriptionMin10')),
+    category_id: z.string().optional(),
+    body: z.string().min(20, t('submit.validation.bodyTooShort')),
+  })
+
   const [categories, setCategories] = useState<Category[]>([])
   const [files, setFiles] = useState<File[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -142,7 +151,7 @@ export default function KnowledgeSubmit() {
       const url = res.data.url
       editor.chain().focus().setImage({ src: url }).run()
     } catch {
-      toast.error('Ошибка загрузки изображения')
+      toast.error(t('common.errors.unknownError'))
     }
 
     e.target.value = ''
@@ -226,13 +235,13 @@ export default function KnowledgeSubmit() {
     (accepted: File[]) => {
       const remaining = MAX_FILES - files.length
       if (remaining <= 0) {
-        toast.error(`Максимум ${MAX_FILES} файлов`)
+        toast.error(t('submit.validation.maxFiles', { max: MAX_FILES }))
         return
       }
       const toAdd = accepted.slice(0, remaining)
       const oversized = toAdd.filter((f) => f.size > MAX_FILE_SIZE)
       if (oversized.length > 0) {
-        toast.error('Максимальный размер файла - 10 МБ')
+        toast.error(t('submit.validation.maxFileSize'))
         return
       }
       setFiles((prev) => [...prev, ...toAdd])
@@ -274,7 +283,7 @@ export default function KnowledgeSubmit() {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
 
-      toast.success('Ваши знания отправлены на модерацию')
+      toast.success(t('submit.toasts.submitted'))
       localStorage.removeItem('knowledge_draft')
       form.reset()
       editor?.commands.clearContent()
@@ -283,7 +292,7 @@ export default function KnowledgeSubmit() {
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        'Ошибка при отправке. Попробуйте позже.'
+        t('common.errors.unknownError')
       toast.error(message)
     } finally {
       setIsSubmitting(false)
@@ -293,7 +302,7 @@ export default function KnowledgeSubmit() {
   const setLink = () => {
     if (!editor) return
     const previousUrl = editor.getAttributes('link').href as string | undefined
-    const url = window.prompt('URL ссылки:', previousUrl ?? '')
+    const url = window.prompt(t('submit.form.linkPrompt'), previousUrl ?? '')
     if (url === null) return
     if (url === '') {
       editor.chain().focus().extendMarkRange('link').unsetLink().run()
@@ -305,9 +314,9 @@ export default function KnowledgeSubmit() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold font-display mb-2">Предложить материал</h1>
+        <h1 className="text-2xl font-bold font-display mb-2">{t('submit.title')}</h1>
         <p className="text-text-secondary text-sm">
-          Поделитесь знаниями с сообществом. Материал будет проверен перед публикацией.
+          {t('submit.subtitle')}
         </p>
       </div>
 
@@ -315,10 +324,10 @@ export default function KnowledgeSubmit() {
       {hasDraft && (
         <Card className="border-accent/30 bg-accent/5">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-text-secondary">У вас есть сохранённый черновик</p>
+            <p className="text-sm text-text-secondary">{t('submit.draft.hasDraft')}</p>
             <div className="flex gap-2">
-              <Button size="sm" onClick={restoreDraft}>Восстановить</Button>
-              <Button size="sm" variant="secondary" onClick={discardDraft}>Удалить</Button>
+              <Button size="sm" onClick={restoreDraft}>{t('common.actions.restore')}</Button>
+              <Button size="sm" variant="secondary" onClick={discardDraft}>{t('common.actions.discard')}</Button>
             </div>
           </div>
         </Card>
@@ -328,18 +337,18 @@ export default function KnowledgeSubmit() {
       <Card padding="lg">
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-5">
           <Input
-            label="Название"
-            placeholder="Заголовок вашего материала"
+            label={t('submit.form.titleLabel')}
+            placeholder={t('submit.form.titlePlaceholder')}
             {...form.register('title')}
             error={form.formState.errors.title?.message}
           />
 
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-text-secondary">
-              Краткое описание
+              {t('submit.form.descriptionLabel')}
             </label>
             <textarea
-              placeholder="О чём этот материал (2-3 предложения)"
+              placeholder={t('submit.form.descriptionPlaceholder')}
               rows={3}
               {...form.register('description')}
               className="
@@ -360,7 +369,7 @@ export default function KnowledgeSubmit() {
           {categories.length > 0 && (
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-text-secondary">
-                Категория
+                {t('submit.form.categoryLabel')}
               </label>
               <select
                 {...form.register('category_id')}
@@ -372,7 +381,7 @@ export default function KnowledgeSubmit() {
                   transition-colors duration-150 text-sm
                 "
               >
-                <option value="">Без категории</option>
+                <option value="">{t('submit.form.categoryDefault')}</option>
                 {categories.map((cat) => (
                   <option key={cat.id} value={cat.id}>
                     {cat.name}
@@ -385,7 +394,7 @@ export default function KnowledgeSubmit() {
           {/* Rich text editor */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-text-secondary">
-              Содержание
+              {t('submit.form.contentLabel')}
             </label>
             <Controller
               name="body"
@@ -398,7 +407,7 @@ export default function KnowledgeSubmit() {
                       <ToolbarButton
                         onClick={() => editor.chain().focus().toggleBold().run()}
                         active={editor.isActive('bold')}
-                        title="Жирный"
+                        title={t('submit.toolbar.bold')}
                       >
                         <Bold size={16} />
                       </ToolbarButton>
@@ -407,7 +416,7 @@ export default function KnowledgeSubmit() {
                           editor.chain().focus().toggleItalic().run()
                         }
                         active={editor.isActive('italic')}
-                        title="Курсив"
+                        title={t('submit.toolbar.italic')}
                       >
                         <Italic size={16} />
                       </ToolbarButton>
@@ -421,7 +430,7 @@ export default function KnowledgeSubmit() {
                             .run()
                         }
                         active={editor.isActive('heading', { level: 2 })}
-                        title="Заголовок"
+                        title={t('submit.toolbar.heading')}
                       >
                         <Heading2 size={16} />
                       </ToolbarButton>
@@ -430,7 +439,7 @@ export default function KnowledgeSubmit() {
                           editor.chain().focus().toggleBulletList().run()
                         }
                         active={editor.isActive('bulletList')}
-                        title="Список"
+                        title={t('submit.toolbar.list')}
                       >
                         <List size={16} />
                       </ToolbarButton>
@@ -438,13 +447,13 @@ export default function KnowledgeSubmit() {
                       <ToolbarButton
                         onClick={setLink}
                         active={editor.isActive('link')}
-                        title="Ссылка"
+                        title={t('submit.toolbar.link')}
                       >
                         <Link2 size={16} />
                       </ToolbarButton>
                       <ToolbarButton
                         onClick={handleEditorImageUpload}
-                        title="Изображение"
+                        title={t('submit.toolbar.image')}
                       >
                         <ImageIcon size={16} />
                       </ToolbarButton>
@@ -471,7 +480,7 @@ export default function KnowledgeSubmit() {
           {/* File upload */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-text-secondary">
-              Вложения (до {MAX_FILES} файлов, макс. 10 МБ каждый)
+              {t('submit.form.attachmentsLabel', { max: MAX_FILES })}
             </label>
             <div
               {...getRootProps()}
@@ -489,8 +498,8 @@ export default function KnowledgeSubmit() {
               <Upload className="mx-auto text-text-muted mb-2" size={24} />
               <p className="text-sm text-text-secondary">
                 {isDragActive
-                  ? 'Отпустите файлы...'
-                  : 'Перетащите файлы сюда или нажмите для выбора'}
+                  ? t('submit.form.dropzoneActive')
+                  : t('submit.form.dropzoneDefault')}
               </p>
             </div>
 
@@ -524,10 +533,10 @@ export default function KnowledgeSubmit() {
           <div className="flex items-center gap-3">
             <Button type="submit" loading={isSubmitting} className="flex-1">
               <Upload size={16} />
-              Отправить на модерацию
+              {t('submit.form.submitButton')}
             </Button>
             {draftSaved && (
-              <span className="text-xs text-text-muted whitespace-nowrap">Черновик сохранён</span>
+              <span className="text-xs text-text-muted whitespace-nowrap">{t('submit.form.draftSaved')}</span>
             )}
           </div>
         </form>
@@ -535,7 +544,7 @@ export default function KnowledgeSubmit() {
 
       {/* My submissions */}
       <div>
-        <h2 className="text-lg font-semibold font-display mb-4">Мои материалы</h2>
+        <h2 className="text-lg font-semibold font-display mb-4">{t('submit.mySubmissions.title')}</h2>
 
         {loadingSubmissions ? (
           <div className="flex items-center justify-center py-8">
@@ -544,8 +553,9 @@ export default function KnowledgeSubmit() {
         ) : mySubmissions.length > 0 ? (
           <div className="space-y-3">
             {mySubmissions.map((sub) => {
-              const statusInfo = statusConfig[sub.status] ?? statusConfig.pending
+              const statusInfo = statusIcons[sub.status] ?? statusIcons.pending
               const StatusIcon = statusInfo.icon
+              const statusLabel = t(`submit.status.${sub.status}` as const)
               return (
                 <Card key={sub.id} padding="sm">
                   <div className="flex items-center justify-between gap-4">
@@ -555,18 +565,18 @@ export default function KnowledgeSubmit() {
                       </h3>
                       <p className="text-xs text-text-muted mt-0.5">
                         {format(new Date(sub.created_at), 'd MMM yyyy', {
-                          locale: ru,
+                          locale: dateLocale,
                         })}
                       </p>
                     </div>
                     <div className={`flex items-center gap-1.5 flex-shrink-0 ${statusInfo.color}`}>
                       <StatusIcon size={14} />
-                      <span className="text-xs font-medium">{statusInfo.label}</span>
+                      <span className="text-xs font-medium">{statusLabel}</span>
                     </div>
                   </div>
                   {sub.review_notes && sub.status === 'rejected' && (
                     <p className="text-xs text-red-400/80 mt-2 pt-2 border-t border-border">
-                      Причина: {sub.review_notes}
+                      {t('submit.mySubmissions.rejectionReason', { reason: sub.review_notes })}
                     </p>
                   )}
                 </Card>
@@ -576,7 +586,7 @@ export default function KnowledgeSubmit() {
         ) : (
           <Card>
             <p className="text-text-secondary text-sm text-center py-6">
-              Вы ещё не подавали материалов
+              {t('submit.mySubmissions.empty')}
             </p>
           </Card>
         )}

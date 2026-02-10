@@ -1,6 +1,7 @@
 // Single thread view with nested comments
 import { useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Loader2, Lock } from 'lucide-react';
 import { Comment } from '@/components/forum/Comment';
 import { CommentForm } from '@/components/forum/CommentForm';
@@ -10,8 +11,11 @@ import Button from '@/components/ui/Button';
 import { useForumStore } from '@/stores/forumStore';
 import { useAuthStore } from '@/stores/authStore';
 import { formatDistanceToNow } from 'date-fns';
+import { useDateLocale } from '@/hooks/useDateLocale';
 
 export default function ThreadView() {
+  const { t } = useTranslation();
+  const dateLocale = useDateLocale();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -119,25 +123,25 @@ export default function ThreadView() {
     return (
       <div className="max-w-4xl mx-auto">
         <div className="bg-red-500/10 border border-red-500 rounded-lg p-4 text-red-400 mb-4">
-          {threadsError || 'Thread not found'}
+          {threadsError || t('forum.threadView.threadNotFound')}
         </div>
         <Button variant="ghost" onClick={() => navigate('/forum')}>
           <ArrowLeft size={18} className="mr-2" />
-          Back to Forum
+          {t('forum.threadView.backToForum')}
         </Button>
       </div>
     );
   }
 
   const isLocked = currentThread.is_locked;
-  const deletedText = '[deleted]';
+  const deletedText = t('forum.threadCard.deleted');
 
   return (
     <div className="max-w-4xl mx-auto">
       {/* Back button */}
       <Button variant="ghost" className="mb-4" onClick={() => navigate('/forum')}>
         <ArrowLeft size={18} className="mr-2" />
-        Back to Forum
+        {t('forum.threadView.backToForum')}
       </Button>
 
       {/* Moderator actions */}
@@ -178,17 +182,17 @@ export default function ThreadView() {
                 </>
               )}
               <span>
-                Posted by {currentThread.is_deleted ? deletedText : currentThread.author_name}
+                {t('forum.threadCard.postedBy', { author: currentThread.is_deleted ? deletedText : currentThread.author_name })}
               </span>
               <span>•</span>
               <span title={new Date(currentThread.created_at).toLocaleString()}>
-                {formatDistanceToNow(new Date(currentThread.created_at), { addSuffix: true })}
+                {formatDistanceToNow(new Date(currentThread.created_at), { addSuffix: true, locale: dateLocale })}
               </span>
               {isLocked && (
                 <>
                   <span>•</span>
                   <Lock size={14} className="text-yellow-500" />
-                  <span className="text-yellow-500">Locked</span>
+                  <span className="text-yellow-500">{t('forum.threadCard.locked')}</span>
                 </>
               )}
             </div>
@@ -207,9 +211,9 @@ export default function ThreadView() {
 
             {/* Stats */}
             <div className="flex items-center gap-4 text-sm text-gray-400">
-              <span>{currentThread.comment_count} comments</span>
+              <span>{t('forum.threadView.stats.comments', { count: currentThread.comment_count })}</span>
               <span>•</span>
-              <span>{currentThread.view_count} views</span>
+              <span>{t('forum.threadView.stats.views', { count: currentThread.view_count })}</span>
             </div>
           </div>
         </div>
@@ -218,23 +222,23 @@ export default function ThreadView() {
       {/* Comment form (top-level) */}
       {user && !isLocked ? (
         <div className="mb-6">
-          <h2 className="text-xl font-bold mb-3">Add a Comment</h2>
+          <h2 className="text-xl font-bold mb-3">{t('forum.threadView.addComment')}</h2>
           <CommentForm
             threadId={threadId}
             onSubmit={async (body) => { await createComment(threadId, body, undefined) }}
-            placeholder="What are your thoughts?"
+            placeholder={t('forum.threadView.commentPlaceholder')}
           />
         </div>
       ) : isLocked ? (
         <div className="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/50 rounded-lg text-yellow-500">
           <Lock size={18} className="inline mr-2" />
-          This thread is locked. New comments cannot be added.
+          {t('forum.threadView.lockedMessage')}
         </div>
       ) : (
         <div className="mb-6 p-4 bg-white/5 border border-gray-800 rounded-lg text-center">
-          <p className="text-gray-400 mb-2">Log in to comment</p>
+          <p className="text-gray-400 mb-2">{t('forum.threadView.loginToComment')}</p>
           <Button variant="secondary" size="sm">
-            <Link to="/login">Log In</Link>
+            <Link to="/login">{t('forum.guestPrompt.loginButton')}</Link>
           </Button>
         </div>
       )}
@@ -242,12 +246,12 @@ export default function ThreadView() {
       {/* Comments */}
       <div>
         <h2 className="text-xl font-bold mb-4">
-          Comments ({currentThread.comment_count})
+          {t('forum.threadView.commentsTitle', { count: currentThread.comment_count })}
         </h2>
 
         {commentTree.length === 0 ? (
           <div className="text-center py-8 text-gray-400">
-            No comments yet. Be the first to comment!
+            {t('forum.threadView.noComments')}
           </div>
         ) : (
           <div className="space-y-2">

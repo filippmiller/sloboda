@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'motion/react'
 import { Mail, Lock, Wand2, Check, KeyRound } from 'lucide-react'
@@ -10,37 +11,6 @@ import { useAuthStore } from '@/stores/authStore'
 import api from '@/services/api'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
-
-const loginSchema = z.object({
-  email: z.string().email('Введите корректный email'),
-  password: z.string().min(1, 'Введите пароль'),
-  remember: z.boolean().optional(),
-})
-
-const magicLinkSchema = z.object({
-  email: z.string().email('Введите корректный email'),
-})
-
-const forgotPasswordSchema = z.object({
-  email: z.string().email('Введите корректный email'),
-})
-
-const resetPasswordSchema = z.object({
-  password: z.string()
-    .min(8, 'Минимум 8 символов')
-    .regex(/[A-Z]/, 'Нужна хотя бы одна заглавная буква')
-    .regex(/[a-z]/, 'Нужна хотя бы одна строчная буква')
-    .regex(/[0-9]/, 'Нужна хотя бы одна цифра'),
-  confirmPassword: z.string().min(1, 'Подтвердите пароль'),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: 'Пароли не совпадают',
-  path: ['confirmPassword'],
-})
-
-type LoginForm = z.infer<typeof loginSchema>
-type MagicLinkForm = z.infer<typeof magicLinkSchema>
-type ForgotPasswordForm = z.infer<typeof forgotPasswordSchema>
-type ResetPasswordForm = z.infer<typeof resetPasswordSchema>
 
 const staggerItem = {
   hidden: { opacity: 0, y: 12 },
@@ -52,6 +22,7 @@ const staggerItem = {
 }
 
 export default function Login() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const login = useAuthStore((s) => s.login)
@@ -62,6 +33,37 @@ export default function Login() {
   const [resetToken, setResetToken] = useState<string | null>(null)
   const [resetSuccess, setResetSuccess] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+
+  const loginSchema = useMemo(() => z.object({
+    email: z.string().email(t('auth.validation.emailRequired')),
+    password: z.string().min(1, t('auth.validation.passwordRequired')),
+    remember: z.boolean().optional(),
+  }), [t])
+
+  const magicLinkSchema = useMemo(() => z.object({
+    email: z.string().email(t('auth.validation.emailRequired')),
+  }), [t])
+
+  const forgotPasswordSchema = useMemo(() => z.object({
+    email: z.string().email(t('auth.validation.emailRequired')),
+  }), [t])
+
+  const resetPasswordSchema = useMemo(() => z.object({
+    password: z.string()
+      .min(8, t('auth.validation.passwordMin8'))
+      .regex(/[A-Z]/, t('auth.validation.passwordUppercase'))
+      .regex(/[a-z]/, t('auth.validation.passwordLowercase'))
+      .regex(/[0-9]/, t('auth.validation.passwordDigit')),
+    confirmPassword: z.string().min(1, t('auth.validation.confirmPasswordRequired')),
+  }).refine((data) => data.password === data.confirmPassword, {
+    message: t('auth.validation.passwordsMismatch'),
+    path: ['confirmPassword'],
+  }), [t])
+
+  type LoginForm = z.infer<typeof loginSchema>
+  type MagicLinkForm = z.infer<typeof magicLinkSchema>
+  type ForgotPasswordForm = z.infer<typeof forgotPasswordSchema>
+  type ResetPasswordForm = z.infer<typeof resetPasswordSchema>
 
   useEffect(() => {
     const token = searchParams.get('reset')
@@ -101,13 +103,13 @@ export default function Login() {
     setIsLoading(true)
     try {
       await login(data.email, data.password)
-      toast.success('Добро пожаловать!')
+      toast.success(t('auth.login.welcomeToast'))
       navigate('/dashboard')
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message :
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        'Ошибка входа. Проверьте email и пароль.'
+        t('auth.login.loginError')
       toast.error(message)
     } finally {
       setIsLoading(false)
@@ -119,11 +121,11 @@ export default function Login() {
     try {
       await api.post('/user/auth/magic-link', { email: data.email })
       setMagicLinkSent(true)
-      toast.success('Ссылка для входа отправлена')
+      toast.success(t('auth.magicLink.sentToast'))
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        'Не удалось отправить ссылку. Попробуйте позже.'
+        t('auth.magicLink.sendError')
       toast.error(message)
     } finally {
       setIsLoading(false)
@@ -152,11 +154,11 @@ export default function Login() {
       })
       setResetSuccess(true)
       setResetToken(null)
-      toast.success('Пароль успешно изменён')
+      toast.success(t('auth.resetPassword.successToast'))
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-        'Не удалось сбросить пароль. Попробуйте запросить новую ссылку.'
+        t('auth.resetPassword.error')
       toast.error(message)
     } finally {
       setIsLoading(false)
@@ -174,33 +176,33 @@ export default function Login() {
       >
         <div>
           <h2 className="text-xl font-semibold font-display mb-1">
-            Новый пароль
+            {t('auth.resetPassword.title')}
           </h2>
           <p className="text-text-secondary text-sm">
-            Введите новый пароль для вашего аккаунта
+            {t('auth.resetPassword.subtitle')}
           </p>
         </div>
 
         <form onSubmit={resetForm.handleSubmit(handleResetPassword)} className="space-y-4">
           <Input
-            label="Новый пароль"
+            label={t('auth.resetPassword.newPasswordLabel')}
             type="password"
-            placeholder="Буквы верхнего/нижнего регистра + цифра"
+            placeholder={t('auth.resetPassword.newPasswordPlaceholder')}
             icon={<Lock size={16} />}
             {...resetForm.register('password')}
             error={resetForm.formState.errors.password?.message}
           />
           <Input
-            label="Подтвердите пароль"
+            label={t('auth.resetPassword.confirmPasswordLabel')}
             type="password"
-            placeholder="Повторите пароль"
+            placeholder={t('auth.resetPassword.confirmPasswordPlaceholder')}
             icon={<Lock size={16} />}
             {...resetForm.register('confirmPassword')}
             error={resetForm.formState.errors.confirmPassword?.message}
           />
           <Button type="submit" loading={isLoading} className="w-full">
             <KeyRound size={16} />
-            Установить пароль
+            {t('auth.resetPassword.submitButton')}
           </Button>
         </form>
 
@@ -210,7 +212,7 @@ export default function Login() {
             onClick={() => setResetToken(null)}
             className="text-sm text-text-secondary hover:text-text transition-colors"
           >
-            Вернуться к входу
+            {t('auth.login.backToLogin')}
           </button>
         </div>
       </motion.div>
@@ -235,17 +237,17 @@ export default function Login() {
           <Check className="text-green" size={24} />
         </motion.div>
         <h2 className="text-xl font-semibold font-display">
-          Пароль изменён
+          {t('auth.resetPassword.successTitle')}
         </h2>
         <p className="text-text-secondary text-sm leading-relaxed">
-          Теперь вы можете войти с новым паролем.
+          {t('auth.resetPassword.successDescription')}
         </p>
         <button
           type="button"
           onClick={() => setResetSuccess(false)}
           className="text-sm text-accent hover:text-accent-hover transition-colors"
         >
-          Войти
+          {t('auth.login.submitButton')}
         </button>
       </motion.div>
     )
@@ -270,10 +272,10 @@ export default function Login() {
             <Mail className="text-green" size={24} />
           </motion.div>
           <h2 className="text-xl font-semibold font-display">
-            Проверьте почту
+            {t('auth.forgotPassword.sentTitle')}
           </h2>
           <p className="text-text-secondary text-sm leading-relaxed">
-            Если аккаунт с таким email существует, мы отправили ссылку для сброса пароля.
+            {t('auth.forgotPassword.sentDescription')}
           </p>
           <button
             type="button"
@@ -283,7 +285,7 @@ export default function Login() {
             }}
             className="text-sm text-accent hover:text-accent-hover transition-colors"
           >
-            Вернуться к входу
+            {t('auth.login.backToLogin')}
           </button>
         </motion.div>
       )
@@ -299,25 +301,25 @@ export default function Login() {
       >
         <div>
           <h2 className="text-xl font-semibold font-display mb-1">
-            Забыли пароль?
+            {t('auth.forgotPassword.title')}
           </h2>
           <p className="text-text-secondary text-sm">
-            Введите email и мы отправим ссылку для сброса пароля
+            {t('auth.forgotPassword.subtitle')}
           </p>
         </div>
 
         <form onSubmit={forgotForm.handleSubmit(handleForgotPassword)} className="space-y-4">
           <Input
-            label="Email"
+            label={t('auth.login.emailLabel')}
             type="email"
-            placeholder="you@example.com"
+            placeholder={t('auth.login.emailPlaceholder')}
             icon={<Mail size={16} />}
             {...forgotForm.register('email')}
             error={forgotForm.formState.errors.email?.message}
           />
           <Button type="submit" loading={isLoading} className="w-full">
             <KeyRound size={16} />
-            Отправить ссылку
+            {t('auth.forgotPassword.sendButton')}
           </Button>
         </form>
 
@@ -327,7 +329,7 @@ export default function Login() {
             onClick={() => setShowForgotPassword(false)}
             className="text-sm text-text-secondary hover:text-text transition-colors"
           >
-            Вернуться к входу
+            {t('auth.login.backToLogin')}
           </button>
         </div>
       </motion.div>
@@ -351,11 +353,10 @@ export default function Login() {
           <Check className="text-green" size={24} />
         </motion.div>
         <h2 className="text-xl font-semibold font-display">
-          Проверьте почту
+          {t('auth.magicLink.sentTitle')}
         </h2>
         <p className="text-text-secondary text-sm leading-relaxed">
-          Мы отправили ссылку для входа на вашу почту.
-          Перейдите по ней, чтобы войти в систему.
+          {t('auth.magicLink.sentDescription')}
         </p>
         <button
           type="button"
@@ -365,7 +366,7 @@ export default function Login() {
           }}
           className="text-sm text-accent hover:text-accent-hover transition-colors"
         >
-          Вернуться к входу
+          {t('auth.login.backToLogin')}
         </button>
       </motion.div>
     )
@@ -384,18 +385,18 @@ export default function Login() {
         >
           <div>
             <h2 className="text-xl font-semibold font-display mb-1">
-              Вход по ссылке
+              {t('auth.magicLink.title')}
             </h2>
             <p className="text-text-secondary text-sm">
-              Введите email и мы отправим вам ссылку для входа
+              {t('auth.magicLink.subtitle')}
             </p>
           </div>
 
           <form onSubmit={magicForm.handleSubmit(handleMagicLink)} className="space-y-4">
             <Input
-              label="Email"
+              label={t('auth.login.emailLabel')}
               type="email"
-              placeholder="you@example.com"
+              placeholder={t('auth.login.emailPlaceholder')}
               icon={<Mail size={16} />}
               {...magicForm.register('email')}
               error={magicForm.formState.errors.email?.message}
@@ -403,7 +404,7 @@ export default function Login() {
 
             <Button type="submit" loading={isLoading} className="w-full">
               <Wand2 size={16} />
-              Отправить ссылку
+              {t('auth.magicLink.sendButton')}
             </Button>
           </form>
 
@@ -413,7 +414,7 @@ export default function Login() {
               onClick={() => setUseMagicLink(false)}
               className="text-sm text-text-secondary hover:text-text transition-colors"
             >
-              Войти с паролем
+              {t('auth.magicLink.switchToPassword')}
             </button>
           </div>
         </motion.div>
@@ -432,18 +433,18 @@ export default function Login() {
             initial="hidden"
             animate="visible"
           >
-            <h2 className="text-xl font-semibold font-display mb-1">Вход</h2>
+            <h2 className="text-xl font-semibold font-display mb-1">{t('auth.login.title')}</h2>
             <p className="text-text-secondary text-sm">
-              Введите данные для входа в личный кабинет
+              {t('auth.login.subtitle')}
             </p>
           </motion.div>
 
           <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
             <motion.div custom={1} variants={staggerItem} initial="hidden" animate="visible">
               <Input
-                label="Email"
+                label={t('auth.login.emailLabel')}
                 type="email"
-                placeholder="you@example.com"
+                placeholder={t('auth.login.emailPlaceholder')}
                 icon={<Mail size={16} />}
                 {...loginForm.register('email')}
                 error={loginForm.formState.errors.email?.message}
@@ -452,9 +453,9 @@ export default function Login() {
 
             <motion.div custom={2} variants={staggerItem} initial="hidden" animate="visible">
               <Input
-                label="Пароль"
+                label={t('auth.login.passwordLabel')}
                 type="password"
-                placeholder="Введите пароль"
+                placeholder={t('auth.login.passwordPlaceholder')}
                 icon={<Lock size={16} />}
                 {...loginForm.register('password')}
                 error={loginForm.formState.errors.password?.message}
@@ -476,14 +477,14 @@ export default function Login() {
                 htmlFor="remember"
                 className="text-sm text-text-secondary cursor-pointer select-none"
               >
-                Запомнить меня
+                {t('auth.login.rememberMe')}
               </label>
             </motion.div>
 
             <motion.div custom={4} variants={staggerItem} initial="hidden" animate="visible">
               <Button type="submit" loading={isLoading} className="w-full">
                 <Lock size={16} />
-                Войти
+                {t('auth.login.submitButton')}
               </Button>
             </motion.div>
           </form>
@@ -495,7 +496,7 @@ export default function Login() {
                 onClick={() => setUseMagicLink(true)}
                 className="text-sm text-text-secondary hover:text-text transition-colors"
               >
-                Войти по ссылке на email
+                {t('auth.login.magicLinkButton')}
               </button>
               <span className="text-text-muted">|</span>
               <button
@@ -503,17 +504,17 @@ export default function Login() {
                 onClick={() => setShowForgotPassword(true)}
                 className="text-sm text-text-secondary hover:text-text transition-colors"
               >
-                Забыли пароль?
+                {t('auth.login.forgotPassword')}
               </button>
             </div>
 
             <p className="text-xs text-text-muted">
-              Получили приглашение?{' '}
+              {t('auth.login.hasInvite')}{' '}
               <Link
                 to="/register/invite"
                 className="text-accent hover:text-accent-hover transition-colors"
               >
-                Зарегистрироваться
+                {t('auth.login.registerLink')}
               </Link>
             </p>
           </motion.div>
