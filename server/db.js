@@ -171,6 +171,52 @@ async function initDatabase() {
             )
         `);
 
+        // Add avatar_url and onboarding_completed_at to users table
+        await client.query(`
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'users' AND column_name = 'onboarding_completed_at'
+                ) THEN
+                    ALTER TABLE users ADD COLUMN onboarding_completed_at TIMESTAMP DEFAULT NULL;
+                END IF;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'users' AND column_name = 'avatar_url'
+                ) THEN
+                    ALTER TABLE users ADD COLUMN avatar_url VARCHAR(512) DEFAULT NULL;
+                END IF;
+            END $$;
+        `);
+
+        // Extended user profiles table
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS user_profiles (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                country_code CHAR(2),
+                city VARCHAR(255),
+                region VARCHAR(255),
+                birth_year INTEGER,
+                gender VARCHAR(20),
+                bio TEXT,
+                profession VARCHAR(255),
+                skills TEXT[],
+                interests TEXT[],
+                hobbies TEXT[],
+                motivation TEXT,
+                participation_interest VARCHAR(50),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_user_profiles_user_id ON user_profiles(user_id)
+        `);
+
         // Content categories
         await client.query(`
             CREATE TABLE IF NOT EXISTS categories (
@@ -1123,7 +1169,7 @@ async function getUserById(id) {
     const client = await pool.connect();
     try {
         const result = await client.query(
-            'SELECT id, registration_id, email, name, telegram, location, status, last_login, created_at, updated_at FROM users WHERE id = $1',
+            'SELECT id, registration_id, email, name, telegram, location, status, avatar_url, onboarding_completed_at, preferred_language, last_login, created_at, updated_at FROM users WHERE id = $1',
             [id]
         );
         return result.rows[0] || null;
@@ -1183,7 +1229,7 @@ async function updateUser(id, data) {
             'magic_link_token', 'magic_link_expires', 'invite_token',
             'invite_expires', 'last_login', 'email',
             'password_reset_token', 'password_reset_expires',
-            'preferred_language'
+            'preferred_language', 'avatar_url', 'onboarding_completed_at'
         ];
 
         for (const [key, value] of Object.entries(data)) {
@@ -1212,22 +1258,28 @@ async function updateUser(id, data) {
 async function getUsers(filters = {}) {
     const client = await pool.connect();
     try {
-        let query = 'SELECT id, registration_id, email, name, telegram, location, status, last_login, created_at, updated_at FROM users WHERE 1=1';
+        let query = `SELECT u.id, u.registration_id, u.email, u.name, u.telegram, u.location,
+            u.status, u.last_login, u.created_at, u.updated_at, u.avatar_url, u.onboarding_completed_at,
+            up.country_code, up.city, up.region, up.birth_year, up.gender, up.bio, up.profession,
+            up.skills, up.interests, up.hobbies, up.motivation, up.participation_interest
+            FROM users u
+            LEFT JOIN user_profiles up ON up.user_id = u.id
+            WHERE 1=1`;
         const params = [];
         let paramIndex = 1;
 
         if (filters.status) {
-            query += ` AND status = $${paramIndex++}`;
+            query += ` AND u.status = $${paramIndex++}`;
             params.push(filters.status);
         }
 
         if (filters.search) {
-            query += ` AND (name ILIKE $${paramIndex} OR email ILIKE $${paramIndex})`;
+            query += ` AND (u.name ILIKE $${paramIndex} OR u.email ILIKE $${paramIndex})`;
             params.push(`%${filters.search}%`);
             paramIndex++;
         }
 
-        query += ' ORDER BY created_at DESC';
+        query += ' ORDER BY u.created_at DESC';
 
         if (filters.limit) {
             query += ` LIMIT $${paramIndex++}`;
@@ -3306,6 +3358,119 @@ async function getAllLandingPageSections() {
     }
 }
 
+// ============================================
+// USER PROFILE FUNCTIONS
+// ============================================
+
+async function getUserProfile(userId) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            'SELECT * FROM user_profiles WHERE user_id = $1',
+            [userId]
+        );
+        return result.rows[0] || null;
+    } finally {
+        client.release();
+    }
+}
+
+async function upsertUserProfile(userId, data) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `INSERT INTO user_profiles (
+                user_id, country_code, city, region, birth_year, gender,
+                bio, profession, skills, interests, hobbies,
+                motivation, participation_interest
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            ON CONFLICT (user_id) DO UPDATE SET
+                country_code = COALESCE($2, user_profiles.country_code),
+                city = COALESCE($3, user_profiles.city),
+                region = COALESCE($4, user_profiles.region),
+                birth_year = COALESCE($5, user_profiles.birth_year),
+                gender = COALESCE($6, user_profiles.gender),
+                bio = COALESCE($7, user_profiles.bio),
+                profession = COALESCE($8, user_profiles.profession),
+                skills = COALESCE($9, user_profiles.skills),
+                interests = COALESCE($10, user_profiles.interests),
+                hobbies = COALESCE($11, user_profiles.hobbies),
+                motivation = COALESCE($12, user_profiles.motivation),
+                participation_interest = COALESCE($13, user_profiles.participation_interest),
+                updated_at = CURRENT_TIMESTAMP
+            RETURNING *`,
+            [
+                userId,
+                data.countryCode || null,
+                data.city || null,
+                data.region || null,
+                data.birthYear || null,
+                data.gender || null,
+                data.bio || null,
+                data.profession || null,
+                data.skills || null,
+                data.interests || null,
+                data.hobbies || null,
+                data.motivation || null,
+                data.participationInterest || null
+            ]
+        );
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+async function getUserWithProfile(userId) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `SELECT u.id, u.email, u.name, u.telegram, u.location, u.status,
+                    u.avatar_url, u.onboarding_completed_at, u.preferred_language,
+                    u.last_login, u.created_at, u.updated_at,
+                    up.country_code, up.city AS profile_city, up.region, up.birth_year,
+                    up.gender, up.bio, up.profession, up.skills, up.interests,
+                    up.hobbies, up.motivation, up.participation_interest
+             FROM users u
+             LEFT JOIN user_profiles up ON up.user_id = u.id
+             WHERE u.id = $1`,
+            [userId]
+        );
+        return result.rows[0] || null;
+    } finally {
+        client.release();
+    }
+}
+
+async function completeOnboarding(userId) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `UPDATE users SET onboarding_completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+             WHERE id = $1 AND onboarding_completed_at IS NULL
+             RETURNING id, onboarding_completed_at`,
+            [userId]
+        );
+        return result.rows[0] || null;
+    } finally {
+        client.release();
+    }
+}
+
+async function updateUserAvatar(userId, avatarUrl) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `UPDATE users SET avatar_url = $1, updated_at = CURRENT_TIMESTAMP
+             WHERE id = $2 RETURNING id, avatar_url`,
+            [avatarUrl, userId]
+        );
+        return result.rows[0] || null;
+    } finally {
+        client.release();
+    }
+}
+
 module.exports = {
     pool,
     initDatabase,
@@ -3469,6 +3634,12 @@ module.exports = {
     getLandingPageContent,
     updateLandingPageContent,
     getAllLandingPageSections,
+    // User Profile functions
+    getUserProfile,
+    upsertUserProfile,
+    getUserWithProfile,
+    completeOnboarding,
+    updateUserAvatar,
     // Pool reference for graceful shutdown
     pool
 };

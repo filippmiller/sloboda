@@ -330,6 +330,16 @@
     },
     "validation": {
       "nameMin2": "At least 2 characters"
+    },
+    "extendedProfile": {
+      "heading": "Extended Profile",
+      "savedToast": "Extended profile saved"
+    },
+    "avatar": {
+      "heading": "Profile Photo",
+      "change": "Change",
+      "remove": "Remove",
+      "upload": "Upload photo"
     }
   },
   "forum": {
@@ -529,5 +539,67 @@
     "title": "Page error",
     "description": "This page encountered an error. Other sections are working normally.",
     "retry": "Try again"
+  },
+  "onboarding": {
+    "title": "Complete Your Profile",
+    "subtitle": "Tell us about yourself so we can better connect you with the community. This is optional, but highly recommended.",
+    "whyImportant": "Each person in our community is important. Your experience and skills matter to us — they help us understand our audience and communicate better.",
+
+    "step1Title": "Profile Photo",
+    "step1Subtitle": "Upload a photo so others can recognize you",
+    "step2Title": "Personal Information",
+    "step2Subtitle": "Where are you from?",
+    "step3Title": "About You",
+    "step3Subtitle": "Share your skills and interests",
+    "step4Title": "Motivation",
+    "step4Subtitle": "Why are you interested in SLOBODA?",
+
+    "skipButton": "Skip for now",
+    "nextButton": "Continue",
+    "backButton": "Back",
+    "finishButton": "Complete",
+
+    "uploadPhoto": "Upload photo",
+    "changePhoto": "Change photo",
+    "removePhoto": "Remove",
+    "dragOrClick": "Drag a photo here or click to select",
+    "maxFileSize": "Maximum file size: 5MB. JPEG, PNG, or WebP.",
+
+    "countryLabel": "Country",
+    "countryPlaceholder": "Select country",
+    "cityLabel": "City",
+    "cityPlaceholder": "Your city",
+    "regionLabel": "Region / State",
+    "regionPlaceholder": "Your region or state",
+    "birthYearLabel": "Birth year",
+    "birthYearPlaceholder": "e.g. 1990",
+    "genderLabel": "Gender",
+    "genderMale": "Male",
+    "genderFemale": "Female",
+    "genderOther": "Other",
+    "genderPreferNot": "Prefer not to say",
+
+    "bioLabel": "About yourself",
+    "bioPlaceholder": "Tell the community about yourself...",
+    "professionLabel": "Profession",
+    "professionPlaceholder": "Your profession or occupation",
+    "skillsLabel": "Skills",
+    "skillsPlaceholder": "Type a skill and press Enter",
+    "interestsLabel": "Interests",
+    "interestsPlaceholder": "Type an interest and press Enter",
+    "hobbiesLabel": "Hobbies",
+    "hobbiesPlaceholder": "Type a hobby and press Enter",
+
+    "motivationLabel": "Why SLOBODA?",
+    "motivationPlaceholder": "What draws you to this community? Why did you register?",
+    "participationLabel": "How do you see yourself participating?",
+    "participationRelocate": "I want to relocate",
+    "participationInvest": "I want to invest",
+    "participationRemote": "I want to contribute remotely",
+    "participationVisit": "I want to visit",
+    "participationOther": "Other",
+
+    "successTitle": "Profile Complete!",
+    "successDescription": "Welcome to the community. You can update your profile anytime from the settings."
   }
 }

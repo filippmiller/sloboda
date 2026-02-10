@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { requireUserAuth } = require('../middleware/userAuth');
 const { upload } = require('../services/fileStorage');
+const { avatarUpload } = require('../middleware/avatarUpload');
+const s3Storage = require('../services/s3Storage');
 const { enqueue: enqueueClassification } = require('../services/ai/queue');
 const { streamLibrarianResponse } = require('../services/ai/librarian');
 
@@ -427,30 +429,50 @@ router.post('/librarian/chat', requireUserAuth, async (req, res) => {
 // ============================================
 
 /**
+ * Helper to format user + profile data for API responses
+ */
+function formatProfileResponse(user) {
+    return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        telegram: user.telegram,
+        location: user.location,
+        status: user.status,
+        avatarUrl: user.avatar_url || null,
+        onboardingCompletedAt: user.onboarding_completed_at || null,
+        preferredLanguage: user.preferred_language || 'ru',
+        lastLogin: user.last_login,
+        createdAt: user.created_at,
+        profile: user.country_code !== undefined ? {
+            countryCode: user.country_code || null,
+            city: user.profile_city || null,
+            region: user.region || null,
+            birthYear: user.birth_year || null,
+            gender: user.gender || null,
+            bio: user.bio || null,
+            profession: user.profession || null,
+            skills: user.skills || [],
+            interests: user.interests || [],
+            hobbies: user.hobbies || [],
+            motivation: user.motivation || null,
+            participationInterest: user.participation_interest || null
+        } : null
+    };
+}
+
+/**
  * GET /api/user/profile
- * Get current user profile
+ * Get current user profile with extended data
  */
 router.get('/profile', requireUserAuth, async (req, res) => {
     try {
-        const user = await db.getUserById(req.user.id);
+        const user = await db.getUserWithProfile(req.user.id);
         if (!user) {
             return res.status(404).json({ success: false, error: 'User not found' });
         }
 
-        res.json({
-            success: true,
-            data: {
-                id: user.id,
-                email: user.email,
-                name: user.name,
-                telegram: user.telegram,
-                location: user.location,
-                status: user.status,
-                preferredLanguage: user.preferred_language || 'ru',
-                lastLogin: user.last_login,
-                createdAt: user.created_at
-            }
-        });
+        res.json({ success: true, data: formatProfileResponse(user) });
     } catch (err) {
         console.error('Error fetching profile:', err);
         res.status(500).json({ success: false, error: 'Failed to fetch profile' });
@@ -459,7 +481,7 @@ router.get('/profile', requireUserAuth, async (req, res) => {
 
 /**
  * PATCH /api/user/profile
- * Update current user profile
+ * Update basic user profile fields
  */
 router.patch('/profile', requireUserAuth, async (req, res) => {
     try {
@@ -492,22 +514,172 @@ router.patch('/profile', requireUserAuth, async (req, res) => {
             });
         }
 
-        const user = await db.updateUser(req.user.id, updates);
+        await db.updateUser(req.user.id, updates);
+        const user = await db.getUserWithProfile(req.user.id);
 
-        res.json({
-            success: true,
-            data: {
-                id: user.id,
-                email: user.email,
-                name: user.name,
-                telegram: user.telegram,
-                location: user.location,
-                preferredLanguage: user.preferred_language || 'ru'
-            }
-        });
+        res.json({ success: true, data: formatProfileResponse(user) });
     } catch (err) {
         console.error('Error updating profile:', err);
         res.status(500).json({ success: false, error: 'Failed to update profile' });
+    }
+});
+
+/**
+ * PUT /api/user/profile/extended
+ * Create or update extended profile data (upsert)
+ */
+router.put('/profile/extended', requireUserAuth, async (req, res) => {
+    try {
+        const { countryCode, city, region, birthYear, gender,
+                bio, profession, skills, interests, hobbies,
+                motivation, participationInterest } = req.body;
+
+        // Validate gender
+        const validGenders = ['male', 'female', 'other', 'prefer_not_to_say'];
+        if (gender && !validGenders.includes(gender)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid gender value'
+            });
+        }
+
+        // Validate country code (2 letters)
+        if (countryCode && (typeof countryCode !== 'string' || countryCode.length !== 2)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Country code must be a 2-letter ISO code'
+            });
+        }
+
+        // Validate birth year
+        if (birthYear !== undefined && birthYear !== null) {
+            const year = parseInt(birthYear);
+            const currentYear = new Date().getFullYear();
+            if (isNaN(year) || year < 1900 || year > currentYear) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Invalid birth year'
+                });
+            }
+        }
+
+        // Validate participation interest
+        const validParticipation = ['relocate', 'invest', 'remote', 'visit', 'other'];
+        if (participationInterest && !validParticipation.includes(participationInterest)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid participation interest'
+            });
+        }
+
+        await db.upsertUserProfile(req.user.id, {
+            countryCode: countryCode || null,
+            city: city || null,
+            region: region || null,
+            birthYear: birthYear ? parseInt(birthYear) : null,
+            gender: gender || null,
+            bio: bio || null,
+            profession: profession || null,
+            skills: Array.isArray(skills) ? skills : null,
+            interests: Array.isArray(interests) ? interests : null,
+            hobbies: Array.isArray(hobbies) ? hobbies : null,
+            motivation: motivation || null,
+            participationInterest: participationInterest || null
+        });
+
+        const user = await db.getUserWithProfile(req.user.id);
+        res.json({ success: true, data: formatProfileResponse(user) });
+    } catch (err) {
+        console.error('Error updating extended profile:', err);
+        res.status(500).json({ success: false, error: 'Failed to update profile' });
+    }
+});
+
+/**
+ * POST /api/user/profile/avatar
+ * Upload avatar image to S3
+ */
+router.post('/profile/avatar', requireUserAuth, avatarUpload.single('avatar'), async (req, res) => {
+    try {
+        if (!s3Storage.isConfigured()) {
+            return res.status(503).json({
+                success: false,
+                error: 'File storage is not configured'
+            });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                error: 'No avatar file provided'
+            });
+        }
+
+        // Delete old avatar if exists
+        const currentUser = await db.getUserById(req.user.id);
+        if (currentUser && currentUser.avatar_url) {
+            const oldKey = s3Storage.extractKeyFromUrl(currentUser.avatar_url);
+            if (oldKey) {
+                s3Storage.deleteFile(oldKey).catch(err =>
+                    console.error('Error deleting old avatar:', err)
+                );
+            }
+        }
+
+        // Upload new avatar
+        const key = s3Storage.generateAvatarKey(req.file.originalname);
+        const { url } = await s3Storage.uploadFile(req.file.buffer, key, req.file.mimetype);
+
+        // Save URL in database
+        await db.updateUserAvatar(req.user.id, url);
+
+        res.json({ success: true, avatarUrl: url });
+    } catch (err) {
+        console.error('Error uploading avatar:', err);
+        if (err.message && err.message.includes('allowed')) {
+            return res.status(400).json({ success: false, error: err.message });
+        }
+        res.status(500).json({ success: false, error: 'Failed to upload avatar' });
+    }
+});
+
+/**
+ * DELETE /api/user/profile/avatar
+ * Remove avatar
+ */
+router.delete('/profile/avatar', requireUserAuth, async (req, res) => {
+    try {
+        const currentUser = await db.getUserById(req.user.id);
+        if (currentUser && currentUser.avatar_url) {
+            if (s3Storage.isConfigured()) {
+                const key = s3Storage.extractKeyFromUrl(currentUser.avatar_url);
+                if (key) {
+                    s3Storage.deleteFile(key).catch(err =>
+                        console.error('Error deleting avatar from S3:', err)
+                    );
+                }
+            }
+            await db.updateUserAvatar(req.user.id, null);
+        }
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Error deleting avatar:', err);
+        res.status(500).json({ success: false, error: 'Failed to delete avatar' });
+    }
+});
+
+/**
+ * POST /api/user/onboarding/complete
+ * Mark onboarding as completed
+ */
+router.post('/onboarding/complete', requireUserAuth, async (req, res) => {
+    try {
+        await db.completeOnboarding(req.user.id);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Error completing onboarding:', err);
+        res.status(500).json({ success: false, error: 'Failed to complete onboarding' });
     }
 });
 

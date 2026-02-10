@@ -70,7 +70,7 @@ app.use(helmet({
             defaultSrc: ["'self'"],
             styleSrc: ["'self'", "'unsafe-inline'", "fonts.googleapis.com"],
             fontSrc: ["'self'", "fonts.gstatic.com"],
-            imgSrc: ["'self'", "data:", "blob:", "https://images.unsplash.com"],
+            imgSrc: ["'self'", "data:", "blob:", "https://images.unsplash.com", process.env.S3_PUBLIC_URL].filter(Boolean),
             scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
             connectSrc: ["'self'"],
         }
@@ -135,7 +135,7 @@ if (hasClientBuild) {
     }));
 
     // React app routes - user portal
-    const reactRoutes = ['/login', '/register', '/dashboard', '/news', '/library', '/librarian', '/submit', '/profile', '/bookmarks', '/notifications', '/finance', '/forum'];
+    const reactRoutes = ['/login', '/register', '/dashboard', '/news', '/library', '/librarian', '/submit', '/profile', '/bookmarks', '/notifications', '/finance', '/forum', '/onboarding'];
     reactRoutes.forEach(route => {
         app.get(route, (req, res) => res.sendFile(clientIndexPath));
         app.get(route + '/*', (req, res) => res.sendFile(clientIndexPath));

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { Outlet, NavLink, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
 import { ROUTES } from '@/config/routes'
@@ -39,8 +39,14 @@ export default function DashboardLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const logout = useAuthStore((s) => s.logout)
+  const user = useAuthStore((s) => s.user)
   const [unreadCount, setUnreadCount] = useState(0)
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  // Redirect to onboarding if not completed
+  if (user && !user.onboardingCompletedAt) {
+    return <Navigate to={ROUTES.ONBOARDING} replace />
+  }
 
   const fetchNotificationCount = useCallback(async () => {
     try {

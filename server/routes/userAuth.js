@@ -601,6 +601,8 @@ router.get('/me', requireUserAuth, async (req, res) => {
                 telegram: user.telegram,
                 location: user.location,
                 status: user.status,
+                avatarUrl: user.avatar_url || null,
+                onboardingCompletedAt: user.onboarding_completed_at || null,
                 lastLogin: user.last_login,
                 createdAt: user.created_at
             }

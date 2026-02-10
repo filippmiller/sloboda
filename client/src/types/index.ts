@@ -4,8 +4,10 @@ export interface User {
   name: string
   role: 'user' | 'admin' | 'super_admin'
   avatar_url?: string
+  avatarUrl?: string
   telegram?: string
   location?: string
+  onboardingCompletedAt?: string
   last_login_at?: string
   created_at: string
   updated_at: string
@@ -99,15 +101,34 @@ export interface RegistrationNote {
   created_at: string
 }
 
+export interface UserProfile {
+  countryCode?: string
+  city?: string
+  region?: string
+  birthYear?: number
+  gender?: 'male' | 'female' | 'other' | 'prefer_not_to_say'
+  bio?: string
+  profession?: string
+  skills?: string[]
+  interests?: string[]
+  hobbies?: string[]
+  motivation?: string
+  participationInterest?: 'relocate' | 'invest' | 'remote' | 'visit' | 'other'
+}
+
 export interface PortalUser {
   id: number
   email: string
   name: string
   telegram?: string
   location?: string
+  avatarUrl?: string
+  onboardingCompletedAt?: string
   status: 'active' | 'suspended'
+  preferredLanguage?: string
   last_login?: string
   created_at: string
+  profile?: UserProfile | null
 }
 
 export interface Setting {

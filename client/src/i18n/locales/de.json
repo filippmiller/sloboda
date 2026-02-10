@@ -330,6 +330,16 @@
     },
     "validation": {
       "nameMin2": "Mindestens 2 Zeichen"
+    },
+    "extendedProfile": {
+      "heading": "Erweitertes Profil",
+      "savedToast": "Erweitertes Profil gespeichert"
+    },
+    "avatar": {
+      "heading": "Profilfoto",
+      "change": "Ändern",
+      "remove": "Entfernen",
+      "upload": "Foto hochladen"
     }
   },
   "forum": {
@@ -529,5 +539,67 @@
     "title": "Seitenfehler",
     "description": "Auf dieser Seite ist ein Fehler aufgetreten. Andere Bereiche funktionieren normal.",
     "retry": "Erneut versuchen"
+  },
+  "onboarding": {
+    "title": "Profil vervollständigen",
+    "subtitle": "Erzählen Sie uns etwas über sich, damit wir Sie besser mit der Gemeinschaft verbinden können. Dies ist optional, wird aber sehr empfohlen.",
+    "whyImportant": "Jeder Mensch in unserer Gemeinschaft ist wichtig. Ihre Erfahrung und Fähigkeiten sind uns wichtig — sie helfen uns, unser Publikum zu verstehen und besser zu kommunizieren.",
+
+    "step1Title": "Profilfoto",
+    "step1Subtitle": "Laden Sie ein Foto hoch, damit andere Sie erkennen können",
+    "step2Title": "Persönliche Informationen",
+    "step2Subtitle": "Woher kommen Sie?",
+    "step3Title": "Über Sie",
+    "step3Subtitle": "Teilen Sie Ihre Fähigkeiten und Interessen",
+    "step4Title": "Motivation",
+    "step4Subtitle": "Warum interessieren Sie sich für SLOBODA?",
+
+    "skipButton": "Vorerst überspringen",
+    "nextButton": "Weiter",
+    "backButton": "Zurück",
+    "finishButton": "Abschließen",
+
+    "uploadPhoto": "Foto hochladen",
+    "changePhoto": "Foto ändern",
+    "removePhoto": "Entfernen",
+    "dragOrClick": "Ziehen Sie ein Foto hierher oder klicken Sie zur Auswahl",
+    "maxFileSize": "Maximale Dateigröße: 5 MB. JPEG, PNG oder WebP.",
+
+    "countryLabel": "Land",
+    "countryPlaceholder": "Land auswählen",
+    "cityLabel": "Stadt",
+    "cityPlaceholder": "Ihre Stadt",
+    "regionLabel": "Region / Bundesland",
+    "regionPlaceholder": "Ihre Region oder Ihr Bundesland",
+    "birthYearLabel": "Geburtsjahr",
+    "birthYearPlaceholder": "z. B. 1990",
+    "genderLabel": "Geschlecht",
+    "genderMale": "Männlich",
+    "genderFemale": "Weiblich",
+    "genderOther": "Divers",
+    "genderPreferNot": "Keine Angabe",
+
+    "bioLabel": "Über Sie",
+    "bioPlaceholder": "Erzählen Sie der Gemeinschaft etwas über sich...",
+    "professionLabel": "Beruf",
+    "professionPlaceholder": "Ihr Beruf oder Ihre Tätigkeit",
+    "skillsLabel": "Fähigkeiten",
+    "skillsPlaceholder": "Fähigkeit eingeben und Enter drücken",
+    "interestsLabel": "Interessen",
+    "interestsPlaceholder": "Interesse eingeben und Enter drücken",
+    "hobbiesLabel": "Hobbys",
+    "hobbiesPlaceholder": "Hobby eingeben und Enter drücken",
+
+    "motivationLabel": "Warum SLOBODA?",
+    "motivationPlaceholder": "Was zieht Sie an dieser Gemeinschaft an? Warum haben Sie sich registriert?",
+    "participationLabel": "Wie stellen Sie sich Ihre Teilnahme vor?",
+    "participationRelocate": "Ich möchte umziehen",
+    "participationInvest": "Ich möchte investieren",
+    "participationRemote": "Ich möchte aus der Ferne beitragen",
+    "participationVisit": "Ich möchte zu Besuch kommen",
+    "participationOther": "Anderes",
+
+    "successTitle": "Profil vollständig!",
+    "successDescription": "Willkommen in der Gemeinschaft. Sie können Ihr Profil jederzeit in den Einstellungen aktualisieren."
   }
 }

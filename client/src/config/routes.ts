@@ -4,6 +4,7 @@ export const ROUTES = {
   REGISTER: '/register/:token',
 
   // User portal
+  ONBOARDING: '/onboarding',
   DASHBOARD: '/dashboard',
   NEWS: '/news',
   LIBRARY: '/library',

@@ -7,6 +7,7 @@ import RouteErrorBoundary from '@/components/RouteErrorBoundary'
 // Layouts loaded eagerly — needed immediately for route groups
 import AuthLayout from '@/layouts/AuthLayout'
 import DashboardLayout from '@/layouts/DashboardLayout'
+import OnboardingLayout from '@/layouts/OnboardingLayout'
 import AdminLayout from '@/layouts/AdminLayout'
 
 // Lazy-loaded page components
@@ -22,6 +23,7 @@ const Finance = lazy(() => import('@/pages/user/Finance'))
 const Bookmarks = lazy(() => import('@/pages/user/Bookmarks'))
 const Notifications = lazy(() => import('@/pages/user/Notifications'))
 const Profile = lazy(() => import('@/pages/user/Profile'))
+const Onboarding = lazy(() => import('@/pages/user/Onboarding'))
 const Forum = lazy(() => import('@/pages/Forum'))
 const ThreadView = lazy(() => import('@/pages/ThreadView'))
 const CreateThread = lazy(() => import('@/pages/CreateThread'))
@@ -68,6 +70,11 @@ function App() {
         <Route element={<AuthLayout />}>
           <Route path={ROUTES.LOGIN} element={<Login />} />
           <Route path={ROUTES.REGISTER} element={<Register />} />
+        </Route>
+
+        {/* Onboarding (authenticated, no sidebar) */}
+        <Route element={<OnboardingLayout />}>
+          <Route path={ROUTES.ONBOARDING} element={<Safe><Onboarding /></Safe>} />
         </Route>
 
         {/* User portal routes */}

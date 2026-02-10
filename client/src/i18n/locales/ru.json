@@ -330,6 +330,16 @@
     },
     "validation": {
       "nameMin2": "Минимум 2 символа"
+    },
+    "extendedProfile": {
+      "heading": "Расширенный профиль",
+      "savedToast": "Расширенный профиль сохранён"
+    },
+    "avatar": {
+      "heading": "Фото профиля",
+      "change": "Изменить",
+      "remove": "Удалить",
+      "upload": "Загрузить фото"
     }
   },
   "forum": {
@@ -531,5 +541,67 @@
     "title": "Ошибка на странице",
     "description": "Эта страница столкнулась с ошибкой. Остальные разделы работают нормально.",
     "retry": "Попробовать снова"
+  },
+  "onboarding": {
+    "title": "Заполните профиль",
+    "subtitle": "Расскажите о себе, чтобы мы могли лучше связать вас с сообществом. Это опционально, но очень рекомендуется.",
+    "whyImportant": "Каждый человек в нашем сообществе важен. Ваш опыт и навыки важны для нас — это помогает нам понимать нашу аудиторию и лучше общаться.",
+
+    "step1Title": "Фото профиля",
+    "step1Subtitle": "Загрузите фото, чтобы другие могли вас узнать",
+    "step2Title": "Личная информация",
+    "step2Subtitle": "Откуда вы?",
+    "step3Title": "О вас",
+    "step3Subtitle": "Расскажите о своих навыках и интересах",
+    "step4Title": "Мотивация",
+    "step4Subtitle": "Почему вас интересует SLOBODA?",
+
+    "skipButton": "Пропустить пока",
+    "nextButton": "Продолжить",
+    "backButton": "Назад",
+    "finishButton": "Завершить",
+
+    "uploadPhoto": "Загрузить фото",
+    "changePhoto": "Изменить фото",
+    "removePhoto": "Удалить",
+    "dragOrClick": "Перетащите фото сюда или нажмите для выбора",
+    "maxFileSize": "Максимальный размер файла: 5 МБ. JPEG, PNG или WebP.",
+
+    "countryLabel": "Страна",
+    "countryPlaceholder": "Выберите страну",
+    "cityLabel": "Город",
+    "cityPlaceholder": "Ваш город",
+    "regionLabel": "Регион / область",
+    "regionPlaceholder": "Ваш регион или область",
+    "birthYearLabel": "Год рождения",
+    "birthYearPlaceholder": "напр. 1990",
+    "genderLabel": "Пол",
+    "genderMale": "Мужской",
+    "genderFemale": "Женский",
+    "genderOther": "Другой",
+    "genderPreferNot": "Не хочу указывать",
+
+    "bioLabel": "О себе",
+    "bioPlaceholder": "Расскажите сообществу о себе...",
+    "professionLabel": "Профессия",
+    "professionPlaceholder": "Ваша профессия или род деятельности",
+    "skillsLabel": "Навыки",
+    "skillsPlaceholder": "Введите навык и нажмите Enter",
+    "interestsLabel": "Интересы",
+    "interestsPlaceholder": "Введите интерес и нажмите Enter",
+    "hobbiesLabel": "Хобби",
+    "hobbiesPlaceholder": "Введите хобби и нажмите Enter",
+
+    "motivationLabel": "Почему SLOBODA?",
+    "motivationPlaceholder": "Что привлекает вас в этом сообществе? Почему вы зарегистрировались?",
+    "participationLabel": "Как вы видите своё участие?",
+    "participationRelocate": "Хочу переехать",
+    "participationInvest": "Хочу инвестировать",
+    "participationRemote": "Хочу участвовать удалённо",
+    "participationVisit": "Хочу приехать в гости",
+    "participationOther": "Другое",
+
+    "successTitle": "Профиль заполнен!",
+    "successDescription": "Добро пожаловать в сообщество. Вы можете обновить свой профиль в любое время в настройках."
   }
 }
