@@ -129,13 +129,6 @@ export default function ForumThreads() {
           <AlertTriangle size={16} className="inline mr-2" />
           Модерация
         </Link>
-        <Link
-          to={ROUTES.ADMIN_FORUM_ANALYTICS}
-          className="px-4 py-2 rounded-lg text-sm font-medium text-text-secondary hover:text-text hover:bg-bg-elevated transition-colors"
-        >
-          <BarChart3 size={16} className="inline mr-2" />
-          Аналитика
-        </Link>
       </div>
 
       <Card>

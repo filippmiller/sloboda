@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { adminApi } from '@/services/adminApi';
+import adminApi from '@/services/adminApi';
 import { Save, RotateCw, Eye, Plus, Trash2, Edit2 } from 'lucide-react';
 
 interface LandingSection {
