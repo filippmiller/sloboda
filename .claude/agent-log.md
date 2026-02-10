@@ -476,3 +476,44 @@ Picked up after previous agent crashed during testing phase. Found 6 files with 
 → `.claude/sessions/2026-02-07-recovery-orphaned-changes.md`
 
 ---
+
+## 2026-02-10 08:55 — Social psychology analysis & alternative landing page design
+
+**Area:** Landing Page / UX Research / Conversion Optimization
+**Type:** research + feature
+
+### Research Conducted
+- Comprehensive social psychology/sociology analysis of SLOBODA landing page
+- Comparative research: 10+ similar platforms (Global Ecovillage Network, Foundation for Intentional Community, Transition Network, Fortitude Ranch, Permaculture Lab, One Community Global, ReGen Villages, Resilience.org, Dark Mountain Project)
+- UX/messaging audit identifying 8 critical gaps: emotional hooks, visual storytelling, fear-hope balance, CTAs, social proof, donation friction, conversion funnel, psychological triggers
+- 50+ specific recommendations across messaging, design, CTAs, trust signals, community building, content strategy
+
+### Key Findings
+- SLOBODA is too rational (no emotional engagement)
+- No visual storytelling (text-only, no hero images, faces, videos)
+- Weak fear-hope balance (needs visceral opening + concrete hope)
+- Buried/low-contrast CTAs
+- No social proof (member count, testimonials, activity)
+- High friction in donation (Telegram-only removes 70%+ conversions)
+- Effective collapse-preparedness sites use 30% fear / 70% hope formula
+
+### Files Changed
+- `src/index-v2.html` — new: alternative landing page implementing psychology recommendations
+- `src/styles-v2.css` — new: enhanced visual design with hero imagery, emotional hierarchy, improved CTAs
+- `src/script-v2.js` — new: supporting interactions for v2 design
+
+### Psychological Principles Applied
+- Terror Management Theory (meaning, belonging, legacy)
+- Loss Aversion (cost of inaction framing)
+- Social Proof (live counters, testimonials, activity feed)
+- Foot-in-the-Door (micro-commitments before big ask)
+- Narrative Transportation (founder story, member journeys)
+- Scarcity & Urgency (founding member limits, timeline pressure)
+
+### Summary
+Conducted comprehensive social psychology analysis of SLOBODA landing page by researching 10+ comparable platforms in ecovillage/resilience/collapse-preparedness space. Identified critical conversion gaps: lacks emotional hooks, visual storytelling, social proof, and optimized CTAs. Documented 50+ detailed recommendations across 8 categories. Created alternative landing page design (v2) implementing key psychological principles while preserving original design for comparison.
+
+### Session Notes
+→ `.claude/sessions/2026-02-10-085500-social-psychology-analysis.md`
+
+---

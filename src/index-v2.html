@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>СЛОБОДА — Ваша страховка на будущее, которое уже наступает</title>
+
+    <meta name="description" content="Пока другие спорят, мы строим. Децентрализованная сеть экопоселений для тех, кто видит знаки и готов действовать.">
+    <meta name="keywords" content="слобода, план Б, исход из города, экопоселение, автономная жизнь, подготовка к кризису, сообщество">
+    <meta name="author" content="Phillip Miller">
+    <meta name="robots" content="index, follow">
+
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://sloboda.land/">
+    <meta property="og:title" content="СЛОБОДА — Спасательная шлюпка, пока корабль тонет">
+    <meta property="og:description" content="Присоединяйтесь к 500+ россиянам, готовящимся к автономной жизни. База знаний, эксперты, сообщество.">
+    <meta property="og:image" content="https://sloboda.land/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:locale" content="ru_RU">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="СЛОБОДА — Спасательная шлюпка, пока корабль тонет">
+    <meta name="twitter:description" content="Присоединяйтесь к 500+ россиянам, готовящимся к автономной жизни.">
+    <meta name="twitter:image" content="https://sloboda.land/og-image.png">
+
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>S</text></svg>">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preload" as="image" href="https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1920&q=80">
+    <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles-v2.css">
+
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "СЛОБОДА",
+        "alternateName": "SLOBODA",
+        "url": "https://sloboda.land",
+        "description": "Децентрализованная сеть экопоселений для автономной жизни.",
+        "foundingDate": "2026",
+        "founder": {
+            "@type": "Person",
+            "name": "Phillip Miller"
+        },
+        "contactPoint": {
+            "@type": "ContactPoint",
+            "email": "info@sloboda.land",
+            "contactType": "general"
+        },
+        "sameAs": [
+            "https://t.me/sloboda_land"
+        ]
+    }
+    </script>
+</head>
+<body>
+
+    <a class="skip-link" href="#content">Перейти к содержанию</a>
+
+    <!-- Sticky header -->
+    <header class="header" id="header">
+        <div class="header-inner">
+            <a class="logo" href="#top" aria-label="Наверх">СЛОБОДА</a>
+            <nav class="nav" aria-label="Основная навигация">
+                <a href="#why">Почему</a>
+                <a href="#how">Как это работает</a>
+                <a href="#founder">О нас</a>
+                <a href="#faq">Вопросы</a>
+            </nav>
+            <a href="#join" class="cta-btn cta-btn-header">Присоединиться</a>
+            <button class="menu-toggle" aria-label="Открыть меню" id="menuToggle">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+        <div class="mobile-menu" id="mobileMenu">
+            <a href="#why">Почему</a>
+            <a href="#how">Как это работает</a>
+            <a href="#founder">О нас</a>
+            <a href="#faq">Вопросы</a>
+            <a href="#join">Присоединиться</a>
+        </div>
+    </header>
+
+    <!-- HERO SECTION - Visceral emotional hook -->
+    <section class="hero" id="top">
+        <div class="hero-bg" aria-hidden="true"></div>
+        <div class="hero-overlay"></div>
+        <div class="hero-content">
+            <div class="hero-badge" data-animate="fade-in">
+                ⚡ Создано с помощью ИИ
+            </div>
+
+            <h1 class="hero-title" data-animate="fade-up">
+                Вы это чувствуете,<br>не так ли?
+            </h1>
+
+            <div class="hero-body" data-animate="fade-up-delay">
+                <p class="hero-text">
+                    Тревога, когда видишь очередное объявление о сокращениях.<br>
+                    Узел в желудке при новостях о банковской нестабильности.<br>
+                    Тихий вопрос: <strong>«А что, если всё это развалится?»</strong>
+                </p>
+
+                <p class="hero-answer">
+                    <strong>Вы не параноик. Вы проницательны.</strong><br>
+                    И вы попали куда нужно.
+                </p>
+            </div>
+
+            <div class="hero-ctas" data-animate="fade-up-delay-2">
+                <a href="#join" class="cta-btn cta-btn-primary">
+                    <span>Обеспечить своё место</span>
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M7.5 15L12.5 10L7.5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </a>
+                <button class="cta-btn cta-btn-secondary" id="videoBtn">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M6.66675 5L14.1667 10L6.66675 15V5Z" fill="currentColor"/>
+                    </svg>
+                    <span>Смотреть обзор (3 мин)</span>
+                </button>
+            </div>
+
+            <!-- Social proof counter -->
+            <div class="social-proof" data-animate="fade-in-delay">
+                <div class="social-proof-stats">
+                    <div class="stat">
+                        <span class="stat-number" id="memberCount">423</span>
+                        <span class="stat-label">участников</span>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat">
+                        <span class="stat-number" id="donationAmount">₽847K</span>
+                        <span class="stat-label">собрано</span>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat">
+                        <span class="stat-number">23</span>
+                        <span class="stat-label">города</span>
+                    </div>
+                </div>
+                <p class="social-proof-activity" id="recentActivity">
+                    <span class="pulse-dot"></span>
+                    Дмитрий из Москвы присоединился 12 минут назад
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Video modal -->
+    <div class="modal" id="videoModal">
+        <div class="modal-overlay" id="modalOverlay"></div>
+        <div class="modal-content">
+            <button class="modal-close" id="modalClose">&times;</button>
+            <div class="video-wrapper">
+                <!-- Placeholder for actual video embed -->
+                <div class="video-placeholder">
+                    <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="40" cy="40" r="40" fill="rgba(255,255,255,0.1)"/>
+                        <path d="M30 25L55 40L30 55V25Z" fill="white"/>
+                    </svg>
+                    <p>Видео будет добавлено здесь</p>
+                </div>
+                <!-- When ready, replace with:
+                <iframe src="https://www.youtube.com/embed/VIDEO_ID" frameborder="0" allowfullscreen></iframe>
+                -->
+            </div>
+        </div>
+    </div>
+
+    <!-- THE PIVOT: From fear to hope -->
+    <section class="section section-dark" id="content">
+        <div class="container">
+            <h2 class="section-title text-center">Пока другие паникуют, мы строим</h2>
+            <p class="section-intro text-center">
+                Децентрализованную сеть автономных сообществ.<br>
+                Базу знаний. Ресурсы. Реальные альтернативы.
+            </p>
+            <div class="value-props">
+                <div class="value-prop">
+                    <div class="value-icon">🛡️</div>
+                    <h3>Когда система пошатнётся</h3>
+                    <p>Мы будем готовы.</p>
+                </div>
+                <div class="value-prop">
+                    <div class="value-icon">🤝</div>
+                    <h3>Когда вам понадобится сообщество</h3>
+                    <p>Мы будем здесь.</p>
+                </div>
+                <div class="value-prop">
+                    <div class="value-icon">🌱</div>
+                    <h3>Когда время действовать</h3>
+                    <p>Вы не будете одиноки.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- WHY NOW - Timeline visualization -->
+    <section class="section" id="why">
+        <div class="container">
+            <h2 class="section-title">Почему именно сейчас</h2>
+            <div class="timeline">
+                <div class="timeline-item timeline-past">
+                    <div class="timeline-marker"></div>
+                    <div class="timeline-content">
+                        <h3>2024-2025: Знаки начинают множиться</h3>
+                        <ul>
+                            <li>ИИ заменяет первых офисных работников</li>
+                            <li>Банковская нестабильность становится очевидной</li>
+                            <li>Начинается исход из дорогих городов</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="timeline-item timeline-now">
+                    <div class="timeline-marker"></div>
+                    <div class="timeline-content">
+                        <h3>2026: ← ВЫ ЗДЕСЬ</h3>
+                        <p><strong>Окно возможностей всё ещё открыто.</strong><br>
+                        Можно подготовиться, объединиться, действовать.</p>
+                        <p class="timeline-cta">
+                            <a href="#join" class="text-link">Присоединиться сейчас →</a>
+                        </p>
+                    </div>
+                </div>
+                <div class="timeline-item timeline-future">
+                    <div class="timeline-marker"></div>
+                    <div class="timeline-content">
+                        <h3>2027-2028: Сценарии ускоряются</h3>
+                        <ul>
+                            <li>Массовые сокращения в офисах</li>
+                            <li>Ипотечные дефолты растут</li>
+                            <li>Городская жизнь дорожает ещё сильнее</li>
+                        </ul>
+                        <p><em>К этому моменту уже поздно начинать с нуля.</em></p>
+                    </div>
+                </div>
+                <div class="timeline-item timeline-vision">
+                    <div class="timeline-marker"></div>
+                    <div class="timeline-content">
+                        <h3>2030+: Сообщества СЛОБОДА процветают</h3>
+                        <p>Те, кто присоединился раньше, уже живут в автономных поселениях с устойчивой экономикой, общими ресурсами и проверенными системами.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- WHAT WE ARE -->
+    <section class="section section-brand">
+        <div class="container">
+            <div class="brand-grid">
+                <div class="brand-content">
+                    <h2 class="section-title">Что такое СЛОБОДА</h2>
+                    <p class="lead">
+                        <strong>Не коммуна. Не религиозная секта. Не утопия.</strong>
+                    </p>
+                    <p>
+                        СЛОБОДА — это децентрализованная инфраструктура для тех, кто готовится к автономной жизни:
+                    </p>
+                    <ul class="check-list">
+                        <li>✓ База знаний — проверенные инструкции по строительству, сельскому хозяйству, энергетике, праву</li>
+                        <li>✓ Сообщество экспертов — строители, агрономы, юристы, инженеры, медики</li>
+                        <li>✓ Реестр компетенций — находите партнёров для своего проекта</li>
+                        <li>✓ Прозрачное управление — каждый рубль на виду, все решения голосуются</li>
+                        <li>✓ Сеть поселений — обмен опытом, ресурсами, взаимопомощь</li>
+                    </ul>
+                    <p class="brand-note">
+                        Мы строим то, что работает. Прагматично. Прозрачно. Вместе.
+                    </p>
+                </div>
+                <div class="brand-image">
+                    <!-- Placeholder for image -->
+                    <div class="image-placeholder">
+                        <svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect width="100" height="100" fill="#1a1a1a"/>
+                            <path d="M35 35H65V65H35V35Z" stroke="#c23616" stroke-width="2"/>
+                            <text x="50" y="55" text-anchor="middle" fill="#666" font-size="12">Фото сообщества</text>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section class="section" id="how">
+        <div class="container">
+            <h2 class="section-title text-center">Как это работает</h2>
+            <p class="section-intro text-center">
+                Четыре столпа, на которых строится сеть
+            </p>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-number">01</div>
+                    <h3>База знаний</h3>
+                    <p>Практические стандарты и чек-листы: дом, еда, энергия, медицина, право, безопасность. Всё проверено специалистами.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-number">02</div>
+                    <h3>Кураторство</h3>
+                    <p>Эксперты подтверждают и обновляют материалы. Ошибки исправляются публично. Качество — приоритет.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-number">03</div>
+                    <h3>Реестр компетенций</h3>
+                    <p>Люди указывают навыки, чтобы собирать команды. Нужен электрик? Ищите в реестре. Нужна юридическая помощь? Она здесь.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-number">04</div>
+                    <h3>Сеть поселений</h3>
+                    <p>Обмен практиками, людьми и ресурсами. Система сильнее одиночек. Вместе — реально.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PROGRESS / TRANSPARENCY -->
+    <section class="section section-dark">
+        <div class="container">
+            <h2 class="section-title text-center">Где мы сейчас</h2>
+            <div class="progress-dashboard">
+                <div class="progress-item">
+                    <div class="progress-label">
+                        <span>Фаза 1: Юридика + База знаний</span>
+                        <span class="progress-value" id="progressPercent">42%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 42%"></div>
+                    </div>
+                    <p class="progress-detail">
+                        ₽847,000 собрано из ₽2,000,000<br>
+                        <small>Следующая веха: Поиск земли начинается при ₽2M</small>
+                    </p>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-card-number">423</div>
+                        <div class="stat-card-label">Зарегистрировано участников</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-number">12</div>
+                        <div class="stat-card-label">Инженеров-строителей</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-number">8</div>
+                        <div class="stat-card-label">Юридических экспертов</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-number">23</div>
+                        <div class="stat-card-label">Города России</div>
+                    </div>
+                </div>
+            </div>
+            <p class="text-center">
+                <a href="/dashboard" class="text-link">Смотреть полную финансовую отчётность →</a>
+            </p>
+        </div>
+    </section>
+
+    <!-- FOUNDER STORY -->
+    <section class="section" id="founder">
+        <div class="container">
+            <div class="founder-grid">
+                <div class="founder-image">
+                    <!-- Placeholder for founder photo -->
+                    <div class="image-placeholder image-placeholder-circle">
+                        <svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="100" cy="100" r="100" fill="#1a1a1a"/>
+                            <circle cx="100" cy="80" r="30" stroke="#c23616" stroke-width="2"/>
+                            <path d="M50 150C50 120 70 110 100 110C130 110 150 120 150 150" stroke="#c23616" stroke-width="2"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="founder-content">
+                    <h2 class="section-title">Почему я это начал</h2>
+                    <p class="lead">Меня зовут Phillip Miller. Я не гуру выживания и не миллиардер-преппер.</p>
+                    <p>
+                        Я обычный человек, который в 2024 году увидел, куда всё идёт. Я работал в технологиях, видел, как ИИ заменяет коллег. Я видел нестабильность банков. Я видел, как друзья теряют работу и не могут найти новую.
+                    </p>
+                    <p>
+                        И я понял: <strong>ждать, пока всё развалится, — это не план.</strong>
+                    </p>
+                    <p>
+                        Одному уехать в деревню? Провал. Но вместе, с экспертами, с базой знаний, с прозрачными правилами — это реально.
+                    </p>
+                    <p>
+                        Так родилась СЛОБОДА. Не для того, чтобы спрятаться от будущего. А чтобы к нему подготовиться.
+                    </p>
+                    <p>
+                        <strong>Присоединяйтесь, если вы это тоже чувствуете.</strong>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- TESTIMONIALS -->
+    <section class="section section-testimonials">
+        <div class="container">
+            <h2 class="section-title text-center">Кто уже с нами</h2>
+            <div class="testimonials-grid">
+                <div class="testimonial-card">
+                    <p class="testimonial-quote">
+                        «Наконец-то кто-то воспринимает это серьёзно. Не паникёры, а реалисты.»
+                    </p>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar">Д</div>
+                        <div>
+                            <div class="testimonial-name">Дмитрий К.</div>
+                            <div class="testimonial-role">Инженер, Москва</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card">
+                    <p class="testimonial-quote">
+                        «Прозрачность финансов — это то, чего не хватало всем экопроектам. Здесь всё честно.»
+                    </p>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar">А</div>
+                        <div>
+                            <div class="testimonial-name">Анастасия П.</div>
+                            <div class="testimonial-role">Архитектор, Санкт-Петербург</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card">
+                    <p class="testimonial-quote">
+                        «Я уже год искал сообщество для переезда. СЛОБОДА — единственные, у кого есть реальный план.»
+                    </p>
+                    <div class="testimonial-author">
+                        <div class="testimonial-avatar">И</div>
+                        <div>
+                            <div class="testimonial-name">Иван С.</div>
+                            <div class="testimonial-role">Строитель, Екатеринбург</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ FOR SKEPTICS -->
+    <section class="section" id="faq">
+        <div class="container">
+            <h2 class="section-title text-center">Вопросы скептиков</h2>
+            <p class="section-intro text-center">
+                Мы ценим здоровый скептицизм. Вот честные ответы.
+            </p>
+            <div class="faq-list">
+                <details class="faq-item">
+                    <summary class="faq-question">
+                        Почему я должен вам доверять, если так много экопроектов провалилось?
+                        <svg class="faq-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </summary>
+                    <div class="faq-answer">
+                        <p>Потому что мы учимся на их ошибках:</p>
+                        <ul>
+                            <li><strong>Прозрачность:</strong> Каждый рубль на виду. Полная финансовая отчётность доступна всем участникам.</li>
+                            <li><strong>Нет харизматичных лидеров:</strong> Управление основано на репутации и голосовании, не на культе личности.</li>
+                            <li><strong>Реальные эксперты:</strong> Строители с дипломами, юристы с лицензиями, агрономы с опытом.</li>
+                            <li><strong>Поэтапный план:</strong> Сначала база знаний и НКО, потом земля и строительство. Без фантазий.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="faq-item">
+                    <summary class="faq-question">
+                        А если коллапса не будет? Зря потрачу деньги?
+                        <svg class="faq-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </summary>
+                    <div class="faq-answer">
+                        <p>Тогда у вас будет:</p>
+                        <ul>
+                            <li>Сообщество единомышленников</li>
+                            <li>Доступ к базе знаний по автономной жизни</li>
+                            <li>Возможность переехать на природу, если захотите</li>
+                            <li>Навыки, которые полезны в любом сценарии</li>
+                        </ul>
+                        <p>Страховка работает так: если ничего не случилось — отлично. Если случилось — вы готовы. В любом случае вы не теряете.</p>
+                    </div>
+                </details>
+
+                <details class="faq-item">
+                    <summary class="faq-question">
+                        Это не просто паранойя?
+                        <svg class="faq-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </summary>
+                    <div class="faq-answer">
+                        <p>Паранойя — это когда боишься несуществующих угроз.</p>
+                        <p>Мы говорим о реальных трендах:</p>
+                        <ul>
+                            <li>ИИ уже заменяет офисных работников — это факт, не прогноз</li>
+                            <li>Банковская нестабильность — видели 2023-2024?</li>
+                            <li>Рост стоимости городской жизни — проверьте цены на аренду</li>
+                        </ul>
+                        <p>Мы не паникёры. Мы реалисты, которые готовятся.</p>
+                    </div>
+                </details>
+
+                <details class="faq-item">
+                    <summary class="faq-question">
+                        Чем вы отличаетесь от других экопоселений?
+                        <svg class="faq-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </summary>
+                    <div class="faq-answer">
+                        <p>Мы не одно поселение. Мы инфраструктура для сети поселений:</p>
+                        <ul>
+                            <li><strong>База знаний</strong> — общая для всех</li>
+                            <li><strong>Реестр специалистов</strong> — находите нужных людей</li>
+                            <li><strong>Прозрачное управление</strong> — без гуру и культов</li>
+                            <li><strong>Сетевой эффект</strong> — обмен опытом между поселениями</li>
+                        </ul>
+                        <p>Плюс: мы используем ИИ для планирования, документации и анализа. Футуристы-реалисты.</p>
+                    </div>
+                </details>
+
+                <details class="faq-item">
+                    <summary class="faq-question">
+                        Сколько это стоит? Каковы мои риски?
+                        <svg class="faq-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </summary>
+                    <div class="faq-answer">
+                        <p><strong>Участие бесплатно.</strong> Регистрация, доступ к базе знаний, участие в сообществе — всё бесплатно.</p>
+                        <p><strong>Пожертвования добровольны.</strong> Мы — НКО. Если хотите поддержать развитие — любая сумма помогает. Но это не обязательно.</p>
+                        <p><strong>Риски:</strong></p>
+                        <ul>
+                            <li>Проект может не достичь всех целей — тогда останутся база знаний и сообщество</li>
+                            <li>Ваша личная ситуация может измениться — вы всегда можете выйти</li>
+                            <li>Мы не гарантируем доходность или участок земли — это не инвестиция, это подготовка</li>
+                        </ul>
+                        <p>Честно? Самый большой риск — <strong>ничего не делать</strong>.</p>
+                    </div>
+                </details>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA SECTION - Join Now -->
+    <section class="section section-cta" id="join">
+        <div class="container">
+            <div class="cta-box">
+                <div class="cta-urgency">
+                    ⏰ Преимущества для основателей закрываются 31 марта 2026
+                </div>
+                <h2 class="cta-title">Присоединяйтесь к 423 участникам</h2>
+                <p class="cta-text">
+                    Зарегистрируйтесь сейчас и получите:<br>
+                    ✓ Доступ к базе знаний<br>
+                    ✓ Голос при выборе земли<br>
+                    ✓ Статус основателя (пожизненно)
+                </p>
+
+                <!-- Progressive form - Step 1: Email only -->
+                <form class="cta-form" id="joinForm">
+                    <div class="form-step" id="step1">
+                        <h3>Шаг 1: Базовая информация</h3>
+                        <div class="form-group">
+                            <label for="email">Email</label>
+                            <input type="email" id="email" name="email" required placeholder="your@email.com">
+                        </div>
+                        <div class="form-group">
+                            <label for="name">Имя</label>
+                            <input type="text" id="name" name="name" required placeholder="Ваше имя">
+                        </div>
+                        <button type="button" class="cta-btn cta-btn-primary" id="continueBtn">
+                            Продолжить
+                        </button>
+                        <p class="form-note">
+                            Мы не спамим. Только важные обновления.
+                        </p>
+                    </div>
+
+                    <div class="form-step form-step-hidden" id="step2">
+                        <h3>Шаг 2: Расскажите о себе (необязательно)</h3>
+                        <div class="form-group">
+                            <label for="city">Город</label>
+                            <input type="text" id="city" name="city" placeholder="Москва, Санкт-Петербург...">
+                        </div>
+                        <div class="form-group">
+                            <label for="telegram">Telegram (необязательно)</label>
+                            <input type="text" id="telegram" name="telegram" placeholder="@username">
+                        </div>
+                        <div class="form-group">
+                            <label for="skills">Ваши навыки</label>
+                            <div class="checkbox-group">
+                                <label><input type="checkbox" name="skills" value="construction"> Строительство</label>
+                                <label><input type="checkbox" name="skills" value="agriculture"> Сельское хозяйство</label>
+                                <label><input type="checkbox" name="skills" value="engineering"> Инженерия</label>
+                                <label><input type="checkbox" name="skills" value="medicine"> Медицина</label>
+                                <label><input type="checkbox" name="skills" value="law"> Юриспруденция</label>
+                                <label><input type="checkbox" name="skills" value="education"> Образование</label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="support">Готовность к финансовой поддержке</label>
+                            <select id="support" name="support">
+                                <option value="">Выберите вариант</option>
+                                <option value="yes_regular">Да, регулярно</option>
+                                <option value="yes_onetime">Да, разово</option>
+                                <option value="later">Возможно позже</option>
+                                <option value="no">Нет</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="cta-btn cta-btn-primary">
+                            Завершить регистрацию
+                        </button>
+                        <button type="button" class="cta-btn cta-btn-text" id="backBtn">
+                            ← Назад
+                        </button>
+                    </div>
+
+                    <div class="form-step form-step-hidden" id="successMessage">
+                        <div class="success-icon">✓</div>
+                        <h3>Добро пожаловать в СЛОБОДУ!</h3>
+                        <p>Проверьте email — мы отправили вам первые материалы.</p>
+                        <a href="/dashboard" class="cta-btn cta-btn-primary">Перейти в личный кабинет</a>
+                    </div>
+                </form>
+            </div>
+
+            <p class="text-center privacy-note">
+                Регистрируясь, вы соглашаетесь с <a href="/privacy">политикой конфиденциальности</a>
+            </p>
+        </div>
+    </section>
+
+    <!-- DONATION SECTION -->
+    <section class="section section-donation" id="donate">
+        <div class="container">
+            <h2 class="section-title text-center">Поддержать проект</h2>
+            <p class="section-intro text-center">
+                Каждый рубль идёт на юридическую работу, базу знаний и инфраструктуру.<br>
+                Полная прозрачность. Без скрытых комиссий.
+            </p>
+            <div class="donation-grid">
+                <div class="donation-card">
+                    <h3>₽500</h3>
+                    <p>Покрывает 1 час юридической консультации</p>
+                    <button class="cta-btn cta-btn-secondary donation-btn" data-amount="500">Поддержать</button>
+                </div>
+                <div class="donation-card donation-card-popular">
+                    <div class="popular-badge">Популярно</div>
+                    <h3>₽2000</h3>
+                    <p>Оплачивает создание 1 стандарта в базе знаний</p>
+                    <button class="cta-btn cta-btn-primary donation-btn" data-amount="2000">Поддержать</button>
+                </div>
+                <div class="donation-card">
+                    <h3>₽5000</h3>
+                    <p>Финансирует 1 день работы эксперта-куратора</p>
+                    <button class="cta-btn cta-btn-secondary donation-btn" data-amount="5000">Поддержать</button>
+                </div>
+                <div class="donation-card">
+                    <h3>Своя сумма</h3>
+                    <p>Любая помощь имеет значение</p>
+                    <button class="cta-btn cta-btn-secondary" id="customDonationBtn">Указать сумму</button>
+                </div>
+            </div>
+            <p class="text-center">
+                <a href="/finances" class="text-link">Смотреть, как расходуются средства →</a>
+            </p>
+        </div>
+    </section>
+
+    <!-- Donation modal -->
+    <div class="modal" id="donationModal">
+        <div class="modal-overlay" id="donationModalOverlay"></div>
+        <div class="modal-content modal-content-narrow">
+            <button class="modal-close" id="donationModalClose">&times;</button>
+            <h3 id="donationModalTitle">Поддержать проект</h3>
+            <div class="donation-form">
+                <div class="form-group">
+                    <label for="donationAmount">Сумма, ₽</label>
+                    <input type="number" id="donationAmount" min="100" step="100" placeholder="1000">
+                </div>
+                <div class="form-group">
+                    <label for="donationEmail">Email для чека</label>
+                    <input type="email" id="donationEmail" placeholder="your@email.com">
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="donationRecurring">
+                        Сделать регулярным платежом (скидка 10%)
+                    </label>
+                </div>
+                <button class="cta-btn cta-btn-primary btn-block" id="donationSubmitBtn">
+                    Перейти к оплате
+                </button>
+                <p class="form-note text-center">
+                    Безопасная оплата через Yandex.Pay / Tinkoff Pay
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-col">
+                    <h4>СЛОБОДА</h4>
+                    <p>Децентрализованная сеть экопоселений для тех, кто готовится к автономной жизни.</p>
+                </div>
+                <div class="footer-col">
+                    <h4>Навигация</h4>
+                    <ul>
+                        <li><a href="#why">Почему</a></li>
+                        <li><a href="#how">Как это работает</a></li>
+                        <li><a href="#founder">О нас</a></li>
+                        <li><a href="#faq">Вопросы</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>Документы</h4>
+                    <ul>
+                        <li><a href="/concept">Концепция</a></li>
+                        <li><a href="/privacy">Политика конфиденциальности</a></li>
+                        <li><a href="/finances">Финансовая отчётность</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>Контакты</h4>
+                    <ul>
+                        <li><a href="mailto:info@sloboda.land">info@sloboda.land</a></li>
+                        <li><a href="https://t.me/sloboda_land" target="_blank">Telegram</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 СЛОБОДА. Построено с помощью ИИ.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Floating CTA (appears on scroll) -->
+    <div class="floating-cta" id="floatingCta">
+        <span>Окно возможностей закрывается</span>
+        <a href="#join" class="cta-btn cta-btn-small">Присоединиться</a>
+    </div>
+
+    <script src="script-v2.js"></script>
+</body>
+</html>
