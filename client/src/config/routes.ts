@@ -30,6 +30,7 @@ export const ROUTES = {
   ADMIN_SETTINGS: '/admin/settings',
   ADMIN_ANALYTICS: '/admin/analytics',
   ADMIN_FINANCE: '/admin/finance',
+  ADMIN_LANDING: '/admin/landing',
   ADMIN_FORUM: '/admin/forum',
   ADMIN_FORUM_ROLES: '/admin/forum/roles',
   ADMIN_FORUM_MODERATION: '/admin/forum/moderation',

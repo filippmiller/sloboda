@@ -20,6 +20,7 @@ import {
   Menu,
   X,
   MessageSquare,
+  Globe,
 } from 'lucide-react'
 import Skeleton from '@/components/ui/Skeleton'
 
@@ -32,6 +33,7 @@ const navItems = [
   { to: ROUTES.ADMIN_KNOWLEDGE, label: 'Знания', icon: Lightbulb },
   { to: ROUTES.ADMIN_CATEGORIES, label: 'Категории', icon: Tags },
   { to: ROUTES.ADMIN_FINANCE, label: 'Финансы', icon: Wallet },
+  { to: ROUTES.ADMIN_LANDING, label: 'Главная страница', icon: Globe },
   { to: ROUTES.ADMIN_CAMPAIGNS, label: 'Рассылки', icon: Mail },
   { to: ROUTES.ADMIN_ANALYTICS, label: 'Аналитика', icon: BarChart3 },
   { to: ROUTES.ADMIN_ADMINS, label: 'Администраторы', icon: ShieldCheck },

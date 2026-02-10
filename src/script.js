@@ -5,6 +5,7 @@
 
 // ===== INITIALIZATION =====
 document.addEventListener('DOMContentLoaded', () => {
+    loadDynamicContent();
     initBookmarkBanner();
     initMobileMenu();
     initVideoModal();
@@ -14,6 +15,109 @@ document.addEventListener('DOMContentLoaded', () => {
     initFloatingCTA();
     initScrollBehavior();
 });
+
+// ===== DYNAMIC CONTENT LOADING =====
+async function loadDynamicContent() {
+    try {
+        const response = await fetch('/api/public/landing-content');
+        if (!response.ok) {
+            console.error('Failed to load landing content');
+            return; // Fall back to hardcoded content
+        }
+
+        const sections = await response.json();
+        const contentMap = sections.reduce((acc, section) => {
+            acc[section.section] = section.content;
+            return acc;
+        }, {});
+
+        // Render each section
+        if (contentMap.bookmark_banner) renderBookmarkBanner(contentMap.bookmark_banner);
+        if (contentMap.hero) renderHero(contentMap.hero);
+        if (contentMap.reality_cards) renderRealityCards(contentMap.reality_cards);
+        if (contentMap.testimonials) renderTestimonials(contentMap.testimonials);
+        if (contentMap.features) renderFeatures(contentMap.features);
+        if (contentMap.donation_amounts) renderDonationAmounts(contentMap.donation_amounts);
+    } catch (error) {
+        console.error('Error loading dynamic content:', error);
+        // Fall back to hardcoded content
+    }
+}
+
+function renderBookmarkBanner(content) {
+    const bannerText = document.querySelector('.bookmark-text');
+    if (bannerText) {
+        bannerText.innerHTML = `<strong>${content.title}</strong> ${content.subtitle}`;
+    }
+}
+
+function renderHero(content) {
+    const badge = document.querySelector('.hero-badge');
+    const title = document.querySelector('.hero-title');
+    const text = document.querySelector('.hero-text');
+    const answer = document.querySelector('.hero-answer');
+
+    if (badge) badge.textContent = content.badge;
+    if (title) title.innerHTML = content.title;
+    if (text) text.innerHTML = content.body;
+    if (answer) answer.innerHTML = content.cta;
+}
+
+function renderRealityCards(cards) {
+    const grid = document.querySelector('.reality-grid');
+    if (!grid || !Array.isArray(cards)) return;
+
+    grid.innerHTML = cards.map((card, index) => {
+        const typeClass = index === 0 ? 'reality-card-urgent' : index === 1 ? 'reality-card-consequence' : 'reality-card-action';
+        return `
+            <div class="reality-card ${typeClass}">
+                <h3>${card.title}</h3>
+                ${card.question ? `<p class="reality-question"><strong>${card.question}</strong></p>` : ''}
+                ${card.answer ? `<p class="reality-answer"><em>${card.answer}</em></p>` : ''}
+                ${card.warning ? `<p class="reality-warning"><strong>${card.warning}</strong></p>` : ''}
+                ${card.content ? `<p>${card.content}</p>` : ''}
+                ${card.cta ? `<div class="reality-cta"><a href="#join" class="cta-btn cta-btn-primary">${card.cta}</a></div>` : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+function renderTestimonials(testimonials) {
+    const container = document.querySelector('.testimonials-grid');
+    if (!container || !Array.isArray(testimonials)) return;
+
+    container.innerHTML = testimonials.map(t => `
+        <div class="testimonial-card">
+            <div class="testimonial-header">
+                <img src="${t.avatar}" alt="${t.name}" class="testimonial-avatar">
+                <div class="testimonial-meta">
+                    <h4>${t.name}</h4>
+                    <p>${t.location} • ${t.role}</p>
+                </div>
+            </div>
+            <blockquote>${t.quote}</blockquote>
+            <div class="testimonial-date">${t.date}</div>
+        </div>
+    `).join('');
+}
+
+function renderFeatures(features) {
+    const container = document.querySelector('.value-props');
+    if (!container || !Array.isArray(features)) return;
+
+    container.innerHTML = features.map(f => `
+        <div class="value-prop">
+            <div class="value-icon">${f.icon}</div>
+            <h3>${f.title}</h3>
+            <p>${f.description}</p>
+        </div>
+    `).join('');
+}
+
+function renderDonationAmounts(amounts) {
+    // Store for use in donation modal
+    window.donationAmounts = amounts;
+}
 
 // ===== BOOKMARK BANNER =====
 function initBookmarkBanner() {

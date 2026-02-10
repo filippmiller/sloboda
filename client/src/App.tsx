@@ -38,6 +38,7 @@ const Admins = lazy(() => import('@/pages/admin/Admins'))
 const Settings = lazy(() => import('@/pages/admin/Settings'))
 const Analytics = lazy(() => import('@/pages/admin/Analytics'))
 const AdminFinance = lazy(() => import('@/pages/admin/Finance'))
+const AdminLanding = lazy(() => import('@/pages/admin/LandingContent'))
 const ForumThreads = lazy(() => import('@/pages/admin/ForumThreads'))
 const ForumRoles = lazy(() => import('@/pages/admin/ForumRoles'))
 const ForumModeration = lazy(() => import('@/pages/admin/ForumModeration'))
@@ -101,6 +102,7 @@ function App() {
           <Route path={ROUTES.ADMIN_SETTINGS} element={<Safe><Settings /></Safe>} />
           <Route path={ROUTES.ADMIN_ANALYTICS} element={<Safe><Analytics /></Safe>} />
           <Route path={ROUTES.ADMIN_FINANCE} element={<Safe><AdminFinance /></Safe>} />
+          <Route path={ROUTES.ADMIN_LANDING} element={<Safe><AdminLanding /></Safe>} />
           <Route path={ROUTES.ADMIN_FORUM} element={<Safe><ForumThreads /></Safe>} />
           <Route path={ROUTES.ADMIN_FORUM_ROLES} element={<Safe><ForumRoles /></Safe>} />
           <Route path={ROUTES.ADMIN_FORUM_MODERATION} element={<Safe><ForumModeration /></Safe>} />
