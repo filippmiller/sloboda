@@ -120,12 +120,20 @@ export default function Profile() {
 
   const handleSave = async (data: ProfileForm) => {
     setSaving(true)
+
+    // Optimistic update
+    const previousProfile = profile
+    setProfile((prev) => prev ? { ...prev, ...data } : prev)
+
     try {
       const response = await api.patch('/user/profile', data)
       const updated = (response.data.data ?? response.data) as PortalUser
       setProfile(updated)
+      await checkAuth() // Update auth store
       toast.success(t('profile.editProfile.savedToast'))
     } catch (err: unknown) {
+      // Rollback on error
+      setProfile(previousProfile)
       const message =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
         t('common.errors.unknownError')
@@ -137,6 +145,11 @@ export default function Profile() {
 
   const handleSaveExtended = async () => {
     setSavingExtended(true)
+
+    // Optimistic update
+    const previousProfile = profile
+    setProfile((prev) => prev ? { ...prev, profile: extended } : prev)
+
     try {
       const payload: Record<string, unknown> = {}
       if (extended.countryCode) payload.countryCode = extended.countryCode
@@ -157,6 +170,8 @@ export default function Profile() {
       setProfile(updated)
       toast.success(t('profile.extendedProfile.savedToast'))
     } catch {
+      // Rollback on error
+      setProfile(previousProfile)
       toast.error(t('common.errors.unknownError'))
     } finally {
       setSavingExtended(false)

@@ -10,8 +10,9 @@ import type { Post } from '@/types'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
-import { SkeletonCard } from '@/components/ui/Skeleton'
+import { SkeletonList } from '@/components/ui/Skeleton'
 import { estimateReadingTime, formatReadingTime } from '@/utils/readingTime'
+import EmptyState from '@/components/EmptyState'
 
 const PAGE_SIZE = 10
 
@@ -70,11 +71,7 @@ export default function News() {
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-bold font-display">{t('news.title')}</h1>
-        <div className="space-y-4">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <SkeletonCard key={i} />
-          ))}
-        </div>
+        <SkeletonList items={5} />
       </div>
     )
   }
@@ -161,14 +158,11 @@ export default function News() {
           )}
         </div>
       ) : (
-        <Card>
-          <div className="text-center py-12 space-y-3">
-            <Newspaper className="text-text-muted mx-auto" size={40} />
-            <p className="text-text-secondary text-sm">
-              {t('news.empty')}
-            </p>
-          </div>
-        </Card>
+        <EmptyState
+          icon={Newspaper}
+          title={t('news.empty')}
+          description="No news articles have been published yet. Check back soon for community updates and announcements."
+        />
       )}
     </div>
   )

@@ -4,7 +4,6 @@ import {
   Wallet,
   TrendingUp,
   TrendingDown,
-  Loader2,
   ArrowUpRight,
   ArrowDownRight,
   CheckCircle2,
@@ -23,6 +22,7 @@ import {
 } from 'recharts'
 import api from '@/services/api'
 import Card from '@/components/ui/Card'
+import { SkeletonCard, SkeletonTable } from '@/components/ui/Skeleton'
 
 interface FinanceSummary {
   totalIncome: number
@@ -173,8 +173,10 @@ export default function Finance() {
           </Card>
         </div>
       ) : (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="animate-spin text-text-muted" size={24} />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
         </div>
       )}
 
@@ -267,9 +269,7 @@ export default function Finance() {
 
       {/* Transactions list */}
       {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="animate-spin text-text-muted" size={24} />
-        </div>
+        <SkeletonTable rows={10} />
       ) : transactions.length > 0 ? (
         <div className="space-y-2">
           {transactions.map((tx) => (
@@ -312,19 +312,7 @@ export default function Finance() {
             </Card>
           ))}
         </div>
-      ) : (
-        <Card>
-          <div className="text-center py-8">
-            <Wallet className="mx-auto text-text-muted mb-3" size={32} />
-            <p className="text-text-secondary text-sm">
-              {t('finance.empty.title')}
-            </p>
-            <p className="text-text-muted text-xs mt-1">
-              {t('finance.empty.description')}
-            </p>
-          </div>
-        </Card>
-      )}
+      ) : null}
 
       {/* Pagination */}
       {totalPages > 1 && (

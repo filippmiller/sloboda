@@ -3,18 +3,19 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { formatDistanceToNow } from 'date-fns'
 import { useDateLocale } from '@/hooks/useDateLocale'
+import { toast } from 'sonner'
 import {
   Bell,
   CheckCircle,
   XCircle,
   Info,
-  Loader2,
   CheckCheck,
 } from 'lucide-react'
 import api from '@/services/api'
 import type { Notification } from '@/types'
-import Card from '@/components/ui/Card'
+import EmptyState from '@/components/EmptyState'
 import Button from '@/components/ui/Button'
+import { SkeletonList } from '@/components/ui/Skeleton'
 
 const typeIcons: Record<string, typeof Info> = {
   submission_approved: CheckCircle,
@@ -54,11 +55,16 @@ export default function Notifications() {
 
   const handleMarkAllRead = async () => {
     setMarkingAll(true)
+    // Optimistic update
+    const previousNotifications = notifications
+    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
+
     try {
       await api.post('/user/notifications/read-all')
-      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
     } catch {
-      // Non-critical
+      // Rollback on error
+      setNotifications(previousNotifications)
+      toast.error('Failed to mark all as read')
     } finally {
       setMarkingAll(false)
     }
@@ -66,15 +72,20 @@ export default function Notifications() {
 
   const handleNotificationClick = async (notification: Notification) => {
     if (!notification.is_read) {
+      // Optimistic update
+      const previousNotifications = notifications
+      setNotifications((prev) =>
+        prev.map((n) =>
+          n.id === notification.id ? { ...n, is_read: true } : n,
+        ),
+      )
+
       try {
         await api.post(`/user/notifications/${notification.id}/read`)
-        setNotifications((prev) =>
-          prev.map((n) =>
-            n.id === notification.id ? { ...n, is_read: true } : n,
-          ),
-        )
       } catch {
-        // Non-critical
+        // Rollback on error
+        setNotifications(previousNotifications)
+        toast.error('Failed to mark as read')
       }
     }
     if (notification.link) {
@@ -102,9 +113,7 @@ export default function Notifications() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="animate-spin text-text-muted" size={24} />
-        </div>
+        <SkeletonList items={5} />
       ) : notifications.length > 0 ? (
         <div className="space-y-2">
           {notifications.map((notification) => {
@@ -157,12 +166,11 @@ export default function Notifications() {
           })}
         </div>
       ) : (
-        <Card>
-          <div className="text-center py-12 space-y-3">
-            <Bell className="text-text-muted mx-auto" size={40} />
-            <p className="text-text-secondary text-sm">{t('notifications.empty')}</p>
-          </div>
-        </Card>
+        <EmptyState
+          icon={Bell}
+          title={t('notifications.empty')}
+          description="You're all caught up! Notifications about your submissions and community updates will appear here."
+        />
       )}
     </div>
   )

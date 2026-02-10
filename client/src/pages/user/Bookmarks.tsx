@@ -1,16 +1,19 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { format } from 'date-fns'
 import { useDateLocale } from '@/hooks/useDateLocale'
-import { BookmarkCheck, BookOpen, Clock, Loader2 } from 'lucide-react'
+import { BookmarkCheck, Bookmark as BookmarkIcon, Clock } from 'lucide-react'
 import api from '@/services/api'
 import type { BookmarkedPost } from '@/types'
 import Card from '@/components/ui/Card'
+import EmptyState from '@/components/EmptyState'
+import { SkeletonList } from '@/components/ui/Skeleton'
 import { estimateReadingTime, formatReadingTime } from '@/utils/readingTime'
 
 export default function Bookmarks() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const dateLocale = useDateLocale()
   const [bookmarks, setBookmarks] = useState<BookmarkedPost[]>([])
   const [loading, setLoading] = useState(true)
@@ -45,9 +48,7 @@ export default function Bookmarks() {
       <h1 className="text-2xl font-bold font-display">{t('bookmarks.title')}</h1>
 
       {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="animate-spin text-text-muted" size={24} />
-        </div>
+        <SkeletonList items={3} />
       ) : bookmarks.length > 0 ? (
         <div className="space-y-4">
           {bookmarks.map((post) => (
@@ -108,20 +109,15 @@ export default function Bookmarks() {
           ))}
         </div>
       ) : (
-        <Card>
-          <div className="text-center py-12 space-y-3">
-            <BookOpen className="text-text-muted mx-auto" size={40} />
-            <p className="text-text-secondary text-sm">
-              {t('bookmarks.empty.message')}
-            </p>
-            <Link
-              to="/library"
-              className="inline-block text-sm text-accent hover:text-accent-hover transition-colors"
-            >
-              {t('bookmarks.empty.goToLibrary')}
-            </Link>
-          </div>
-        </Card>
+        <EmptyState
+          icon={BookmarkIcon}
+          title={t('bookmarks.empty.message')}
+          description="Save articles from the Library to quickly access them here anytime."
+          primaryAction={{
+            label: t('bookmarks.empty.goToLibrary'),
+            onClick: () => navigate('/library'),
+          }}
+        />
       )}
     </div>
   )

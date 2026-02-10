@@ -3,15 +3,19 @@ import { useTranslation } from 'react-i18next'
 import { format } from 'date-fns'
 import { useDateLocale } from '@/hooks/useDateLocale'
 import { motion, AnimatePresence } from 'motion/react'
-import { Search, BookOpen, X, Clock, Bookmark, BookmarkCheck } from 'lucide-react'
+import { toast } from 'sonner'
+import { Search, BookOpen, X, Clock, Bookmark, BookmarkCheck, Tag as TagIcon } from 'lucide-react'
 import api from '@/services/api'
 import type { Post, KnowledgeSubmission, Category } from '@/types'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
-import { SkeletonCard } from '@/components/ui/Skeleton'
+import { SkeletonGrid } from '@/components/ui/Skeleton'
+import TagCloud from '@/components/ui/TagCloud'
+import RelatedTags from '@/components/ui/RelatedTags'
 import { estimateReadingTime, formatReadingTime } from '@/utils/readingTime'
 import { sanitizeHtml } from '@/utils/sanitize'
+import EmptyState from '@/components/EmptyState'
 
 interface ArticleItem extends Post {
   _type: 'article'
@@ -47,8 +51,10 @@ export default function Library() {
   const [total, setTotal] = useState(0)
   const [offset, setOffset] = useState(0)
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<number>>(new Set())
+  const [showTagCloud, setShowTagCloud] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Debounce search
@@ -90,19 +96,33 @@ export default function Library() {
 
   const handleToggleBookmark = async (e: React.MouseEvent, postId: number) => {
     e.stopPropagation()
+
+    // Optimistic update
+    const wasBookmarked = bookmarkedIds.has(postId)
+    setBookmarkedIds((prev) => {
+      const next = new Set(prev)
+      if (wasBookmarked) {
+        next.delete(postId)
+      } else {
+        next.add(postId)
+      }
+      return next
+    })
+
     try {
-      const res = await api.post('/user/bookmarks/toggle', { postId })
+      await api.post('/user/bookmarks/toggle', { postId })
+    } catch {
+      // Rollback on error
       setBookmarkedIds((prev) => {
         const next = new Set(prev)
-        if (res.data.data?.bookmarked) {
+        if (wasBookmarked) {
           next.add(postId)
         } else {
           next.delete(postId)
         }
         return next
       })
-    } catch {
-      // Non-critical
+      toast.error('Failed to update bookmark')
     }
   }
 
@@ -206,10 +226,31 @@ export default function Library() {
     new Set(items.flatMap(getItemTags).filter(Boolean)),
   ).sort()
 
-  // Filter items by selected tag (client-side)
-  const filteredItems = selectedTag
-    ? items.filter((item) => getItemTags(item).includes(selectedTag))
-    : items
+  // Filter items by selected tags (client-side, AND logic when using tag cloud)
+  const filteredItems = selectedTags.length > 0
+    ? items.filter((item) => {
+        const itemTags = getItemTags(item)
+        return selectedTags.every(tag => itemTags.includes(tag))
+      })
+    : (selectedTag
+      ? items.filter((item) => getItemTags(item).includes(selectedTag))
+      : items)
+
+  const handleTagClick = (tag: string) => {
+    setSelectedTags(prev =>
+      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+    )
+  }
+
+  const handleTagAdd = (tag: string) => {
+    if (!selectedTags.includes(tag)) {
+      setSelectedTags([...selectedTags, tag])
+    }
+  }
+
+  const clearAllTags = () => {
+    setSelectedTags([])
+  }
 
   return (
     <div className="space-y-6">
@@ -300,8 +341,86 @@ export default function Library() {
         </motion.div>
       )}
 
-      {/* Tags */}
-      {allTags.length > 0 && (
+      {/* Tag Cloud Toggle & Related Tags */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3, delay: 0.15 }}
+        className="space-y-3"
+      >
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setShowTagCloud(!showTagCloud)}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg
+              bg-bg-card border border-border text-text-secondary
+              hover:text-text hover:border-border-hover transition-colors text-sm"
+          >
+            <TagIcon size={14} />
+            {showTagCloud ? 'Hide tag cloud' : 'Show tag cloud'}
+          </button>
+
+          {selectedTags.length > 0 && (
+            <button
+              type="button"
+              onClick={clearAllTags}
+              className="text-xs text-text-muted hover:text-accent transition-colors"
+            >
+              Clear all tags
+            </button>
+          )}
+        </div>
+
+        {/* Selected tags */}
+        {selectedTags.length > 0 && (
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="text-xs text-text-secondary font-medium">Filtering by:</span>
+            {selectedTags.map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => handleTagClick(tag)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md
+                  bg-accent/20 text-accent border border-accent/30 text-xs font-medium
+                  hover:bg-accent/30 transition-colors"
+              >
+                {tag}
+                <X size={12} />
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Tag Cloud */}
+        {showTagCloud && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.25 }}
+          >
+            <Card>
+              <TagCloud
+                selectedTag={selectedTags[selectedTags.length - 1] ?? null}
+                onTagClick={handleTagClick}
+                maxTags={40}
+              />
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Related tags */}
+        {selectedTags.length > 0 && (
+          <RelatedTags
+            currentTag={selectedTags[selectedTags.length - 1]}
+            selectedTags={selectedTags}
+            onTagAdd={handleTagAdd}
+          />
+        )}
+      </motion.div>
+
+      {/* Legacy Tags (backwards compatible) */}
+      {allTags.length > 0 && !showTagCloud && (
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
@@ -339,11 +458,7 @@ export default function Library() {
 
       {/* Content grid */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <SkeletonCard key={i} />
-          ))}
-        </div>
+        <SkeletonGrid items={4} />
       ) : filteredItems.length > 0 ? (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -443,7 +558,7 @@ export default function Library() {
             ))}
           </div>
 
-          {hasMore && !selectedTag && (
+          {hasMore && !selectedTag && selectedTags.length === 0 && (
             <div className="text-center pt-2">
               <Button
                 variant="secondary"
@@ -456,16 +571,13 @@ export default function Library() {
           )}
         </>
       ) : (
-        <Card>
-          <div className="text-center py-12 space-y-3">
-            <BookOpen className="text-text-muted mx-auto" size={40} />
-            <p className="text-text-secondary text-sm">
-              {debouncedSearch || selectedCategory
-                ? t('library.empty.filtered')
-                : t('library.empty.default')}
-            </p>
-          </div>
-        </Card>
+        <EmptyState
+          icon={BookOpen}
+          title={debouncedSearch || selectedCategory ? t('library.empty.filtered') : t('library.empty.default')}
+          description={debouncedSearch || selectedCategory
+            ? "Try adjusting your filters or search query to find more content."
+            : "Articles and knowledge submissions will appear here once they're published."}
+        />
       )}
     </div>
   )

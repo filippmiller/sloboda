@@ -16,7 +16,7 @@ import api from '@/services/api'
 import type { Post } from '@/types'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
-import { SkeletonCard } from '@/components/ui/Skeleton'
+import { SkeletonList } from '@/components/ui/Skeleton'
 import { estimateReadingTime, formatReadingTime } from '@/utils/readingTime'
 import { useDateLocale } from '@/hooks/useDateLocale'
 
@@ -203,11 +203,7 @@ export default function Dashboard() {
         </div>
 
         {loading ? (
-          <div className="grid gap-4">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <SkeletonCard key={i} />
-            ))}
-          </div>
+          <SkeletonList items={3} />
         ) : recentNews.length > 0 ? (
           <div className="grid gap-4">
             {recentNews.map((post, i) => (
