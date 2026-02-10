@@ -6,6 +6,8 @@ import { ROUTES } from '@/config/routes'
 import { useAuthStore } from '@/stores/authStore'
 import api from '@/services/api'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
+import KeyboardShortcutsHelp from '@/components/KeyboardShortcutsHelp'
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import {
   LayoutDashboard,
   Newspaper,
@@ -23,15 +25,15 @@ import {
 } from 'lucide-react'
 
 const navKeys = [
-  { to: ROUTES.DASHBOARD, key: 'common.nav.dashboard', icon: LayoutDashboard },
-  { to: ROUTES.NEWS, key: 'common.nav.news', icon: Newspaper },
-  { to: ROUTES.FORUM, key: 'common.nav.forum', icon: MessageSquare },
-  { to: ROUTES.LIBRARY, key: 'common.nav.library', icon: BookOpen },
+  { to: ROUTES.DASHBOARD, key: 'common.nav.dashboard', icon: LayoutDashboard, shortcut: 'G·D' },
+  { to: ROUTES.NEWS, key: 'common.nav.news', icon: Newspaper, shortcut: 'G·N' },
+  { to: ROUTES.FORUM, key: 'common.nav.forum', icon: MessageSquare, shortcut: 'G·F' },
+  { to: ROUTES.LIBRARY, key: 'common.nav.library', icon: BookOpen, shortcut: 'G·L' },
   { to: ROUTES.LIBRARIAN, key: 'common.nav.librarian', icon: Sparkles },
   { to: ROUTES.FINANCE, key: 'common.nav.finance', icon: Wallet },
-  { to: ROUTES.BOOKMARKS, key: 'common.nav.bookmarks', icon: Bookmark },
+  { to: ROUTES.BOOKMARKS, key: 'common.nav.bookmarks', icon: Bookmark, shortcut: 'G·B' },
   { to: ROUTES.SUBMIT, key: 'common.nav.submit', icon: Upload },
-  { to: ROUTES.PROFILE, key: 'common.nav.profile', icon: User },
+  { to: ROUTES.PROFILE, key: 'common.nav.profile', icon: User, shortcut: 'G·P' },
 ]
 
 export default function DashboardLayout() {
@@ -42,6 +44,13 @@ export default function DashboardLayout() {
   const user = useAuthStore((s) => s.user)
   const [unreadCount, setUnreadCount] = useState(0)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
+
+  // Enable keyboard shortcuts
+  useKeyboardShortcuts({
+    enabled: true,
+    onHelpOpen: () => setHelpOpen(true),
+  })
 
   // Redirect to onboarding if not completed
   if (user && !user.onboardingCompletedAt) {
@@ -119,7 +128,12 @@ export default function DashboardLayout() {
                   />
                 )}
                 <item.icon size={18} className="transition-transform duration-200 group-hover:scale-105" />
-                {t(item.key)}
+                <span className="flex-1">{t(item.key)}</span>
+                {item.shortcut && (
+                  <kbd className="hidden lg:inline-block px-1.5 py-0.5 text-[10px] font-mono font-medium text-text-muted bg-bg-elevated border border-border rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                    {item.shortcut}
+                  </kbd>
+                )}
               </>
             )}
           </NavLink>
@@ -202,6 +216,9 @@ export default function DashboardLayout() {
           </motion.div>
         </AnimatePresence>
       </main>
+
+      {/* Keyboard shortcuts help */}
+      <KeyboardShortcutsHelp open={helpOpen} onOpenChange={setHelpOpen} mode="user" />
     </div>
   )
 }

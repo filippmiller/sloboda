@@ -3,6 +3,8 @@ import { Outlet, NavLink, useNavigate, useLocation, Navigate } from 'react-route
 import { motion, AnimatePresence } from 'motion/react'
 import { ROUTES } from '@/config/routes'
 import { useAdminStore } from '@/stores/adminStore'
+import KeyboardShortcutsHelp from '@/components/KeyboardShortcutsHelp'
+import { useAdminKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import {
   LayoutDashboard,
   Users,
@@ -25,9 +27,9 @@ import {
 import Skeleton from '@/components/ui/Skeleton'
 
 const navItems = [
-  { to: ROUTES.ADMIN_DASHBOARD, label: 'Обзор', icon: LayoutDashboard },
-  { to: ROUTES.ADMIN_REGISTRATIONS, label: 'Заявки', icon: UserPlus },
-  { to: ROUTES.ADMIN_USERS, label: 'Пользователи', icon: Users },
+  { to: ROUTES.ADMIN_DASHBOARD, label: 'Обзор', icon: LayoutDashboard, shortcut: 'G·D' },
+  { to: ROUTES.ADMIN_REGISTRATIONS, label: 'Заявки', icon: UserPlus, shortcut: 'G·R' },
+  { to: ROUTES.ADMIN_USERS, label: 'Пользователи', icon: Users, shortcut: 'G·U' },
   { to: ROUTES.ADMIN_FORUM, label: 'Форум', icon: MessageSquare },
   { to: ROUTES.ADMIN_POSTS, label: 'Публикации', icon: FileText },
   { to: ROUTES.ADMIN_KNOWLEDGE, label: 'Знания', icon: Lightbulb },
@@ -35,7 +37,7 @@ const navItems = [
   { to: ROUTES.ADMIN_FINANCE, label: 'Финансы', icon: Wallet },
   { to: ROUTES.ADMIN_LANDING, label: 'Главная страница', icon: Globe },
   { to: ROUTES.ADMIN_CAMPAIGNS, label: 'Рассылки', icon: Mail },
-  { to: ROUTES.ADMIN_ANALYTICS, label: 'Аналитика', icon: BarChart3 },
+  { to: ROUTES.ADMIN_ANALYTICS, label: 'Аналитика', icon: BarChart3, shortcut: 'G·A' },
   { to: ROUTES.ADMIN_ADMINS, label: 'Администраторы', icon: ShieldCheck },
   { to: ROUTES.ADMIN_SETTINGS, label: 'Настройки', icon: Settings },
 ]
@@ -45,6 +47,13 @@ export default function AdminLayout() {
   const location = useLocation()
   const { admin, isAuthenticated, isLoading, logout, checkAuth } = useAdminStore()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
+
+  // Enable keyboard shortcuts
+  useAdminKeyboardShortcuts({
+    enabled: true,
+    onHelpOpen: () => setHelpOpen(true),
+  })
 
   useEffect(() => {
     checkAuth()
@@ -114,7 +123,12 @@ export default function AdminLayout() {
                   />
                 )}
                 <item.icon size={18} className="transition-transform duration-200 group-hover:scale-105" />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {item.shortcut && (
+                  <kbd className="hidden lg:inline-block px-1.5 py-0.5 text-[10px] font-mono font-medium text-text-muted bg-bg-elevated border border-border rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                    {item.shortcut}
+                  </kbd>
+                )}
               </>
             )}
           </NavLink>
@@ -203,6 +217,9 @@ export default function AdminLayout() {
           </motion.div>
         </AnimatePresence>
       </main>
+
+      {/* Keyboard shortcuts help */}
+      <KeyboardShortcutsHelp open={helpOpen} onOpenChange={setHelpOpen} mode="admin" />
     </div>
   )
 }
