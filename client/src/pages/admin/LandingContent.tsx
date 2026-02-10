@@ -156,6 +156,11 @@ export default function LandingContent() {
   const renderRealityCardsEditor = (content: any) => {
     const cards = editContent ?? content;
 
+    // Guard: Ensure cards is an array
+    if (!Array.isArray(cards)) {
+      return <div className="text-red-500">Error: Content is not an array</div>;
+    }
+
     const updateCard = (index: number, field: string, value: any) => {
       const newCards = [...cards];
       newCards[index] = { ...newCards[index], [field]: value };
@@ -242,6 +247,11 @@ export default function LandingContent() {
   const renderTestimonialsEditor = (content: any) => {
     const testimonials = editContent ?? content;
 
+    // Guard: Ensure testimonials is an array
+    if (!Array.isArray(testimonials)) {
+      return <div className="text-red-500">Error: Content is not an array</div>;
+    }
+
     const updateTestimonial = (index: number, field: string, value: any) => {
       const newTestimonials = [...testimonials];
       newTestimonials[index] = { ...newTestimonials[index], [field]: value };
@@ -327,6 +337,11 @@ export default function LandingContent() {
   const renderFeaturesEditor = (content: any) => {
     const features = editContent ?? content;
 
+    // Guard: Ensure features is an array
+    if (!Array.isArray(features)) {
+      return <div className="text-red-500">Error: Content is not an array</div>;
+    }
+
     const updateFeature = (index: number, field: string, value: any) => {
       const newFeatures = [...features];
       newFeatures[index] = { ...newFeatures[index], [field]: value };
@@ -366,6 +381,11 @@ export default function LandingContent() {
 
   const renderDonationAmountsEditor = (content: any) => {
     const amounts = editContent ?? content;
+
+    // Guard: Ensure amounts is an array
+    if (!Array.isArray(amounts)) {
+      return <div className="text-red-500">Error: Content is not an array</div>;
+    }
 
     const updateAmount = (index: number, field: string, value: any) => {
       const newAmounts = [...amounts];
