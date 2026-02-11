@@ -24,9 +24,15 @@ const Bookmarks = lazy(() => import('@/pages/user/Bookmarks'))
 const Notifications = lazy(() => import('@/pages/user/Notifications'))
 const Profile = lazy(() => import('@/pages/user/Profile'))
 const Onboarding = lazy(() => import('@/pages/user/Onboarding'))
+const Map = lazy(() => import('@/pages/user/Map'))
+const Badges = lazy(() => import('@/pages/user/Badges'))
 const Forum = lazy(() => import('@/pages/Forum'))
 const ThreadView = lazy(() => import('@/pages/ThreadView'))
 const CreateThread = lazy(() => import('@/pages/CreateThread'))
+const Events = lazy(() => import('@/pages/user/Events'))
+const EventDetail = lazy(() => import('@/pages/user/EventDetail'))
+const UserCampaigns = lazy(() => import('@/pages/user/Campaigns'))
+const CampaignDetail = lazy(() => import('@/pages/user/CampaignDetail'))
 
 const AdminLogin = lazy(() => import('@/pages/admin/Login'))
 const AdminDashboard = lazy(() => import('@/pages/admin/Dashboard'))
@@ -88,9 +94,15 @@ function App() {
           <Route path={ROUTES.BOOKMARKS} element={<Safe><Bookmarks /></Safe>} />
           <Route path={ROUTES.NOTIFICATIONS} element={<Safe><Notifications /></Safe>} />
           <Route path={ROUTES.PROFILE} element={<Safe><Profile /></Safe>} />
+          <Route path={ROUTES.MAP} element={<Safe><Map /></Safe>} />
+          <Route path={ROUTES.BADGES} element={<Safe><Badges /></Safe>} />
           <Route path={ROUTES.FORUM} element={<Safe><Forum /></Safe>} />
           <Route path={ROUTES.FORUM_THREAD} element={<Safe><ThreadView /></Safe>} />
           <Route path={ROUTES.FORUM_CREATE} element={<Safe><CreateThread /></Safe>} />
+          <Route path={ROUTES.EVENTS} element={<Safe><Events /></Safe>} />
+          <Route path={ROUTES.EVENT_DETAIL} element={<Safe><EventDetail /></Safe>} />
+          <Route path={ROUTES.CAMPAIGNS} element={<Safe><UserCampaigns /></Safe>} />
+          <Route path={ROUTES.CAMPAIGN_DETAIL} element={<Safe><CampaignDetail /></Safe>} />
         </Route>
 
         {/* Admin login (no layout) */}

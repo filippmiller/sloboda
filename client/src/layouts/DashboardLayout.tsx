@@ -22,6 +22,8 @@ import {
   Menu,
   X,
   MessageSquare,
+  Map as MapIcon,
+  Award,
 } from 'lucide-react'
 
 const navKeys = [
@@ -30,6 +32,8 @@ const navKeys = [
   { to: ROUTES.FORUM, key: 'common.nav.forum', icon: MessageSquare, shortcut: 'G·F' },
   { to: ROUTES.LIBRARY, key: 'common.nav.library', icon: BookOpen, shortcut: 'G·L' },
   { to: ROUTES.LIBRARIAN, key: 'common.nav.librarian', icon: Sparkles },
+  { to: ROUTES.MAP, key: 'common.nav.map', icon: MapIcon },
+  { to: ROUTES.BADGES, key: 'common.nav.badges', icon: Award },
   { to: ROUTES.FINANCE, key: 'common.nav.finance', icon: Wallet },
   { to: ROUTES.BOOKMARKS, key: 'common.nav.bookmarks', icon: Bookmark, shortcut: 'G·B' },
   { to: ROUTES.SUBMIT, key: 'common.nav.submit', icon: Upload },

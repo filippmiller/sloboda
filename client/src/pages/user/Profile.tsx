@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { useDateLocale } from '@/hooks/useDateLocale'
-import { Save, Loader2, Mail, Calendar, Clock, Globe } from 'lucide-react'
+import { Save, Loader2, Mail, Calendar, Clock, Globe, MapPin } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import api from '@/services/api'
 import { SUPPORTED_LANGUAGES } from '@/i18n'
@@ -42,6 +42,7 @@ export default function Profile() {
   const [saving, setSaving] = useState(false)
   const [savingLang, setSavingLang] = useState(false)
   const [savingExtended, setSavingExtended] = useState(false)
+  const [savingMap, setSavingMap] = useState(false)
 
   // Extended profile state
   const [extended, setExtended] = useState<UserProfile>({
@@ -59,6 +60,13 @@ export default function Profile() {
     participationInterest: undefined,
   })
 
+  // Map settings state
+  const [mapSettings, setMapSettings] = useState({
+    latitude: null as number | null,
+    longitude: null as number | null,
+    mapVisibility: true,
+  })
+
   const form = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
@@ -72,7 +80,11 @@ export default function Profile() {
     async function fetchProfile() {
       try {
         const response = await api.get('/user/profile')
-        const data = (response.data.data ?? response.data) as PortalUser
+        const data = (response.data.data ?? response.data) as PortalUser & {
+          latitude?: number | null
+          longitude?: number | null
+          mapVisibility?: boolean
+        }
         setProfile(data)
         form.reset({
           name: data.name ?? '',
@@ -95,6 +107,12 @@ export default function Profile() {
             participationInterest: data.profile.participationInterest ?? undefined,
           })
         }
+        // Load map settings
+        setMapSettings({
+          latitude: data.latitude ?? null,
+          longitude: data.longitude ?? null,
+          mapVisibility: data.mapVisibility ?? true,
+        })
       } catch {
         toast.error(t('common.errors.unknownError'))
       } finally {
@@ -140,6 +158,22 @@ export default function Profile() {
       toast.error(message)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleSaveMap = async () => {
+    setSavingMap(true)
+
+    try {
+      await api.patch('/user/map/settings', mapSettings)
+      toast.success('Map settings saved')
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        t('common.errors.unknownError')
+      toast.error(message)
+    } finally {
+      setSavingMap(false)
     }
   }
 
@@ -498,6 +532,82 @@ export default function Profile() {
             <Button onClick={handleSaveExtended} loading={savingExtended}>
               <Save size={16} />
               {t('profile.editProfile.saveButton')}
+            </Button>
+          </div>
+        </div>
+      </Card>
+
+      {/* Map Settings */}
+      <Card>
+        <div className="space-y-5">
+          <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide">
+            Community Map Settings
+          </h2>
+
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="mapVisibility"
+              checked={mapSettings.mapVisibility}
+              onChange={(e) => setMapSettings((prev) => ({ ...prev, mapVisibility: e.target.checked }))}
+              className="w-4 h-4 rounded border-border bg-bg-elevated text-accent focus:ring-accent focus:ring-offset-0"
+            />
+            <label htmlFor="mapVisibility" className="text-sm text-text cursor-pointer">
+              Show me on the community map
+            </label>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              type="number"
+              step="0.0001"
+              label="Latitude"
+              placeholder="55.7558"
+              value={mapSettings.latitude ?? ''}
+              onChange={(e) =>
+                setMapSettings((prev) => ({
+                  ...prev,
+                  latitude: e.target.value ? parseFloat(e.target.value) : null,
+                }))
+              }
+            />
+            <Input
+              type="number"
+              step="0.0001"
+              label="Longitude"
+              placeholder="37.6173"
+              value={mapSettings.longitude ?? ''}
+              onChange={(e) =>
+                setMapSettings((prev) => ({
+                  ...prev,
+                  longitude: e.target.value ? parseFloat(e.target.value) : null,
+                }))
+              }
+            />
+          </div>
+
+          <div className="bg-bg-elevated border border-border rounded-lg p-4">
+            <p className="text-sm text-text-secondary flex items-start gap-2">
+              <MapPin size={16} className="mt-0.5 flex-shrink-0 text-accent" />
+              <span>
+                To get your coordinates, open{' '}
+                <a
+                  href="https://www.google.com/maps"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-accent hover:underline"
+                >
+                  Google Maps
+                </a>
+                , right-click on your location, and click the coordinates to copy them.
+              </span>
+            </p>
+          </div>
+
+          <div className="flex justify-end">
+            <Button onClick={handleSaveMap} loading={savingMap}>
+              <Save size={16} />
+              Save Map Settings
             </Button>
           </div>
         </div>

@@ -227,6 +227,11 @@ router.post('/knowledge', requireUserAuth, upload.array('files', 5), async (req,
         // Trigger AI classification in the background
         enqueueClassification(submission.id);
 
+        // Check for badge eligibility after submission
+        db.checkAndAwardBadges(req.user.id).catch(err =>
+            console.error('Error checking badges:', err)
+        );
+
         res.json({ success: true, data: submission });
     } catch (err) {
         console.error('Error creating submission:', err);
@@ -589,6 +594,11 @@ router.put('/profile/extended', requireUserAuth, async (req, res) => {
             participationInterest: participationInterest || null
         });
 
+        // Check for badge eligibility after profile update
+        db.checkAndAwardBadges(req.user.id).catch(err =>
+            console.error('Error checking badges:', err)
+        );
+
         const user = await db.getUserWithProfile(req.user.id);
         res.json({ success: true, data: formatProfileResponse(user) });
     } catch (err) {
@@ -863,6 +873,454 @@ router.post('/video/parse', requireUserAuth, async (req, res) => {
     }
 
     res.json({ success: true, video: parsed });
+});
+
+// ============================================
+// COMMUNITY MAP
+// ============================================
+
+/**
+ * GET /api/user/map/members
+ * Get all members visible on the community map
+ */
+router.get('/map/members', requireUserAuth, async (req, res) => {
+    try {
+        const members = await db.getUsersForMap();
+        res.json({ success: true, data: members });
+    } catch (err) {
+        console.error('Error fetching map members:', err);
+        res.status(500).json({ success: false, error: 'Failed to fetch map members' });
+    }
+});
+
+/**
+ * PATCH /api/user/map/settings
+ * Update user's map visibility and coordinates
+ */
+router.patch('/map/settings', requireUserAuth, async (req, res) => {
+    try {
+        const { latitude, longitude, mapVisibility } = req.body;
+
+        // Validate coordinates if provided
+        if (latitude !== undefined && (latitude < -90 || latitude > 90)) {
+            return res.status(400).json({ success: false, error: 'Invalid latitude' });
+        }
+        if (longitude !== undefined && (longitude < -180 || longitude > 180)) {
+            return res.status(400).json({ success: false, error: 'Invalid longitude' });
+        }
+
+        const updated = await db.updateUserMapSettings(
+            req.user.id,
+            latitude,
+            longitude,
+            mapVisibility
+        );
+
+        res.json({ success: true, data: updated });
+    } catch (err) {
+        console.error('Error updating map settings:', err);
+        res.status(500).json({ success: false, error: 'Failed to update map settings' });
+    }
+});
+
+// ============================================
+// BADGES
+// ============================================
+
+/**
+ * GET /api/user/badges
+ * Get current user's earned badges
+ */
+router.get('/badges', requireUserAuth, async (req, res) => {
+    try {
+        const badges = await db.getUserBadges(req.user.id);
+        res.json({ success: true, data: badges });
+    } catch (err) {
+        console.error('Error fetching user badges:', err);
+        res.status(500).json({ success: false, error: 'Failed to fetch badges' });
+    }
+});
+
+/**
+ * GET /api/user/badges/all
+ * Get all badges with earned status for current user
+ */
+router.get('/badges/all', requireUserAuth, async (req, res) => {
+    try {
+        const badges = await db.getUserBadgesWithStatus(req.user.id);
+        res.json({ success: true, data: badges });
+    } catch (err) {
+        console.error('Error fetching all badges:', err);
+        res.status(500).json({ success: false, error: 'Failed to fetch badges' });
+    }
+});
+
+/**
+ * POST /api/user/badges/check
+ * Manually trigger badge checking for current user
+ */
+router.post('/badges/check', requireUserAuth, async (req, res) => {
+    try {
+        await db.checkAndAwardBadges(req.user.id);
+        const badges = await db.getUserBadges(req.user.id);
+        res.json({ success: true, data: badges });
+    } catch (err) {
+        console.error('Error checking badges:', err);
+        res.status(500).json({ success: false, error: 'Failed to check badges' });
+    }
+});
+
+// ============================================
+// EVENTS
+// ============================================
+
+/**
+ * GET /api/user/events
+ * List events with filters
+ */
+router.get('/events', requireUserAuth, async (req, res) => {
+    try {
+        const filters = {
+            status: req.query.status,
+            eventType: req.query.eventType,
+            userId: req.user.id,
+            limit: req.query.limit ? parseInt(req.query.limit) : 50,
+            offset: req.query.offset ? parseInt(req.query.offset) : 0
+        };
+
+        const events = await db.getEvents(filters);
+        res.json({ success: true, data: events });
+    } catch (err) {
+        console.error('Error fetching events:', err);
+        res.status(500).json({ success: false, error: 'Failed to fetch events' });
+    }
+});
+
+/**
+ * GET /api/user/events/my-rsvps
+ * Get user's upcoming RSVPs
+ */
+router.get('/events/my-rsvps', requireUserAuth, async (req, res) => {
+    try {
+        const rsvps = await db.getUserRSVPs(req.user.id);
+        res.json({ success: true, data: rsvps });
+    } catch (err) {
+        console.error('Error fetching RSVPs:', err);
+        res.status(500).json({ success: false, error: 'Failed to fetch RSVPs' });
+    }
+});
+
+/**
+ * GET /api/user/events/:id
+ * Get event details
+ */
+router.get('/events/:id', requireUserAuth, async (req, res) => {
+    try {
+        const event = await db.getEventById(parseInt(req.params.id), req.user.id);
+        if (!event) {
+            return res.status(404).json({ success: false, error: 'Event not found' });
+        }
+
+        const attendees = await db.getEventAttendees(event.id);
+        res.json({ success: true, data: { ...event, attendees } });
+    } catch (err) {
+        console.error('Error fetching event:', err);
+        res.status(500).json({ success: false, error: 'Failed to fetch event' });
+    }
+});
+
+/**
+ * POST /api/user/events
+ * Create new event
+ */
+router.post('/events', requireUserAuth, async (req, res) => {
+    try {
+        const { title, description, location, eventType, startDate, endDate, maxAttendees } = req.body;
+
+        if (!title || !eventType || !startDate) {
+            return res.status(400).json({
+                success: false,
+                error: 'Title, event type, and start date are required'
+            });
+        }
+
+        const validEventTypes = ['meetup', 'workshop', 'workday', 'webinar'];
+        if (!validEventTypes.includes(eventType)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid event type'
+            });
+        }
+
+        const event = await db.createEvent({
+            title,
+            description,
+            location,
+            eventType,
+            startDate,
+            endDate,
+            maxAttendees: maxAttendees ? parseInt(maxAttendees) : null
+        }, req.user.id);
+
+        res.json({ success: true, data: event });
+    } catch (err) {
+        console.error('Error creating event:', err);
+        res.status(500).json({ success: false, error: 'Failed to create event' });
+    }
+});
+
+/**
+ * PATCH /api/user/events/:id
+ * Update event (creator only)
+ */
+router.patch('/events/:id', requireUserAuth, async (req, res) => {
+    try {
+        const eventId = parseInt(req.params.id);
+        const event = await db.getEventById(eventId);
+
+        if (!event) {
+            return res.status(404).json({ success: false, error: 'Event not found' });
+        }
+
+        if (event.created_by !== req.user.id) {
+            return res.status(403).json({ success: false, error: 'Not authorized' });
+        }
+
+        const updated = await db.updateEvent(eventId, req.body);
+        res.json({ success: true, data: updated });
+    } catch (err) {
+        console.error('Error updating event:', err);
+        res.status(500).json({ success: false, error: 'Failed to update event' });
+    }
+});
+
+/**
+ * POST /api/user/events/:id/rsvp
+ * RSVP to event
+ */
+router.post('/events/:id/rsvp', requireUserAuth, async (req, res) => {
+    try {
+        const { status } = req.body;
+        const validStatuses = ['going', 'maybe', 'not_going'];
+
+        if (!status || !validStatuses.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid RSVP status'
+            });
+        }
+
+        const rsvp = await db.rsvpEvent(parseInt(req.params.id), req.user.id, status);
+        res.json({ success: true, data: rsvp });
+    } catch (err) {
+        console.error('Error RSVPing to event:', err);
+        res.status(500).json({ success: false, error: 'Failed to RSVP' });
+    }
+});
+
+/**
+ * GET /api/user/events/:id/ical
+ * Download iCalendar file
+ */
+router.get('/events/:id/ical', requireUserAuth, async (req, res) => {
+    try {
+        const event = await db.getEventById(parseInt(req.params.id));
+        if (!event) {
+            return res.status(404).json({ success: false, error: 'Event not found' });
+        }
+
+        const formatICS = (date) => {
+            return new Date(date).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+        };
+
+        const ical = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//SLOBODA//Events//RU
+BEGIN:VEVENT
+UID:event-${event.id}@sloboda.land
+DTSTAMP:${formatICS(new Date())}
+DTSTART:${formatICS(event.start_date)}
+${event.end_date ? `DTEND:${formatICS(event.end_date)}` : ''}
+SUMMARY:${event.title}
+${event.description ? `DESCRIPTION:${event.description.replace(/\n/g, '\\n')}` : ''}
+${event.location ? `LOCATION:${event.location}` : ''}
+STATUS:CONFIRMED
+END:VEVENT
+END:VCALENDAR`;
+
+        res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="event-${event.id}.ics"`);
+        res.send(ical);
+    } catch (err) {
+        console.error('Error generating iCal:', err);
+        res.status(500).json({ success: false, error: 'Failed to generate calendar file' });
+    }
+});
+
+// ============================================
+// FUNDRAISING CAMPAIGNS
+// ============================================
+
+/**
+ * GET /api/user/campaigns
+ * List all active campaigns
+ */
+router.get('/campaigns', requireUserAuth, async (req, res) => {
+    try {
+        const filters = {
+            status: req.query.status || 'active',
+            limit: req.query.limit ? parseInt(req.query.limit) : 50,
+            offset: req.query.offset ? parseInt(req.query.offset) : 0
+        };
+
+        const campaigns = await db.getCampaigns(filters);
+        res.json({ success: true, data: campaigns });
+    } catch (err) {
+        console.error('Error fetching campaigns:', err);
+        res.status(500).json({ success: false, error: 'Failed to fetch campaigns' });
+    }
+});
+
+/**
+ * GET /api/user/campaigns/my
+ * Get user's campaigns
+ */
+router.get('/campaigns/my', requireUserAuth, async (req, res) => {
+    try {
+        const campaigns = await db.getCampaigns({
+            userId: req.user.id,
+            limit: 50,
+            offset: 0
+        });
+        res.json({ success: true, data: campaigns });
+    } catch (err) {
+        console.error('Error fetching user campaigns:', err);
+        res.status(500).json({ success: false, error: 'Failed to fetch campaigns' });
+    }
+});
+
+/**
+ * GET /api/user/campaigns/:id
+ * Get campaign details
+ */
+router.get('/campaigns/:id', requireUserAuth, async (req, res) => {
+    try {
+        const campaign = await db.getCampaignById(parseInt(req.params.id));
+        if (!campaign) {
+            return res.status(404).json({ success: false, error: 'Campaign not found' });
+        }
+
+        const donations = await db.getCampaignDonations(campaign.id);
+        res.json({ success: true, data: { ...campaign, donations } });
+    } catch (err) {
+        console.error('Error fetching campaign:', err);
+        res.status(500).json({ success: false, error: 'Failed to fetch campaign' });
+    }
+});
+
+/**
+ * POST /api/user/campaigns
+ * Create campaign
+ */
+router.post('/campaigns', requireUserAuth, async (req, res) => {
+    try {
+        const { title, description, goalAmount, endDate } = req.body;
+
+        if (!title || !description || !goalAmount) {
+            return res.status(400).json({
+                success: false,
+                error: 'Title, description, and goal amount are required'
+            });
+        }
+
+        if (title.length > 100) {
+            return res.status(400).json({
+                success: false,
+                error: 'Title must be 100 characters or less'
+            });
+        }
+
+        if (description.length > 1000) {
+            return res.status(400).json({
+                success: false,
+                error: 'Description must be 1000 characters or less'
+            });
+        }
+
+        const amount = parseInt(goalAmount);
+        if (isNaN(amount) || amount < 100) {
+            return res.status(400).json({
+                success: false,
+                error: 'Goal amount must be at least 100 rubles'
+            });
+        }
+
+        const campaign = await db.createCampaign({
+            title,
+            description,
+            goalAmount: amount,
+            endDate: endDate || null
+        }, req.user.id);
+
+        res.json({ success: true, data: campaign });
+    } catch (err) {
+        console.error('Error creating campaign:', err);
+        res.status(500).json({ success: false, error: 'Failed to create campaign' });
+    }
+});
+
+/**
+ * PATCH /api/user/campaigns/:id
+ * Update campaign (creator only)
+ */
+router.patch('/campaigns/:id', requireUserAuth, async (req, res) => {
+    try {
+        const campaignId = parseInt(req.params.id);
+        const campaign = await db.getCampaignById(campaignId);
+
+        if (!campaign) {
+            return res.status(404).json({ success: false, error: 'Campaign not found' });
+        }
+
+        if (campaign.user_id !== req.user.id) {
+            return res.status(403).json({ success: false, error: 'Not authorized' });
+        }
+
+        const updated = await db.updateCampaign(campaignId, req.body);
+        res.json({ success: true, data: updated });
+    } catch (err) {
+        console.error('Error updating campaign:', err);
+        res.status(500).json({ success: false, error: 'Failed to update campaign' });
+    }
+});
+
+/**
+ * POST /api/user/campaigns/:id/donate
+ * Record donation (placeholder)
+ */
+router.post('/campaigns/:id/donate', requireUserAuth, async (req, res) => {
+    try {
+        const { amount, donorName, message, isAnonymous } = req.body;
+
+        if (!amount || isNaN(parseInt(amount)) || parseInt(amount) < 10) {
+            return res.status(400).json({
+                success: false,
+                error: 'Amount must be at least 10 rubles'
+            });
+        }
+
+        const donation = await db.recordCampaignDonation(parseInt(req.params.id), {
+            amount: parseInt(amount),
+            donorName: donorName || req.user.name,
+            message: message || null,
+            isAnonymous: isAnonymous || false
+        });
+
+        res.json({ success: true, data: donation });
+    } catch (err) {
+        console.error('Error recording donation:', err);
+        res.status(500).json({ success: false, error: 'Failed to record donation' });
+    }
 });
 
 module.exports = { router, setDb };

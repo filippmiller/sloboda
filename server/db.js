@@ -517,6 +517,65 @@ async function initDatabase() {
         `);
 
         // ============================================
+        // COMMUNITY EVENTS
+        // ============================================
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS events (
+                id SERIAL PRIMARY KEY,
+                title TEXT NOT NULL,
+                description TEXT,
+                location TEXT,
+                event_type TEXT NOT NULL,
+                start_date TIMESTAMP NOT NULL,
+                end_date TIMESTAMP,
+                max_attendees INTEGER,
+                created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                status TEXT DEFAULT 'upcoming',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS event_rsvps (
+                id SERIAL PRIMARY KEY,
+                event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                status TEXT DEFAULT 'going',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(event_id, user_id)
+            )
+        `);
+
+        // ============================================
+        // PEER-TO-PEER FUNDRAISING
+        // ============================================
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS fundraising_campaigns (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                title TEXT NOT NULL,
+                description TEXT NOT NULL,
+                goal_amount INTEGER NOT NULL,
+                current_amount INTEGER DEFAULT 0,
+                end_date DATE,
+                status TEXT DEFAULT 'active',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS campaign_donations (
+                id SERIAL PRIMARY KEY,
+                campaign_id INTEGER REFERENCES fundraising_campaigns(id) ON DELETE CASCADE,
+                donor_name TEXT,
+                amount INTEGER NOT NULL,
+                message TEXT,
+                is_anonymous BOOLEAN DEFAULT false,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // ============================================
         // PERFORMANCE INDEXES
         // ============================================
         await client.query(`
@@ -536,6 +595,13 @@ async function initDatabase() {
             CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
             CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
             CREATE INDEX IF NOT EXISTS idx_content_translations_lookup ON content_translations(content_type, content_id, language);
+            CREATE INDEX IF NOT EXISTS idx_events_status_date ON events(status, start_date);
+            CREATE INDEX IF NOT EXISTS idx_events_created_by ON events(created_by);
+            CREATE INDEX IF NOT EXISTS idx_event_rsvps_event ON event_rsvps(event_id, status);
+            CREATE INDEX IF NOT EXISTS idx_event_rsvps_user ON event_rsvps(user_id);
+            CREATE INDEX IF NOT EXISTS idx_fundraising_campaigns_user ON fundraising_campaigns(user_id);
+            CREATE INDEX IF NOT EXISTS idx_fundraising_campaigns_status ON fundraising_campaigns(status);
+            CREATE INDEX IF NOT EXISTS idx_campaign_donations_campaign ON campaign_donations(campaign_id);
         `);
 
         // Extend files table for general file storage (migration)
@@ -553,6 +619,78 @@ async function initDatabase() {
         `);
         await client.query(`
             CREATE INDEX IF NOT EXISTS idx_files_context ON files(context)
+        `);
+
+        // ============================================
+        // COMMUNITY ENGAGEMENT FEATURES
+        // ============================================
+
+        // Add map coordinates to users table
+        await client.query(`
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'users' AND column_name = 'latitude'
+                ) THEN
+                    ALTER TABLE users ADD COLUMN latitude DECIMAL(10, 8);
+                END IF;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'users' AND column_name = 'longitude'
+                ) THEN
+                    ALTER TABLE users ADD COLUMN longitude DECIMAL(11, 8);
+                END IF;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'users' AND column_name = 'map_visibility'
+                ) THEN
+                    ALTER TABLE users ADD COLUMN map_visibility BOOLEAN DEFAULT true;
+                END IF;
+            END $$;
+        `);
+
+        // Badges table
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS badges (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                description TEXT NOT NULL,
+                icon VARCHAR(50) NOT NULL,
+                category VARCHAR(50) NOT NULL,
+                criteria JSONB NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // User badges junction table
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS user_badges (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                badge_id INTEGER REFERENCES badges(id) ON DELETE CASCADE,
+                earned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, badge_id)
+            )
+        `);
+
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_user_badges_user ON user_badges(user_id)
+        `);
+
+        // Seed default badges
+        await client.query(`
+            INSERT INTO badges (name, description, icon, category, criteria) VALUES
+                ('Добро пожаловать', 'Присоединился к СЛОБОДЕ', '🎉', 'milestone', '{"type": "auto_on_signup"}'),
+                ('Заполнен профиль', 'Заполнил профиль на 100%', '✅', 'milestone', '{"type": "profile_complete", "threshold": 100}'),
+                ('Первая публикация', 'Опубликовал первую статью знаний', '📝', 'contribution', '{"type": "submission_count", "threshold": 1}'),
+                ('Активный участник', 'Опубликовал 10+ статей', '🔥', 'contribution', '{"type": "submission_count", "threshold": 10}'),
+                ('Ранний последователь', 'Одним из первых 100 участников', '🚀', 'milestone', '{"type": "early_adopter", "user_id_threshold": 100}'),
+                ('Ежемесячный спонсор', 'Активный ежемесячный донор', '💎', 'engagement', '{"type": "recurring_donor"}'),
+                ('Годовщина', 'Член сообщества 1+ год', '🎂', 'milestone', '{"type": "membership_duration", "days": 365}')
+            ON CONFLICT DO NOTHING
         `);
 
         console.log('Database tables initialized');
@@ -3632,6 +3770,561 @@ async function createFundingGoal(data) {
     }
 }
 
+// ============================================
+// MAP FUNCTIONS
+// ============================================
+
+async function getUsersForMap() {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `SELECT u.id, u.name, up.city, u.latitude, u.longitude, u.avatar_url
+             FROM users u
+             LEFT JOIN user_profiles up ON up.user_id = u.id
+             WHERE u.map_visibility = true
+               AND u.latitude IS NOT NULL
+               AND u.longitude IS NOT NULL
+               AND u.status = 'active'
+             ORDER BY u.created_at DESC`
+        );
+        return result.rows;
+    } finally {
+        client.release();
+    }
+}
+
+async function updateUserMapSettings(userId, latitude, longitude, mapVisibility) {
+    const client = await pool.connect();
+    try {
+        const updates = [];
+        const params = [];
+        let paramIndex = 1;
+
+        if (latitude !== undefined) {
+            updates.push(`latitude = $${paramIndex++}`);
+            params.push(latitude);
+        }
+        if (longitude !== undefined) {
+            updates.push(`longitude = $${paramIndex++}`);
+            params.push(longitude);
+        }
+        if (mapVisibility !== undefined) {
+            updates.push(`map_visibility = $${paramIndex++}`);
+            params.push(mapVisibility);
+        }
+
+        if (updates.length === 0) return null;
+
+        params.push(userId);
+        const result = await client.query(
+            `UPDATE users SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP
+             WHERE id = $${paramIndex}
+             RETURNING id, name, latitude, longitude, map_visibility`,
+            params
+        );
+        return result.rows[0] || null;
+    } finally {
+        client.release();
+    }
+}
+
+// ============================================
+// BADGE FUNCTIONS
+// ============================================
+
+async function getAllBadges() {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            'SELECT * FROM badges ORDER BY category, id'
+        );
+        return result.rows;
+    } finally {
+        client.release();
+    }
+}
+
+async function getUserBadges(userId) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `SELECT b.*, ub.earned_at
+             FROM badges b
+             INNER JOIN user_badges ub ON ub.badge_id = b.id
+             WHERE ub.user_id = $1
+             ORDER BY ub.earned_at DESC`,
+            [userId]
+        );
+        return result.rows;
+    } finally {
+        client.release();
+    }
+}
+
+async function getUserBadgesWithStatus(userId) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `SELECT b.*,
+                    CASE WHEN ub.user_id IS NOT NULL THEN true ELSE false END as earned,
+                    ub.earned_at
+             FROM badges b
+             LEFT JOIN user_badges ub ON ub.badge_id = b.id AND ub.user_id = $1
+             ORDER BY earned DESC, b.category, b.id`,
+            [userId]
+        );
+        return result.rows;
+    } finally {
+        client.release();
+    }
+}
+
+async function awardBadge(userId, badgeId) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `INSERT INTO user_badges (user_id, badge_id)
+             VALUES ($1, $2)
+             ON CONFLICT (user_id, badge_id) DO NOTHING
+             RETURNING *`,
+            [userId, badgeId]
+        );
+        return result.rows[0] || null;
+    } finally {
+        client.release();
+    }
+}
+
+async function getKnowledgeSubmissionCount(userId) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `SELECT COUNT(*) as count
+             FROM knowledge_submissions
+             WHERE user_id = $1 AND status = 'approved'`,
+            [userId]
+        );
+        return parseInt(result.rows[0].count) || 0;
+    } finally {
+        client.release();
+    }
+}
+
+async function checkAndAwardBadges(userId) {
+    const client = await pool.connect();
+    try {
+        const user = await getUserWithProfile(userId);
+        if (!user) return;
+
+        const badges = await getAllBadges();
+
+        for (const badge of badges) {
+            const criteria = badge.criteria;
+            let shouldAward = false;
+
+            switch (criteria.type) {
+                case 'auto_on_signup':
+                    shouldAward = true;
+                    break;
+
+                case 'profile_complete':
+                    // Check if all profile fields are filled
+                    const profileComplete =
+                        user.name && user.email && user.telegram && user.location &&
+                        user.country_code && user.profile_city && user.bio &&
+                        user.profession && user.skills && user.skills.length > 0;
+                    shouldAward = profileComplete;
+                    break;
+
+                case 'submission_count':
+                    const submissionCount = await getKnowledgeSubmissionCount(userId);
+                    shouldAward = submissionCount >= criteria.threshold;
+                    break;
+
+                case 'early_adopter':
+                    shouldAward = user.id <= criteria.user_id_threshold;
+                    break;
+
+                case 'membership_duration':
+                    const daysSinceJoin = Math.floor(
+                        (new Date() - new Date(user.created_at)) / (1000 * 60 * 60 * 24)
+                    );
+                    shouldAward = daysSinceJoin >= criteria.days;
+                    break;
+
+                // Other badge types can be implemented later (recurring_donor, etc.)
+            }
+
+            if (shouldAward) {
+                const awarded = await awardBadge(userId, badge.id);
+                if (awarded) {
+                    // Create notification for newly earned badge
+                    await createNotification(userId, 'badge_earned', {
+                        badgeName: badge.name,
+                        badgeIcon: badge.icon,
+                        badgeId: badge.id
+                    });
+                }
+            }
+        }
+    } finally {
+        client.release();
+    }
+}
+
+// ============================================
+// EVENT FUNCTIONS
+// ============================================
+
+async function getEvents(filters = {}) {
+    const { status, eventType, userId, limit = 50, offset = 0 } = filters;
+    const conditions = [];
+    const params = [];
+    let paramCount = 1;
+
+    if (status) {
+        conditions.push(`e.status = $${paramCount++}`);
+        params.push(status);
+    }
+    if (eventType) {
+        conditions.push(`e.event_type = $${paramCount++}`);
+        params.push(eventType);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const query = `
+        SELECT
+            e.*,
+            u.name as creator_name,
+            u.avatar_url as creator_avatar,
+            COUNT(DISTINCT CASE WHEN er.status = 'going' THEN er.id END) as rsvp_going,
+            COUNT(DISTINCT CASE WHEN er.status = 'maybe' THEN er.id END) as rsvp_maybe,
+            COUNT(DISTINCT er.id) as rsvp_total
+            ${userId ? `, MAX(CASE WHEN er.user_id = $${paramCount} THEN er.status END) as user_rsvp_status` : ''}
+        FROM events e
+        LEFT JOIN users u ON e.created_by = u.id
+        LEFT JOIN event_rsvps er ON e.id = er.event_id
+        ${whereClause}
+        GROUP BY e.id, u.name, u.avatar_url
+        ORDER BY e.start_date ASC
+        LIMIT $${paramCount++} OFFSET $${paramCount}
+    `;
+
+    if (userId) params.push(userId);
+    params.push(limit, offset);
+
+    const result = await pool.query(query, params);
+    return result.rows;
+}
+
+async function getEventById(id, userId = null) {
+    const query = `
+        SELECT
+            e.*,
+            u.name as creator_name,
+            u.avatar_url as creator_avatar,
+            COUNT(DISTINCT CASE WHEN er.status = 'going' THEN er.id END) as rsvp_going,
+            COUNT(DISTINCT CASE WHEN er.status = 'maybe' THEN er.id END) as rsvp_maybe
+            ${userId ? `, MAX(CASE WHEN er.user_id = $2 THEN er.status END) as user_rsvp_status` : ''}
+        FROM events e
+        LEFT JOIN users u ON e.created_by = u.id
+        LEFT JOIN event_rsvps er ON e.id = er.event_id
+        WHERE e.id = $1
+        GROUP BY e.id, u.name, u.avatar_url
+    `;
+
+    const params = userId ? [id, userId] : [id];
+    const result = await pool.query(query, params);
+    return result.rows[0];
+}
+
+async function createEvent(data, userId) {
+    const query = `
+        INSERT INTO events
+            (title, description, location, event_type, start_date, end_date, max_attendees, created_by, status)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        RETURNING *
+    `;
+    const result = await pool.query(query, [
+        data.title,
+        data.description || null,
+        data.location || null,
+        data.eventType,
+        data.startDate,
+        data.endDate || null,
+        data.maxAttendees || null,
+        userId,
+        data.status || 'upcoming'
+    ]);
+    return result.rows[0];
+}
+
+async function updateEvent(id, data) {
+    const fields = [];
+    const params = [];
+    let paramCount = 1;
+
+    if (data.title !== undefined) {
+        fields.push(`title = $${paramCount++}`);
+        params.push(data.title);
+    }
+    if (data.description !== undefined) {
+        fields.push(`description = $${paramCount++}`);
+        params.push(data.description);
+    }
+    if (data.location !== undefined) {
+        fields.push(`location = $${paramCount++}`);
+        params.push(data.location);
+    }
+    if (data.eventType !== undefined) {
+        fields.push(`event_type = $${paramCount++}`);
+        params.push(data.eventType);
+    }
+    if (data.startDate !== undefined) {
+        fields.push(`start_date = $${paramCount++}`);
+        params.push(data.startDate);
+    }
+    if (data.endDate !== undefined) {
+        fields.push(`end_date = $${paramCount++}`);
+        params.push(data.endDate);
+    }
+    if (data.maxAttendees !== undefined) {
+        fields.push(`max_attendees = $${paramCount++}`);
+        params.push(data.maxAttendees);
+    }
+    if (data.status !== undefined) {
+        fields.push(`status = $${paramCount++}`);
+        params.push(data.status);
+    }
+
+    if (fields.length === 0) return null;
+
+    params.push(id);
+    const query = `UPDATE events SET ${fields.join(', ')} WHERE id = $${paramCount} RETURNING *`;
+    const result = await pool.query(query, params);
+    return result.rows[0];
+}
+
+async function rsvpEvent(eventId, userId, status) {
+    const query = `
+        INSERT INTO event_rsvps (event_id, user_id, status)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (event_id, user_id)
+        DO UPDATE SET status = $3
+        RETURNING *
+    `;
+    const result = await pool.query(query, [eventId, userId, status]);
+    return result.rows[0];
+}
+
+async function getUserRSVPs(userId) {
+    const query = `
+        SELECT
+            e.*,
+            u.name as creator_name,
+            u.avatar_url as creator_avatar,
+            er.status as rsvp_status,
+            COUNT(DISTINCT CASE WHEN er2.status = 'going' THEN er2.id END) as rsvp_going
+        FROM event_rsvps er
+        JOIN events e ON er.event_id = e.id
+        LEFT JOIN users u ON e.created_by = u.id
+        LEFT JOIN event_rsvps er2 ON e.id = er2.event_id
+        WHERE er.user_id = $1 AND e.start_date >= CURRENT_TIMESTAMP
+        GROUP BY e.id, u.name, u.avatar_url, er.status
+        ORDER BY e.start_date ASC
+    `;
+    const result = await pool.query(query, [userId]);
+    return result.rows;
+}
+
+async function getEventAttendees(eventId) {
+    const query = `
+        SELECT
+            u.id,
+            u.name,
+            u.avatar_url,
+            er.status,
+            er.created_at as rsvp_date
+        FROM event_rsvps er
+        JOIN users u ON er.user_id = u.id
+        WHERE er.event_id = $1
+        ORDER BY er.created_at DESC
+    `;
+    const result = await pool.query(query, [eventId]);
+    return result.rows;
+}
+
+// ============================================
+// FUNDRAISING CAMPAIGN FUNCTIONS
+// ============================================
+
+async function getCampaigns(filters = {}) {
+    const { userId, status, limit = 50, offset = 0 } = filters;
+    const conditions = [];
+    const params = [];
+    let paramCount = 1;
+
+    if (userId) {
+        conditions.push(`fc.user_id = $${paramCount++}`);
+        params.push(userId);
+    }
+    if (status) {
+        conditions.push(`fc.status = $${paramCount++}`);
+        params.push(status);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const query = `
+        SELECT
+            fc.*,
+            u.name as user_name,
+            u.avatar_url as user_avatar,
+            COUNT(cd.id) as donation_count
+        FROM fundraising_campaigns fc
+        LEFT JOIN users u ON fc.user_id = u.id
+        LEFT JOIN campaign_donations cd ON fc.id = cd.campaign_id
+        ${whereClause}
+        GROUP BY fc.id, u.name, u.avatar_url
+        ORDER BY fc.created_at DESC
+        LIMIT $${paramCount++} OFFSET $${paramCount}
+    `;
+
+    params.push(limit, offset);
+
+    const result = await pool.query(query, params);
+    return result.rows;
+}
+
+async function getCampaignById(id) {
+    const query = `
+        SELECT
+            fc.*,
+            u.name as user_name,
+            u.avatar_url as user_avatar,
+            COUNT(cd.id) as donation_count
+        FROM fundraising_campaigns fc
+        LEFT JOIN users u ON fc.user_id = u.id
+        LEFT JOIN campaign_donations cd ON fc.id = cd.campaign_id
+        WHERE fc.id = $1
+        GROUP BY fc.id, u.name, u.avatar_url
+    `;
+
+    const result = await pool.query(query, [id]);
+    return result.rows[0];
+}
+
+async function createCampaign(data, userId) {
+    const query = `
+        INSERT INTO fundraising_campaigns
+            (user_id, title, description, goal_amount, end_date, status)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING *
+    `;
+    const result = await pool.query(query, [
+        userId,
+        data.title,
+        data.description,
+        data.goalAmount,
+        data.endDate || null,
+        data.status || 'active'
+    ]);
+    return result.rows[0];
+}
+
+async function updateCampaign(id, data) {
+    const fields = [];
+    const params = [];
+    let paramCount = 1;
+
+    if (data.title !== undefined) {
+        fields.push(`title = $${paramCount++}`);
+        params.push(data.title);
+    }
+    if (data.description !== undefined) {
+        fields.push(`description = $${paramCount++}`);
+        params.push(data.description);
+    }
+    if (data.goalAmount !== undefined) {
+        fields.push(`goal_amount = $${paramCount++}`);
+        params.push(data.goalAmount);
+    }
+    if (data.currentAmount !== undefined) {
+        fields.push(`current_amount = $${paramCount++}`);
+        params.push(data.currentAmount);
+    }
+    if (data.endDate !== undefined) {
+        fields.push(`end_date = $${paramCount++}`);
+        params.push(data.endDate);
+    }
+    if (data.status !== undefined) {
+        fields.push(`status = $${paramCount++}`);
+        params.push(data.status);
+    }
+
+    if (fields.length === 0) return null;
+
+    params.push(id);
+    const query = `UPDATE fundraising_campaigns SET ${fields.join(', ')} WHERE id = $${paramCount} RETURNING *`;
+    const result = await pool.query(query, params);
+    return result.rows[0];
+}
+
+async function recordCampaignDonation(campaignId, data) {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const donationQuery = `
+            INSERT INTO campaign_donations
+                (campaign_id, donor_name, amount, message, is_anonymous)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING *
+        `;
+        const donationResult = await client.query(donationQuery, [
+            campaignId,
+            data.donorName || null,
+            data.amount,
+            data.message || null,
+            data.isAnonymous || false
+        ]);
+
+        const updateQuery = `
+            UPDATE fundraising_campaigns
+            SET current_amount = current_amount + $1
+            WHERE id = $2
+            RETURNING *
+        `;
+        await client.query(updateQuery, [data.amount, campaignId]);
+
+        await client.query('COMMIT');
+        return donationResult.rows[0];
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
+}
+
+async function getCampaignDonations(campaignId) {
+    const query = `
+        SELECT
+            id,
+            CASE WHEN is_anonymous THEN 'Аноним' ELSE donor_name END as donor_name,
+            amount,
+            CASE WHEN is_anonymous THEN NULL ELSE message END as message,
+            is_anonymous,
+            created_at
+        FROM campaign_donations
+        WHERE campaign_id = $1
+        ORDER BY created_at DESC
+    `;
+    const result = await pool.query(query, [campaignId]);
+    return result.rows;
+}
+
 module.exports = {
     pool,
     initDatabase,
@@ -3811,6 +4504,31 @@ module.exports = {
     getActiveFundingGoal,
     updateFundingGoalProgress,
     createFundingGoal,
+    // Map functions
+    getUsersForMap,
+    updateUserMapSettings,
+    // Badge functions
+    getAllBadges,
+    getUserBadges,
+    getUserBadgesWithStatus,
+    awardBadge,
+    getKnowledgeSubmissionCount,
+    checkAndAwardBadges,
+    // Event functions
+    getEvents,
+    getEventById,
+    createEvent,
+    updateEvent,
+    rsvpEvent,
+    getUserRSVPs,
+    getEventAttendees,
+    // Campaign functions
+    getCampaigns,
+    getCampaignById,
+    createCampaign,
+    updateCampaign,
+    recordCampaignDonation,
+    getCampaignDonations,
     // Pool reference for graceful shutdown
     pool
 };

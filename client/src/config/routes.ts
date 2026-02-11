@@ -14,9 +14,15 @@ export const ROUTES = {
   BOOKMARKS: '/bookmarks',
   NOTIFICATIONS: '/notifications',
   PROFILE: '/profile',
+  MAP: '/map',
+  BADGES: '/badges',
   FORUM: '/forum',
   FORUM_THREAD: '/forum/thread/:id',
   FORUM_CREATE: '/forum/create',
+  EVENTS: '/events',
+  EVENT_DETAIL: '/events/:id',
+  CAMPAIGNS: '/campaigns',
+  CAMPAIGN_DETAIL: '/campaigns/:id',
 
   // Admin
   ADMIN_LOGIN: '/admin/login',
