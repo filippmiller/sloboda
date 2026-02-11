@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initExitIntent();
     initMultiStepForm();
     initDonationModal();
+    initDonationForm();
     initFloatingCTA();
     initScrollBehavior();
 });
@@ -906,3 +907,131 @@ function initMultiStepForm() {
     // Auto-save on input
     form.addEventListener('input', debounce(saveFormProgress, 1000));
 }
+
+// ===== DONATION FORM WITH PRESETS =====
+function initDonationForm() {
+    const presetBtns = document.querySelectorAll('.preset-btn');
+    const customAmountInput = document.getElementById('custom-amount');
+    const donationTypeRadios = document.querySelectorAll('input[name="donation-type"]');
+    const donateBtn = document.getElementById('donate-btn');
+
+    let selectedAmount = 5000; // Default to popular option
+    let donationType = 'recurring';
+
+    // Initialize popular preset as selected
+    const popularBtn = document.querySelector('.preset-btn.popular');
+    if (popularBtn) {
+        popularBtn.classList.add('selected');
+    }
+
+    // Preset button selection
+    presetBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            // Remove selected class from all
+            presetBtns.forEach(b => b.classList.remove('selected'));
+            
+            // Add selected class to clicked
+            btn.classList.add('selected');
+            
+            // Get amount
+            selectedAmount = parseInt(btn.getAttribute('data-amount'));
+            
+            // Clear custom input
+            if (customAmountInput) {
+                customAmountInput.value = '';
+            }
+
+            // Track event
+            trackEvent('donation_preset_selected', {
+                amount: selectedAmount,
+                type: donationType
+            });
+        });
+    });
+
+    // Custom amount input
+    if (customAmountInput) {
+        customAmountInput.addEventListener('input', () => {
+            // Remove selected from presets
+            presetBtns.forEach(b => b.classList.remove('selected'));
+            
+            // Update selected amount
+            selectedAmount = parseInt(customAmountInput.value) || 0;
+
+            // Track event
+            trackEvent('donation_custom_amount', {
+                amount: selectedAmount,
+                type: donationType
+            });
+        });
+    }
+
+    // Donation type toggle
+    donationTypeRadios.forEach(radio => {
+        const card = radio.closest('.radio-card');
+        
+        card.addEventListener('click', () => {
+            // Remove active from all cards
+            document.querySelectorAll('.radio-card').forEach(c => c.classList.remove('active'));
+            
+            // Add active to clicked card
+            card.classList.add('active');
+            
+            // Check the radio
+            radio.checked = true;
+            
+            // Update donation type
+            donationType = radio.value;
+
+            // Track event
+            trackEvent('donation_type_selected', {
+                type: donationType,
+                amount: selectedAmount
+            });
+        });
+    });
+
+    // Donate button click
+    if (donateBtn) {
+        donateBtn.addEventListener('click', () => {
+            if (!selectedAmount || selectedAmount < 100) {
+                alert('Минимальная сумма: 100 рублей');
+                return;
+            }
+
+            // Track event
+            trackEvent('donation_initiated', {
+                amount: selectedAmount,
+                type: donationType
+            });
+
+            // For now, redirect to Telegram (will integrate with payment processor later)
+            const message = `Благодарим за поддержку!\n\nСумма: ${selectedAmount}₽\nТип: ${donationType === 'recurring' ? 'Ежемесячно' : 'Один раз'}\n\nДля завершения платежа напишите нам в Telegram.`;
+            
+            if (confirm(message + '\n\nПерейти в Telegram?')) {
+                window.open('https://t.me/sloboda_land', '_blank');
+            }
+
+            // TODO: Production implementation:
+            // 1. Send donation intent to backend
+            // 2. Create payment with payment processor (Stripe, YooMoney, etc.)
+            // 3. Redirect to checkout
+            // 4. Handle webhook callback
+            // 5. Show success/failure message
+        });
+    }
+
+    // Video placeholder click (show video modal)
+    const videoPlaceholder = document.querySelector('.video-placeholder');
+    const videoBtn = document.getElementById('videoBtn');
+    
+    if (videoPlaceholder && videoBtn) {
+        videoPlaceholder.addEventListener('click', () => {
+            videoBtn.click();
+        });
+    }
+}
+
+// Track donation events (extend existing trackEvent function)
+// Events: donation_preset_selected, donation_custom_amount, donation_type_selected, donation_initiated
+
