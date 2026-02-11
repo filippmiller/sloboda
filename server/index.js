@@ -200,6 +200,13 @@ app.use('/api/user', userPortalRouter);
 app.use('/api/admin', adminContentRouter);
 
 // ============================================
+// TAGS ROUTES (public)
+// ============================================
+const tagsRoutes = require('./routes/tags');
+tagsRoutes.setDb(db);
+app.use('/api/tags', tagsRoutes.router);
+
+// ============================================
 // FINANCE ROUTES (admin, user, public)
 // ============================================
 app.use('/api', financeRouter);

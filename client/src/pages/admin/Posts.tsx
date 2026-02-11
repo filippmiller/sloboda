@@ -4,6 +4,7 @@ import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Modal from '@/components/ui/Modal'
+import TagAutocomplete from '@/components/ui/TagAutocomplete'
 import { toast } from 'sonner'
 import {
   Plus,
@@ -101,7 +102,7 @@ interface PostForm {
   type: 'news' | 'article'
   status: 'draft' | 'published'
   categoryId: string
-  tags: string
+  tags: string[]
 }
 
 export default function Posts() {
@@ -121,7 +122,7 @@ export default function Posts() {
     type: 'news',
     status: 'draft',
     categoryId: '',
-    tags: '',
+    tags: [],
   })
 
   // Delete confirmation
@@ -198,7 +199,7 @@ export default function Posts() {
 
   const openCreate = () => {
     setEditingPost(null)
-    setForm({ title: '', summary: '', body: '', type: 'news', status: 'draft', categoryId: '', tags: '' })
+    setForm({ title: '', summary: '', body: '', type: 'news', status: 'draft', categoryId: '', tags: [] })
     editor?.commands.setContent('')
     setEditorOpen(true)
   }
@@ -212,7 +213,7 @@ export default function Posts() {
       type: post.type === 'newsletter' || post.type === 'knowledge' ? 'news' : post.type,
       status: post.status === 'archived' ? 'draft' : post.status,
       categoryId: post.category_id?.toString() ?? '',
-      tags: (post.tags ?? []).join(', '),
+      tags: post.tags ?? [],
     })
     editor?.commands.setContent(post.body ?? '')
     setEditorOpen(true)
@@ -232,11 +233,6 @@ export default function Posts() {
 
     setSaving(true)
     try {
-      const tagsArray = form.tags
-        .split(',')
-        .map(t => t.trim())
-        .filter(Boolean)
-
       const payload = {
         title: form.title,
         summary: form.summary || undefined,
@@ -244,7 +240,7 @@ export default function Posts() {
         type: form.type,
         status: form.status,
         categoryId: form.categoryId ? parseInt(form.categoryId) : undefined,
-        tags: tagsArray.length > 0 ? tagsArray : null,
+        tags: form.tags.length > 0 ? form.tags : null,
       }
 
       if (editingPost) {
@@ -468,12 +464,14 @@ export default function Posts() {
             />
           </div>
 
-          <Input
-            label="Теги (через запятую)"
-            value={form.tags}
-            onChange={(e) => setForm({ ...form, tags: e.target.value })}
-            placeholder="строительство, дерево, фундамент"
-          />
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-text-secondary">Теги</label>
+            <TagAutocomplete
+              value={form.tags}
+              onChange={(tags) => setForm({ ...form, tags })}
+              placeholder="строительство, дерево, фундамент"
+            />
+          </div>
 
           {/* Tiptap Editor */}
           <div className="flex flex-col gap-1.5">
