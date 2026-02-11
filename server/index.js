@@ -354,6 +354,39 @@ app.get('/api/stats', async (req, res) => {
     }
 });
 
+// API: Get active funding goal (public)
+app.get('/api/public/funding-goal', async (req, res) => {
+    try {
+        const goal = await db.getActiveFundingGoal();
+        if (!goal) {
+            return res.json({
+                success: true,
+                goal: null
+            });
+        }
+
+        const percentage = goal.target_amount > 0
+            ? Math.min(Math.round((goal.current_amount / goal.target_amount) * 100), 100)
+            : 0;
+
+        res.json({
+            success: true,
+            goal: {
+                id: goal.id,
+                name: goal.name,
+                target_amount: goal.target_amount,
+                current_amount: goal.current_amount,
+                percentage: percentage,
+                start_date: goal.start_date,
+                end_date: goal.end_date
+            }
+        });
+    } catch (err) {
+        console.error('Error fetching funding goal:', err);
+        res.status(500).json({ success: false, error: 'Failed to fetch funding goal' });
+    }
+});
+
 // Health check (pings database)
 app.get('/api/health', async (req, res) => {
     try {
@@ -376,6 +409,44 @@ app.get('/api/health', async (req, res) => {
 // ============================================
 // ADMIN API ROUTES (Protected)
 // ============================================
+
+// Admin: Create/update funding goal
+app.post('/api/admin/funding-goal', requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+        const { name, target_amount, current_amount, start_date, end_date } = req.body;
+        if (!name || !target_amount || !start_date) {
+            return res.status(400).json({
+                success: false,
+                error: 'Name, target_amount, and start_date are required'
+            });
+        }
+
+        const goal = await db.createFundingGoal({
+            name,
+            target_amount: parseInt(target_amount),
+            current_amount: current_amount ? parseInt(current_amount) : 0,
+            start_date,
+            end_date: end_date || null
+        });
+
+        auditLog(req, 'create_funding_goal', 'funding_goal', goal.id, { name, target_amount });
+        res.json({ success: true, data: goal });
+    } catch (err) {
+        console.error('Error creating funding goal:', err);
+        res.status(500).json({ success: false, error: 'Failed to create funding goal' });
+    }
+});
+
+// Admin: Get active funding goal
+app.get('/api/admin/funding-goal', requireAuth, async (req, res) => {
+    try {
+        const goal = await db.getActiveFundingGoal();
+        res.json({ success: true, data: goal });
+    } catch (err) {
+        console.error('Error fetching funding goal:', err);
+        res.status(500).json({ success: false, error: 'Failed to fetch funding goal' });
+    }
+});
 
 // Get registrations with filters
 app.get('/api/registrations', requireAuth, async (req, res) => {

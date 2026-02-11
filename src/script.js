@@ -10,7 +10,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initMobileMenu();
     initVideoModal();
     initSocialProof();
-    initProgressiveForm();
+    initFundingThermometer();
+    initExitIntent();
+    initMultiStepForm();
     initDonationModal();
     initFloatingCTA();
     initScrollBehavior();
@@ -305,98 +307,6 @@ function startActivityFeed() {
     setInterval(updateActivity, 8000);
 }
 
-// ===== PROGRESSIVE FORM =====
-function initProgressiveForm() {
-    const form = document.getElementById('joinForm');
-    if (!form) return;
-
-    const step1 = document.getElementById('step1');
-    const step2 = document.getElementById('step2');
-    const successMessage = document.getElementById('successMessage');
-    const continueBtn = document.getElementById('continueBtn');
-    const backBtn = document.getElementById('backBtn');
-
-    // Step 1 → Step 2
-    continueBtn?.addEventListener('click', () => {
-        const email = document.getElementById('email');
-        const name = document.getElementById('name');
-
-        if (!email?.value || !name?.value) {
-            alert('Пожалуйста, заполните email и имя');
-            return;
-        }
-
-        if (!isValidEmail(email.value)) {
-            alert('Пожалуйста, введите корректный email');
-            return;
-        }
-
-        // Show step 2
-        step1?.classList.add('form-step-hidden');
-        step2?.classList.remove('form-step-hidden');
-
-        // Scroll to form top
-        form.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-
-    // Step 2 → Step 1 (back)
-    backBtn?.addEventListener('click', () => {
-        step2?.classList.add('form-step-hidden');
-        step1?.classList.remove('form-step-hidden');
-
-        // Scroll to form top
-        form.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-
-    // Form submission
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        const formData = new FormData(form);
-        const data = {
-            email: formData.get('email'),
-            name: formData.get('name'),
-            city: formData.get('city'),
-            telegram: formData.get('telegram'),
-            skills: formData.getAll('skills'),
-            support: formData.get('support'),
-        };
-
-        try {
-            const response = await fetch('/api/registrations', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(data),
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Ошибка регистрации');
-            }
-
-            // Show success message
-            step2?.classList.add('form-step-hidden');
-            successMessage?.classList.remove('form-step-hidden');
-
-            // Refresh counters
-            fetchAndUpdateCounters();
-
-            // Reset form (for next use)
-            setTimeout(() => {
-                form.reset();
-                successMessage?.classList.add('form-step-hidden');
-                step1?.classList.remove('form-step-hidden');
-            }, 30000); // Reset after 30 seconds
-
-        } catch (error) {
-            console.error('Registration error:', error);
-            alert('Ошибка регистрации: ' + error.message);
-        }
-    });
-}
-
 function isValidEmail(email) {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return re.test(email);
@@ -600,3 +510,399 @@ document.getElementById('email')?.addEventListener('focus', () => {
 document.getElementById('videoBtn')?.addEventListener('click', () => {
     trackEvent('video_play', { video_name: 'overview' });
 });
+
+// ===== FUNDING THERMOMETER =====
+async function initFundingThermometer() {
+    try {
+        const response = await fetch('/api/public/funding-goal');
+        if (!response.ok) {
+            console.log('Funding goal API not available');
+            return;
+        }
+
+        const data = await response.json();
+        if (!data.success || !data.goal) {
+            console.log('No active funding goal');
+            return;
+        }
+
+        const goal = data.goal;
+        const thermometer = document.getElementById('fundingThermometer');
+        const fill = document.getElementById('thermometerFill');
+        const percentage = document.getElementById('thermometerPercentage');
+        const currentAmount = document.getElementById('currentAmount');
+        const targetAmount = document.getElementById('targetAmount');
+        const description = document.getElementById('goalDescription');
+        const title = document.getElementById('funding-goal-title');
+
+        if (!thermometer || !fill) return;
+
+        // Update title
+        if (title && goal.name) {
+            title.textContent = goal.name;
+        }
+
+        // Format numbers with Russian locale
+        const formatRubles = (amount) => {
+            return new Intl.NumberFormat('ru-RU', {
+                style: 'currency',
+                currency: 'RUB',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(amount);
+        };
+
+        // Update amounts
+        if (currentAmount) currentAmount.textContent = formatRubles(goal.current_amount);
+        if (targetAmount) targetAmount.textContent = formatRubles(goal.target_amount);
+        if (percentage) percentage.textContent = goal.percentage + '%';
+
+        // Show thermometer
+        thermometer.style.display = 'block';
+
+        // Animate fill after a short delay
+        setTimeout(() => {
+            fill.style.width = goal.percentage + '%';
+        }, 300);
+
+        // Update description if exists
+        if (description && goal.end_date) {
+            const endDate = new Date(goal.end_date);
+            description.textContent = `Цель до ${endDate.toLocaleDateString('ru-RU')}`;
+        }
+
+        trackEvent('funding_goal_viewed', { goal_id: goal.id, percentage: goal.percentage });
+    } catch (error) {
+        console.error('Error loading funding goal:', error);
+    }
+}
+
+// ===== EXIT-INTENT POPUP =====
+function initExitIntent() {
+    const modal = document.getElementById('exitIntentModal');
+    const overlay = document.getElementById('exitIntentOverlay');
+    const closeBtn = document.getElementById('exitIntentClose');
+    const form = document.getElementById('exitIntentForm');
+
+    if (!modal) return;
+
+    // Check if already shown or user already registered
+    const exitIntentShown = sessionStorage.getItem('exitIntentShown');
+    const userRegistered = localStorage.getItem('userRegistered');
+
+    if (exitIntentShown || userRegistered) {
+        return;
+    }
+
+    let lastY = 0;
+    let lastTime = Date.now();
+    let triggered = false;
+
+    // Desktop: Mouse exit detection
+    function handleMouseLeave(e) {
+        if (triggered) return;
+
+        const now = Date.now();
+        const timeDiff = now - lastTime;
+        const yDiff = lastY - e.clientY;
+
+        // Mouse moving upward fast toward browser top
+        if (e.clientY < 50 && yDiff > 50 && timeDiff < 200) {
+            showExitIntent();
+        }
+
+        lastY = e.clientY;
+        lastTime = now;
+    }
+
+    // Mobile: Inactivity timeout
+    let inactivityTimer;
+    function resetInactivityTimer() {
+        clearTimeout(inactivityTimer);
+        if (!triggered && window.innerWidth <= 768) {
+            inactivityTimer = setTimeout(showExitIntent, 30000); // 30 seconds
+        }
+    }
+
+    function showExitIntent() {
+        if (triggered) return;
+        triggered = true;
+        modal.classList.remove('hidden');
+        modal.classList.add('active');
+        sessionStorage.setItem('exitIntentShown', 'true');
+        trackEvent('exit_intent_shown');
+
+        // Remove listeners
+        document.removeEventListener('mousemove', handleMouseLeave);
+        document.removeEventListener('touchstart', resetInactivityTimer);
+        document.removeEventListener('scroll', resetInactivityTimer);
+    }
+
+    function closeExitIntent() {
+        modal.classList.remove('active');
+        setTimeout(() => modal.classList.add('hidden'), 300);
+    }
+
+    // Desktop detection
+    if (window.innerWidth > 768) {
+        document.addEventListener('mousemove', handleMouseLeave);
+    } else {
+        // Mobile inactivity detection
+        document.addEventListener('touchstart', resetInactivityTimer);
+        document.addEventListener('scroll', resetInactivityTimer);
+        resetInactivityTimer();
+    }
+
+    // Close handlers
+    overlay?.addEventListener('click', closeExitIntent);
+    closeBtn?.addEventListener('click', closeExitIntent);
+
+    // Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('active')) {
+            closeExitIntent();
+        }
+    });
+
+    // Form submission
+    form?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const formData = new FormData(form);
+        const data = {
+            email: formData.get('email'),
+            name: formData.get('name'),
+            source: 'exit_intent'
+        };
+
+        try {
+            const response = await fetch('/api/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Ошибка регистрации');
+            }
+
+            localStorage.setItem('userRegistered', 'true');
+            trackEvent('exit_intent_conversion', { email: data.email });
+
+            // Show success
+            modal.querySelector('.exit-intent-content').innerHTML = `
+                <div class="success-icon">✓</div>
+                <h2>Спасибо!</h2>
+                <p>Гайд отправлен на ${data.email}</p>
+            `;
+
+            setTimeout(closeExitIntent, 3000);
+        } catch (error) {
+            console.error('Exit intent submission error:', error);
+            alert('Ошибка: ' + error.message);
+        }
+    });
+}
+
+// ===== MULTI-STEP FORM =====
+function initMultiStepForm() {
+    const form = document.getElementById('joinForm');
+    if (!form) return;
+
+    let currentStep = 1;
+    const totalSteps = 3;
+
+    const steps = form.querySelectorAll('.form-step');
+    const progressSteps = form.querySelectorAll('.progress-step');
+    const nextButtons = form.querySelectorAll('.btn-next');
+    const prevButtons = form.querySelectorAll('.btn-prev');
+
+    // Load saved progress from localStorage
+    const savedData = localStorage.getItem('formProgress');
+    if (savedData) {
+        try {
+            const data = JSON.parse(savedData);
+            Object.keys(data).forEach(key => {
+                const input = form.elements[key];
+                if (input) {
+                    if (input.type === 'checkbox') {
+                        const values = data[key];
+                        form.querySelectorAll(`input[name="${key}"]`).forEach(checkbox => {
+                            checkbox.checked = values.includes(checkbox.value);
+                        });
+                    } else {
+                        input.value = data[key];
+                    }
+                }
+            });
+        } catch (e) {
+            console.error('Error loading form progress:', e);
+        }
+    }
+
+    function showStep(stepNumber) {
+        // Hide all steps
+        steps.forEach(step => step.classList.remove('active'));
+        progressSteps.forEach(step => {
+            step.classList.remove('active');
+            if (parseInt(step.getAttribute('data-step')) < stepNumber) {
+                step.classList.add('completed');
+            } else {
+                step.classList.remove('completed');
+            }
+        });
+
+        // Show current step
+        const currentStepEl = form.querySelector(`.form-step[data-step="${stepNumber}"]`);
+        const currentProgressEl = form.querySelector(`.progress-step[data-step="${stepNumber}"]`);
+
+        if (currentStepEl) {
+            currentStepEl.classList.add('active');
+        }
+        if (currentProgressEl) {
+            currentProgressEl.classList.add('active');
+        }
+
+        currentStep = stepNumber;
+
+        // Scroll to form
+        form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function validateStep(stepNumber) {
+        const stepEl = form.querySelector(`.form-step[data-step="${stepNumber}"]`);
+        if (!stepEl) return true;
+
+        const requiredInputs = stepEl.querySelectorAll('[required]');
+        for (const input of requiredInputs) {
+            if (!input.value.trim()) {
+                input.focus();
+                alert('Пожалуйста, заполните все обязательные поля');
+                return false;
+            }
+
+            // Email validation
+            if (input.type === 'email' && !isValidEmail(input.value)) {
+                input.focus();
+                alert('Пожалуйста, введите корректный email');
+                return false;
+            }
+        }
+
+        // Special validation for step 2 (participation checkboxes)
+        if (stepNumber === 2) {
+            const checkboxes = stepEl.querySelectorAll('input[name="participation"]:checked');
+            if (checkboxes.length === 0) {
+                alert('Пожалуйста, выберите хотя бы один вариант участия');
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    function saveFormProgress() {
+        const formData = new FormData(form);
+        const data = {};
+        for (const [key, value] of formData.entries()) {
+            if (form.elements[key].type === 'checkbox') {
+                data[key] = formData.getAll(key);
+            } else {
+                data[key] = value;
+            }
+        }
+        localStorage.setItem('formProgress', JSON.stringify(data));
+    }
+
+    // Next button handlers
+    nextButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (validateStep(currentStep)) {
+                saveFormProgress();
+                const nextStep = parseInt(btn.getAttribute('data-next'));
+                showStep(nextStep);
+                trackEvent('form_step_completed', { step: currentStep });
+            }
+        });
+    });
+
+    // Previous button handlers
+    prevButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            saveFormProgress();
+            const prevStep = parseInt(btn.getAttribute('data-prev'));
+            showStep(prevStep);
+        });
+    });
+
+    // Form submission
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        if (!validateStep(currentStep)) {
+            return;
+        }
+
+        const formData = new FormData(form);
+        const data = {
+            email: formData.get('email'),
+            name: formData.get('name'),
+            telegram: formData.get('telegram'),
+            motivation: formData.get('motivation'),
+            participation: formData.getAll('participation'),
+            location: formData.get('location'),
+            skills: formData.get('skills'),
+            budget: formData.get('budget'),
+        };
+
+        try {
+            const response = await fetch('/api/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Ошибка регистрации');
+            }
+
+            // Clear saved progress
+            localStorage.removeItem('formProgress');
+            localStorage.setItem('userRegistered', 'true');
+
+            // Show success message
+            steps.forEach(step => step.classList.remove('active'));
+            const successMessage = document.getElementById('successMessage');
+            if (successMessage) {
+                successMessage.classList.remove('form-step-hidden');
+            }
+
+            // Refresh counters
+            fetchAndUpdateCounters();
+
+            trackEvent('registration_completed', { source: 'multi_step_form' });
+
+            // Reset form after delay
+            setTimeout(() => {
+                form.reset();
+                showStep(1);
+                if (successMessage) {
+                    successMessage.classList.add('form-step-hidden');
+                }
+            }, 30000);
+
+        } catch (error) {
+            console.error('Registration error:', error);
+            alert('Ошибка регистрации: ' + error.message);
+        }
+    });
+
+    // Auto-save on input
+    form.addEventListener('input', debounce(saveFormProgress, 1000));
+}

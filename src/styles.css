@@ -501,6 +501,15 @@ button {
     justify-content: center;
     overflow: hidden;
     padding: var(--spacing-xl) 0;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+@media (min-width: 1024px) {
+    .hero {
+        flex-direction: row;
+        gap: var(--spacing-xl);
+    }
 }
 
 .hero-bg {
@@ -526,11 +535,58 @@ button {
     z-index: -1;
 }
 
+.hero-video-container {
+    position: relative;
+    width: 100%;
+    max-width: 500px;
+    aspect-ratio: 16/9;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    border: 2px solid rgba(194, 54, 22, 0.3);
+}
+
+.hero-video-container video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.hero-video-container .video-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-bg-lighter);
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+}
+
+.hero-video-container .play-icon {
+    width: 80px;
+    height: 80px;
+}
+
+@media (min-width: 1024px) {
+    .hero-video-container {
+        max-width: 600px;
+    }
+}
+
 .hero-content {
     max-width: 900px;
     margin: 0 auto;
     padding: 0 var(--spacing-md);
     text-align: center;
+}
+
+@media (min-width: 1024px) {
+    .hero-content {
+        flex: 1;
+        max-width: 600px;
+    }
 }
 
 .hero-badge {
@@ -1930,5 +1986,673 @@ button {
 
     .truth-callout-text {
         font-size: 0.95rem;
+    }
+}
+
+/* ============================================
+   FUNDRAISING THERMOMETER
+   ============================================ */
+
+.funding-thermometer {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.thermometer-container {
+    position: relative;
+    height: 50px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+    margin-bottom: 1rem;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.thermometer-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 0%;
+    background: linear-gradient(90deg, var(--color-accent), var(--color-cta));
+    border-radius: var(--radius-full);
+    transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 0 20px rgba(194, 54, 22, 0.5);
+}
+
+.thermometer-percentage {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: white;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+    z-index: 2;
+}
+
+.thermometer-labels {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+}
+
+.thermometer-current {
+    color: var(--color-cta);
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.5rem;
+}
+
+.thermometer-target {
+    color: var(--color-text-muted);
+    font-size: 1rem;
+}
+
+.goal-description {
+    text-align: center;
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+@media (max-width: 768px) {
+    .thermometer-container {
+        height: 40px;
+    }
+
+    .thermometer-percentage {
+        font-size: 1rem;
+    }
+
+    .thermometer-current {
+        font-size: 1.25rem;
+    }
+}
+
+/* ============================================
+   EXIT-INTENT MODAL
+   ============================================ */
+
+.exit-intent-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-md);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--transition-normal);
+}
+
+.exit-intent-modal.active {
+    opacity: 1;
+    pointer-events: all;
+}
+
+.exit-intent-modal.hidden {
+    display: none;
+}
+
+.exit-intent-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(8px);
+}
+
+.exit-intent-content {
+    position: relative;
+    background: var(--color-bg-light);
+    border: 3px solid var(--color-accent);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    max-width: 500px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 8px 48px rgba(194, 54, 22, 0.5);
+    animation: modalSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes modalSlideIn {
+    from {
+        transform: translateY(-50px) scale(0.9);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+}
+
+.exit-intent-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: transparent;
+    color: var(--color-text);
+    font-size: 2rem;
+    line-height: 1;
+    padding: 0.5rem;
+    cursor: pointer;
+    transition: color var(--transition-fast);
+}
+
+.exit-intent-close:hover {
+    color: var(--color-accent);
+}
+
+.exit-intent-content h2 {
+    margin-bottom: 1rem;
+    color: var(--color-accent);
+}
+
+.exit-intent-content p {
+    margin-bottom: 1.5rem;
+    font-size: 1.1rem;
+    color: var(--color-text-muted);
+}
+
+#exitIntentForm {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+#exitIntentForm input {
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: var(--radius-sm);
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: 1rem;
+}
+
+#exitIntentForm input:focus {
+    outline: none;
+    border-color: var(--color-accent);
+}
+
+#exitIntentForm button {
+    margin-top: 0.5rem;
+}
+
+/* ============================================
+   MULTI-STEP FORM
+   ============================================ */
+
+.multi-step-form {
+    position: relative;
+}
+
+.form-progress {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 2rem;
+    gap: 1rem;
+}
+
+.progress-step {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display);
+    font-weight: 700;
+    color: var(--color-text-muted);
+    transition: all var(--transition-normal);
+}
+
+.progress-step.active {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    color: white;
+    transform: scale(1.1);
+    box-shadow: 0 0 20px rgba(194, 54, 22, 0.5);
+}
+
+.progress-step.completed {
+    background: var(--color-success);
+    border-color: var(--color-success);
+    color: white;
+}
+
+.progress-step-line {
+    width: 60px;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.2);
+    transition: background var(--transition-normal);
+}
+
+.progress-step.completed ~ .progress-step-line,
+.progress-step.active ~ .progress-step-line {
+    background: var(--color-accent);
+}
+
+.form-step {
+    display: none;
+    animation: fadeInStep 0.4s ease;
+}
+
+.form-step.active {
+    display: block;
+}
+
+@keyframes fadeInStep {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.form-step h3 {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    color: var(--color-accent);
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+.form-actions .btn-prev {
+    flex: 0 0 auto;
+}
+
+.form-actions .btn-next,
+.form-actions button[type="submit"] {
+    flex: 1;
+}
+
+.checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+.checkbox-group label:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.checkbox-group input[type="checkbox"] {
+    width: auto;
+}
+
+@media (max-width: 768px) {
+    .form-progress {
+        gap: 0.5rem;
+    }
+
+    .progress-step {
+        width: 35px;
+        height: 35px;
+        font-size: 0.9rem;
+    }
+
+    .progress-step-line {
+        width: 40px;
+    }
+
+    .form-actions {
+        flex-direction: column;
+    }
+
+    .form-actions .btn-prev {
+        order: 2;
+    }
+
+    .form-actions .btn-next,
+    .form-actions button[type="submit"] {
+        order: 1;
+    }
+}
+
+/* ============================================
+   FEATURE 3: VIDEO HERO SECTION
+   ============================================ */
+
+/* Update hero section layout for video */
+.hero {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-xl) var(--spacing-md);
+}
+
+/* Hero video container */
+.hero-video-container {
+    position: relative;
+    width: 100%;
+    max-width: 600px;
+    justify-self: center;
+    z-index: 1;
+}
+
+.video-placeholder {
+    aspect-ratio: 16 / 9;
+    background: linear-gradient(135deg, rgba(194, 54, 22, 0.2), rgba(10, 10, 10, 0.9));
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-lg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    backdrop-filter: blur(10px);
+    transition: all var(--transition-normal);
+    cursor: pointer;
+}
+
+.video-placeholder:hover {
+    border-color: rgba(194, 54, 22, 0.5);
+    box-shadow: 0 8px 32px rgba(194, 54, 22, 0.3);
+    transform: translateY(-4px);
+}
+
+.play-icon {
+    width: 80px;
+    height: 80px;
+    opacity: 0.8;
+    transition: opacity var(--transition-normal);
+}
+
+.video-placeholder:hover .play-icon {
+    opacity: 1;
+}
+
+.video-placeholder p {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--color-text);
+    margin: 0;
+    text-align: center;
+}
+
+.video-placeholder small {
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+}
+
+.hero-content {
+    max-width: 700px;
+    justify-self: center;
+    z-index: 1;
+}
+
+/* Responsive: stack on mobile */
+@media (max-width: 1024px) {
+    .hero {
+        grid-template-columns: 1fr !important;
+        grid-template-rows: auto 1fr;
+        min-height: 90vh;
+    }
+
+    .hero-video-container {
+        order: -1;
+        max-width: 100%;
+    }
+}
+
+/* ============================================
+   FEATURE 1 & 2: DONATION FORM WITH PRESETS
+   ============================================ */
+
+/* Donation presets grid */
+.donation-presets {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--spacing-md);
+    max-width: 1000px;
+    margin: 0 auto var(--spacing-md);
+}
+
+.preset-btn {
+    background: rgba(255, 255, 255, 0.03);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-xs);
+    cursor: pointer;
+    transition: all var(--transition-normal);
+    position: relative;
+}
+
+.preset-btn:hover {
+    border-color: rgba(194, 54, 22, 0.5);
+    background: rgba(255, 255, 255, 0.08);
+    transform: translateY(-4px);
+    box-shadow: 0 8px 32px rgba(194, 54, 22, 0.2);
+}
+
+.preset-btn.selected {
+    border-color: var(--color-accent);
+    background: rgba(194, 54, 22, 0.1);
+    box-shadow: 0 0 20px rgba(194, 54, 22, 0.3);
+}
+
+.preset-btn.popular {
+    border-color: var(--color-cta);
+    background: rgba(243, 156, 18, 0.1);
+}
+
+.popular-badge {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--color-cta);
+    color: #000;
+    padding: 0.25rem 1rem;
+    border-radius: var(--radius-full);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.preset-amount {
+    font-family: var(--font-display);
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--color-cta);
+}
+
+.impact-text {
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+    text-align: center;
+    min-height: 2.5rem;
+    display: flex;
+    align-items: center;
+}
+
+/* Custom amount input */
+.custom-amount {
+    max-width: 400px;
+    margin: 0 auto var(--spacing-md);
+}
+
+.custom-amount input {
+    width: 100%;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: var(--radius-sm);
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: 1rem;
+    text-align: center;
+    transition: border-color var(--transition-fast);
+}
+
+.custom-amount input:focus {
+    outline: none;
+    border-color: var(--color-accent);
+}
+
+/* Donation type radio cards */
+.donation-type {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-sm);
+    max-width: 600px;
+    margin: 0 auto var(--spacing-md);
+}
+
+.radio-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-xs);
+    cursor: pointer;
+    transition: all var(--transition-normal);
+    position: relative;
+}
+
+.radio-card input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.radio-card:hover {
+    border-color: rgba(194, 54, 22, 0.3);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.radio-card.active {
+    border-color: var(--color-accent);
+    background: rgba(194, 54, 22, 0.1);
+    box-shadow: 0 0 20px rgba(194, 54, 22, 0.3);
+}
+
+.radio-title {
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--color-text);
+}
+
+.radio-subtitle {
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+}
+
+/* Donation note */
+.donation-note {
+    max-width: 600px;
+    margin: var(--spacing-md) auto;
+    text-align: center;
+    font-size: 0.95rem;
+    color: var(--color-text-muted);
+    line-height: 1.6;
+}
+
+/* Recurring comparison table */
+.recurring-comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-md);
+    max-width: 900px;
+    margin: var(--spacing-lg) auto;
+}
+
+.comparison-col {
+    background: rgba(255, 255, 255, 0.03);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+}
+
+.comparison-col.highlighted {
+    border-color: var(--color-success);
+    background: rgba(39, 174, 96, 0.05);
+    box-shadow: 0 0 20px rgba(39, 174, 96, 0.2);
+}
+
+.comparison-col h4 {
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    margin-bottom: var(--spacing-sm);
+    color: var(--color-text);
+}
+
+.comparison-col ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.comparison-col ul li {
+    padding: var(--spacing-xs) 0;
+    color: var(--color-text-muted);
+    line-height: 1.6;
+}
+
+.comparison-col.highlighted ul li {
+    color: var(--color-text);
+}
+
+.checkmark {
+    color: var(--color-success);
+    font-size: 1.1rem;
+    margin-right: 0.5rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+    .donation-presets {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .recurring-comparison {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 600px) {
+    .donation-presets {
+        grid-template-columns: 1fr;
+    }
+
+    .donation-type {
+        grid-template-columns: 1fr;
     }
 }

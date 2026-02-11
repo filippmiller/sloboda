@@ -293,6 +293,20 @@ async function initDatabase() {
             )
         `);
 
+        // Funding goals table (for fundraising thermometer)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS funding_goals (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL,
+                target_amount INTEGER NOT NULL,
+                current_amount INTEGER DEFAULT 0,
+                start_date DATE NOT NULL,
+                end_date DATE,
+                is_active BOOLEAN DEFAULT true,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
         // AI processing log
         await client.query(`
             CREATE TABLE IF NOT EXISTS ai_processing_log (
@@ -3563,6 +3577,61 @@ async function updateUserAvatar(userId, avatarUrl) {
     }
 }
 
+// ============================================
+// FUNDING GOALS FUNCTIONS
+// ============================================
+
+async function getActiveFundingGoal() {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `SELECT id, name, target_amount, current_amount, start_date, end_date, created_at
+             FROM funding_goals
+             WHERE is_active = true
+             ORDER BY created_at DESC
+             LIMIT 1`
+        );
+        return result.rows[0] || null;
+    } finally {
+        client.release();
+    }
+}
+
+async function updateFundingGoalProgress(goalId, amount) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `UPDATE funding_goals
+             SET current_amount = current_amount + $1
+             WHERE id = $2
+             RETURNING id, name, target_amount, current_amount`,
+            [amount, goalId]
+        );
+        return result.rows[0] || null;
+    } finally {
+        client.release();
+    }
+}
+
+async function createFundingGoal(data) {
+    const client = await pool.connect();
+    try {
+        // Deactivate all existing goals
+        await client.query(`UPDATE funding_goals SET is_active = false`);
+
+        // Create new active goal
+        const result = await client.query(
+            `INSERT INTO funding_goals (name, target_amount, current_amount, start_date, end_date, is_active)
+             VALUES ($1, $2, $3, $4, $5, true)
+             RETURNING *`,
+            [data.name, data.target_amount, data.current_amount || 0, data.start_date, data.end_date || null]
+        );
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
 module.exports = {
     pool,
     initDatabase,
@@ -3738,6 +3807,10 @@ module.exports = {
     getUserWithProfile,
     completeOnboarding,
     updateUserAvatar,
+    // Funding Goals functions
+    getActiveFundingGoal,
+    updateFundingGoalProgress,
+    createFundingGoal,
     // Pool reference for graceful shutdown
     pool
 };

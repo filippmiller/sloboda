@@ -102,6 +102,24 @@
     <section class="hero" id="top">
         <div class="hero-bg" aria-hidden="true"></div>
         <div class="hero-overlay"></div>
+
+        <!-- Video container (left side on desktop, top on mobile) -->
+        <div class="hero-video-container">
+            <div class="video-placeholder">
+                <svg class="play-icon" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="40" cy="40" r="40" fill="rgba(255,255,255,0.1)"/>
+                    <path d="M30 25L55 40L30 55V25Z" fill="white"/>
+                </svg>
+                <p>Что такое SLOBODA за 60 секунд</p>
+                <small>Видео скоро появится</small>
+            </div>
+            <!-- When video ready, replace with:
+            <video autoplay muted loop playsinline>
+              <source src="/video/hero.mp4" type="video/mp4">
+            </video>
+            -->
+        </div>
+
         <div class="hero-content">
             <div class="hero-badge" data-animate="fade-in">
                 ⚡ Создано с помощью ИИ
@@ -396,6 +414,24 @@
         </div>
     </section>
 
+    <!-- FUNDRAISING THERMOMETER -->
+    <section class="section section-dark" id="fundraising">
+        <div class="container">
+            <h2 class="section-title text-center" id="funding-goal-title">Текущая цель финансирования</h2>
+            <div class="funding-thermometer" id="fundingThermometer" style="display: none;">
+                <div class="thermometer-container">
+                    <div class="thermometer-fill" id="thermometerFill"></div>
+                    <div class="thermometer-percentage" id="thermometerPercentage">0%</div>
+                </div>
+                <div class="thermometer-labels">
+                    <span class="thermometer-current" id="currentAmount">0₽</span>
+                    <span class="thermometer-target" id="targetAmount">0₽</span>
+                </div>
+                <p class="goal-description" id="goalDescription"></p>
+            </div>
+        </div>
+    </section>
+
     <!-- PROGRESS / TRANSPARENCY -->
     <section class="section section-dark">
         <div class="container">
@@ -664,50 +700,97 @@
                     ✓ Статус основателя (пожизненно)
                 </p>
 
-                <!-- Progressive form - Step 1: Email only -->
-                <form class="cta-form" id="joinForm">
-                    <div class="form-step" id="step1">
-                        <h3>Шаг 1: Базовая информация</h3>
+                <!-- Multi-step form with progress indicator -->
+                <form class="cta-form multi-step-form" id="joinForm">
+                    <!-- Progress indicator -->
+                    <div class="form-progress">
+                        <div class="progress-step active" data-step="1">1</div>
+                        <div class="progress-step-line"></div>
+                        <div class="progress-step" data-step="2">2</div>
+                        <div class="progress-step-line"></div>
+                        <div class="progress-step" data-step="3">3</div>
+                    </div>
+
+                    <!-- Step 1: Basic Info -->
+                    <div class="form-step active" data-step="1">
+                        <h3>Базовая информация</h3>
                         <div class="form-group">
-                            <label for="email">Email</label>
+                            <label for="email">Email *</label>
                             <input type="email" id="email" name="email" required placeholder="your@email.com">
                         </div>
                         <div class="form-group">
-                            <label for="name">Имя</label>
+                            <label for="name">Имя *</label>
                             <input type="text" id="name" name="name" required placeholder="Ваше имя">
                         </div>
-                        <button type="button" class="cta-btn cta-btn-primary" id="continueBtn">
-                            Продолжить
+                        <div class="form-group">
+                            <label for="telegram">Telegram</label>
+                            <input type="text" id="telegram" name="telegram" placeholder="@username">
+                        </div>
+                        <button type="button" class="cta-btn cta-btn-primary btn-next" data-next="2">
+                            Далее →
                         </button>
                         <p class="form-note">
                             Мы не спамим. Только важные обновления.
                         </p>
                     </div>
 
-                    <div class="form-step form-step-hidden" id="step2">
-                        <h3>Шаг 2: Расскажите о себе (необязательно)</h3>
+                    <!-- Step 2: Your Vision -->
+                    <div class="form-step" data-step="2">
+                        <h3>Ваше видение</h3>
                         <div class="form-group">
-                            <label for="city">Город</label>
-                            <input type="text" id="city" name="city" placeholder="Москва, Санкт-Петербург...">
+                            <label for="motivation">Что вас привлекает? *</label>
+                            <select id="motivation" name="motivation" required>
+                                <option value="">Выберите вариант</option>
+                                <option value="autonomy">Автономная жизнь</option>
+                                <option value="community">Сообщество</option>
+                                <option value="sustainability">Экологичность</option>
+                                <option value="backup">План Б</option>
+                                <option value="lifestyle">Смена образа жизни</option>
+                            </select>
                         </div>
                         <div class="form-group">
-                            <label for="telegram">Telegram (необязательно)</label>
-                            <input type="text" id="telegram" name="telegram" placeholder="@username">
-                        </div>
-                        <div class="form-group">
-                            <label for="skills">Ваши навыки</label>
+                            <label>Как хотите участвовать? *</label>
                             <div class="checkbox-group">
-                                <label><input type="checkbox" name="skills" value="construction"> Строительство</label>
-                                <label><input type="checkbox" name="skills" value="agriculture"> Сельское хозяйство</label>
-                                <label><input type="checkbox" name="skills" value="engineering"> Инженерия</label>
-                                <label><input type="checkbox" name="skills" value="medicine"> Медицина</label>
-                                <label><input type="checkbox" name="skills" value="law"> Юриспруденция</label>
-                                <label><input type="checkbox" name="skills" value="education"> Образование</label>
+                                <label><input type="checkbox" name="participation" value="relocate"> Переехать</label>
+                                <label><input type="checkbox" name="participation" value="visit"> Приезжать</label>
+                                <label><input type="checkbox" name="participation" value="contribute"> Помогать</label>
+                                <label><input type="checkbox" name="participation" value="invest"> Инвестировать</label>
                             </div>
                         </div>
                         <div class="form-group">
-                            <label for="support">Готовность к финансовой поддержке</label>
-                            <select id="support" name="support">
+                            <label for="location">Регион *</label>
+                            <select id="location" name="location" required>
+                                <option value="">Выберите регион</option>
+                                <option value="moscow">Москва и область</option>
+                                <option value="spb">Санкт-Петербург и область</option>
+                                <option value="center">Центральная Россия</option>
+                                <option value="south">Юг России</option>
+                                <option value="ural">Урал</option>
+                                <option value="siberia">Сибирь</option>
+                                <option value="far-east">Дальний Восток</option>
+                                <option value="other">Другое</option>
+                            </select>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="cta-btn cta-btn-text btn-prev" data-prev="1">
+                                ← Назад
+                            </button>
+                            <button type="button" class="cta-btn cta-btn-primary btn-next" data-next="3">
+                                Далее →
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Your Contribution -->
+                    <div class="form-step" data-step="3">
+                        <h3>Ваш вклад</h3>
+                        <div class="form-group">
+                            <label for="skills">Ваши навыки</label>
+                            <textarea id="skills" name="skills" rows="3" placeholder="Строительство, сельское хозяйство, медицина, IT..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="budget">Готовность к финансовой поддержке</label>
+                            <select id="budget" name="budget">
                                 <option value="">Выберите вариант</option>
                                 <option value="yes_regular">Да, регулярно</option>
                                 <option value="yes_onetime">Да, разово</option>
@@ -715,12 +798,14 @@
                                 <option value="no">Нет</option>
                             </select>
                         </div>
-                        <button type="submit" class="cta-btn cta-btn-primary">
-                            Завершить регистрацию
-                        </button>
-                        <button type="button" class="cta-btn cta-btn-text" id="backBtn">
-                            ← Назад
-                        </button>
+                        <div class="form-actions">
+                            <button type="button" class="cta-btn cta-btn-text btn-prev" data-prev="2">
+                                ← Назад
+                            </button>
+                            <button type="submit" class="cta-btn cta-btn-primary">
+                                Присоединиться ✓
+                            </button>
+                        </div>
                     </div>
 
                     <div class="form-step form-step-hidden" id="successMessage">
@@ -739,54 +824,82 @@
     </section>
 
     <!-- DONATION SECTION -->
-    <section class="section section-donation" id="donate">
+    <section class="section section-donation" id="support">
         <div class="container">
             <h2 class="section-title text-center">Поддержать проект</h2>
+            <p class="section-intro">Каждый рубль идёт на строительство автономной инфраструктуры</p>
 
-            <!-- Compact donation options with icons - 4 in a row -->
-            <div class="donation-grid-compact">
-                <div class="donation-option">
-                    <div class="donation-icon">⚖️</div>
-                    <div class="donation-amount">₽500</div>
-                    <div class="donation-desc">1 час юрконсультации</div>
-                    <button class="cta-btn cta-btn-sm donation-btn" data-amount="500">Поддержать</button>
+            <!-- Preset donation amounts with impact -->
+            <div class="donation-presets">
+                <button class="preset-btn" data-amount="500">
+                    <span class="preset-amount">500₽</span>
+                    <span class="impact-text">Саженец дерева</span>
+                </button>
+                <button class="preset-btn" data-amount="2000">
+                    <span class="preset-amount">2000₽</span>
+                    <span class="impact-text">Солнечная панель 50W</span>
+                </button>
+                <button class="preset-btn popular" data-amount="5000">
+                    <span class="preset-amount">5000₽</span>
+                    <span class="impact-text">Водяной фильтр</span>
+                    <span class="popular-badge">Популярное</span>
+                </button>
+                <button class="preset-btn" data-amount="10000">
+                    <span class="preset-amount">10000₽</span>
+                    <span class="impact-text">Месяц стройматериалов</span>
+                </button>
+            </div>
+
+            <!-- Custom amount input -->
+            <div class="custom-amount">
+                <input type="number" id="custom-amount" placeholder="Своя сумма" min="100" step="100">
+            </div>
+
+            <!-- Donation type toggle -->
+            <div class="donation-type">
+                <label class="radio-card active">
+                    <input type="radio" name="donation-type" value="recurring" checked>
+                    <span class="radio-title">Ежемесячно</span>
+                    <span class="radio-subtitle">Стабильное финансирование</span>
+                </label>
+                <label class="radio-card">
+                    <input type="radio" name="donation-type" value="onetime">
+                    <span class="radio-title">Один раз</span>
+                    <span class="radio-subtitle">Разовый вклад</span>
+                </label>
+            </div>
+
+            <button class="cta-btn cta-btn-primary btn-block" id="donate-btn">Поддержать проект</button>
+
+            <p class="donation-note">
+                Мы предпочитаем регулярные пожертвования — это помогает нам планировать строительство на месяцы вперёд.
+            </p>
+
+            <!-- Recurring vs One-time comparison -->
+            <div class="recurring-comparison">
+                <div class="comparison-col">
+                    <h4>Разовый взнос</h4>
+                    <ul>
+                        <li>Единственный платёж</li>
+                        <li>Можно забыть повторить</li>
+                        <li>Сложнее планировать бюджет</li>
+                    </ul>
                 </div>
-                <div class="donation-option donation-option-popular">
-                    <div class="popular-badge-sm">Популярно</div>
-                    <div class="donation-icon">📚</div>
-                    <div class="donation-amount">₽2000</div>
-                    <div class="donation-desc">1 стандарт в базе</div>
-                    <button class="cta-btn cta-btn-primary cta-btn-sm donation-btn" data-amount="2000">Поддержать</button>
-                </div>
-                <div class="donation-option">
-                    <div class="donation-icon">👨‍🏫</div>
-                    <div class="donation-amount">₽5000</div>
-                    <div class="donation-desc">1 день эксперта</div>
-                    <button class="cta-btn cta-btn-sm donation-btn" data-amount="5000">Поддержать</button>
-                </div>
-                <div class="donation-option">
-                    <div class="donation-icon">💝</div>
-                    <div class="donation-amount">Своя сумма</div>
-                    <div class="donation-desc">Любая помощь важна</div>
-                    <button class="cta-btn cta-btn-sm" id="customDonationBtn">Указать</button>
+                <div class="comparison-col highlighted">
+                    <h4>Ежемесячная поддержка</h4>
+                    <ul>
+                        <li><span class="checkmark">✅</span> Автоматическое списание</li>
+                        <li><span class="checkmark">✅</span> Предсказуемый доход для проекта</li>
+                        <li><span class="checkmark">✅</span> Отменить можно в любой момент</li>
+                        <li><span class="checkmark">✅</span> Эксклюзивные отчёты для подписчиков</li>
+                    </ul>
                 </div>
             </div>
 
             <!-- Link to financial reports -->
             <p class="text-center" style="margin: 2rem 0;">
-                <a href="/finance" class="text-link">Смотреть, как расходуются средства →</a>
+                <a href="/finance" class="text-link">Смотреть полную финансовую отчётность →</a>
             </p>
-
-            <!-- Transparency statement -->
-            <div class="transparency-text">
-                <p>
-                    <strong>Каждый рубль идёт на юридическую работу, базу знаний и инфраструктуру.</strong><br>
-                    В нашей организации каждый рубль подотчётен и направляется исключительно на реализацию целей социального проекта.
-                </p>
-                <p>
-                    <strong>Полная финансовая прозрачность:</strong> внутренний аудит проводится доверенными лицами сообщества, которые публикуют регулярные отчёты о расходах. Никаких скрытых комиссий, никаких «административных расходов» — только реальная работа на общие цели.
-                </p>
-            </div>
         </div>
     </section>
 
@@ -864,6 +977,21 @@
     <div class="floating-cta" id="floatingCta">
         <span>Окно возможностей закрывается</span>
         <a href="#join" class="cta-btn cta-btn-small">Присоединиться</a>
+    </div>
+
+    <!-- Exit Intent Modal -->
+    <div class="exit-intent-modal hidden" id="exitIntentModal">
+        <div class="exit-intent-overlay" id="exitIntentOverlay"></div>
+        <div class="exit-intent-content">
+            <button class="exit-intent-close" id="exitIntentClose">&times;</button>
+            <h2>Подождите! 🌱</h2>
+            <p>Получите бесплатный гайд "Первые шаги к автономной жизни"</p>
+            <form id="exitIntentForm">
+                <input type="email" name="email" placeholder="Ваш email" required>
+                <input type="text" name="name" placeholder="Ваше имя" required>
+                <button type="submit" class="cta-btn cta-btn-primary">Получить гайд</button>
+            </form>
+        </div>
     </div>
 
     <script src="script.js"></script>
