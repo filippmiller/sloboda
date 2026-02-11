@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Calendar, MapPin, Users, Download, ArrowLeft } from 'lucide-react'
-import axios from '@/lib/axios'
+import api from '@/services/api'
 import Button from '@/components/ui/Button'
 import Card from '@/components/ui/Card'
 import { ROUTES } from '@/config/routes'
@@ -49,7 +49,7 @@ export default function EventDetail() {
   const fetchEvent = async () => {
     try {
       setLoading(true)
-      const response = await axios.get(`/user/events/${id}`)
+      const response = await api.get(`/user/events/${id}`)
       setEvent(response.data.data)
     } catch (error) {
       console.error('Failed to fetch event:', error)
@@ -66,7 +66,7 @@ export default function EventDetail() {
 
   const handleRSVP = async (status: string) => {
     try {
-      await axios.post(`/user/events/${id}/rsvp`, { status })
+      await api.post(`/user/events/${id}/rsvp`, { status })
       toast.success(status === 'going' ? 'Вы записаны на событие!' : 'Статус обновлён')
       fetchEvent()
     } catch (error) {
@@ -77,7 +77,7 @@ export default function EventDetail() {
 
   const downloadICS = async () => {
     try {
-      const response = await axios.get(`/user/events/${id}/ical`, {
+      const response = await api.get(`/user/events/${id}/ical`, {
         responseType: 'blob'
       })
       const url = window.URL.createObjectURL(new Blob([response.data]))
@@ -112,7 +112,9 @@ export default function EventDetail() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <Card className="h-96 animate-pulse bg-bg-card/50" />
+        <Card className="h-96 animate-pulse bg-bg-card/50">
+          <div />
+        </Card>
       </div>
     )
   }

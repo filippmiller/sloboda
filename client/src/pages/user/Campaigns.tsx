@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Heart, Plus, TrendingUp, Users } from 'lucide-react'
-import axios from '@/lib/axios'
+import api from '@/services/api'
 import Button from '@/components/ui/Button'
 import Card from '@/components/ui/Card'
 import { ROUTES } from '@/config/routes'
@@ -33,7 +33,7 @@ export default function Campaigns() {
     try {
       setLoading(true)
       const endpoint = view === 'my' ? '/user/campaigns/my' : '/user/campaigns'
-      const response = await axios.get(endpoint)
+      const response = await api.get(endpoint)
       setCampaigns(response.data.data)
     } catch (error) {
       console.error('Failed to fetch campaigns:', error)
@@ -110,7 +110,9 @@ export default function Campaigns() {
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map(i => (
-            <Card key={i} className="h-80 animate-pulse bg-bg-card/50" />
+            <Card key={i} className="h-80 animate-pulse bg-bg-card/50">
+              <div />
+            </Card>
           ))}
         </div>
       ) : campaigns.length === 0 ? (

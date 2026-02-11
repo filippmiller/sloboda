@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Calendar, MapPin, Users, Plus, Filter } from 'lucide-react'
-import axios from '@/lib/axios'
+import api from '@/services/api'
 import Button from '@/components/ui/Button'
 import Card from '@/components/ui/Card'
 import { ROUTES } from '@/config/routes'
@@ -53,7 +53,7 @@ export default function Events() {
         ? '/user/events/my-rsvps'
         : '/user/events?status=upcoming'
 
-      const response = await axios.get(endpoint)
+      const response = await api.get(endpoint)
       setEvents(response.data.data)
     } catch (error) {
       console.error('Failed to fetch events:', error)
@@ -69,7 +69,7 @@ export default function Events() {
 
   const handleRSVP = async (eventId: number, status: string) => {
     try {
-      await axios.post(`/user/events/${eventId}/rsvp`, { status })
+      await api.post(`/user/events/${eventId}/rsvp`, { status })
       toast.success(status === 'going' ? 'Вы записаны на событие!' : 'Статус обновлён')
       fetchEvents()
     } catch (error) {
@@ -129,7 +129,9 @@ export default function Events() {
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map(i => (
-            <Card key={i} className="h-64 animate-pulse bg-bg-card/50" />
+            <Card key={i} className="h-64 animate-pulse bg-bg-card/50">
+              <div />
+            </Card>
           ))}
         </div>
       ) : events.length === 0 ? (

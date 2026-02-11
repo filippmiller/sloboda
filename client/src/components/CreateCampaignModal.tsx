@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
-import axios from '@/lib/axios'
+import api from '@/services/api'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { toast } from 'sonner'
@@ -45,7 +45,7 @@ export default function CreateCampaignModal({ onClose, onCampaignCreated }: Crea
 
     try {
       setLoading(true)
-      await axios.post('/user/campaigns', {
+      await api.post('/user/campaigns', {
         title: formData.title,
         description: formData.description,
         goalAmount: amount,

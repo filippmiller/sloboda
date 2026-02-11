@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Heart, Users, TrendingUp, Share2, ArrowLeft, Copy } from 'lucide-react'
-import axios from '@/lib/axios'
+import api from '@/services/api'
 import Button from '@/components/ui/Button'
 import Card from '@/components/ui/Card'
 import { ROUTES } from '@/config/routes'
@@ -42,7 +42,7 @@ export default function CampaignDetail() {
   const fetchCampaign = async () => {
     try {
       setLoading(true)
-      const response = await axios.get(`/user/campaigns/${id}`)
+      const response = await api.get(`/user/campaigns/${id}`)
       setCampaign(response.data.data)
     } catch (error) {
       console.error('Failed to fetch campaign:', error)
@@ -107,7 +107,9 @@ export default function CampaignDetail() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <Card className="h-96 animate-pulse bg-bg-card/50" />
+        <Card className="h-96 animate-pulse bg-bg-card/50">
+          <div />
+        </Card>
       </div>
     )
   }
