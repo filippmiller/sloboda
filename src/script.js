@@ -1039,6 +1039,9 @@ function initAiProfessionChecker() {
     const btn = document.getElementById('aiProfessionBtn');
     const resultBox = document.getElementById('aiProfessionResult');
     const errorBox = document.getElementById('aiProfessionError');
+    const modal = document.getElementById('aiResultModal');
+    const modalOverlay = document.getElementById('aiResultModalOverlay');
+    const modalClose = document.getElementById('aiResultModalClose');
 
     if (!input || !btn) return;
 
@@ -1055,15 +1058,32 @@ function initAiProfessionChecker() {
     function showError(message) {
         errorBox.textContent = message;
         errorBox.style.display = 'block';
-        resultBox.style.display = 'none';
     }
 
     function showResult(html) {
         resultBox.innerHTML = html;
-        resultBox.style.display = 'block';
         errorBox.style.display = 'none';
-        resultBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        if (modal) {
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
     }
+
+    function closeResultModal() {
+        if (modal) {
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    }
+
+    // Modal close handlers
+    modalOverlay?.addEventListener('click', closeResultModal);
+    modalClose?.addEventListener('click', closeResultModal);
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal?.classList.contains('active')) {
+            closeResultModal();
+        }
+    });
 
     async function checkProfession() {
         const profession = input.value.trim();
@@ -1074,7 +1094,6 @@ function initAiProfessionChecker() {
 
         setLoading(true);
         errorBox.style.display = 'none';
-        resultBox.style.display = 'none';
 
         try {
             const response = await fetch('/api/public/ai-profession', {
