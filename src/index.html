@@ -295,6 +295,39 @@
         </div>
     </section>
 
+    <!-- AI PROFESSION CHECKER -->
+    <section class="section section-ai-check" id="ai-check">
+        <div class="container">
+            <h2 class="section-title text-center">Проверьте свою профессию</h2>
+            <p class="section-intro text-center">
+                Введите вашу профессию — и ИИ честно расскажет, как скоро он займёт ваше рабочее место.
+            </p>
+
+            <div class="ai-check-box">
+                <div class="ai-check-input-row">
+                    <input
+                        type="text"
+                        id="aiProfessionInput"
+                        class="ai-check-input"
+                        placeholder="Например: бухгалтер, архитектор, врач, программист..."
+                        maxlength="100"
+                        autocomplete="off"
+                    >
+                    <button id="aiProfessionBtn" class="ai-check-btn">
+                        <span class="ai-check-btn-text">Узнать</span>
+                        <span class="ai-check-btn-loading" style="display:none;">
+                            <span class="ai-spinner"></span> Анализирую...
+                        </span>
+                    </button>
+                </div>
+                <p class="ai-check-hint">ИИ проанализирует вашу профессию и даст честный прогноз</p>
+
+                <div id="aiProfessionResult" class="ai-check-result" style="display:none;"></div>
+                <div id="aiProfessionError" class="ai-check-error" style="display:none;"></div>
+            </div>
+        </div>
+    </section>
+
     <!-- WHY NOW - Timeline visualization -->
     <section class="section" id="why">
         <div class="container">

@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initDonationForm();
     initFloatingCTA();
     initScrollBehavior();
+    initAiProfessionChecker();
 });
 
 // ===== DYNAMIC CONTENT LOADING =====
@@ -1030,6 +1031,78 @@ function initDonationForm() {
             videoBtn.click();
         });
     }
+}
+
+// ===== AI PROFESSION CHECKER =====
+function initAiProfessionChecker() {
+    const input = document.getElementById('aiProfessionInput');
+    const btn = document.getElementById('aiProfessionBtn');
+    const resultBox = document.getElementById('aiProfessionResult');
+    const errorBox = document.getElementById('aiProfessionError');
+
+    if (!input || !btn) return;
+
+    const btnText = btn.querySelector('.ai-check-btn-text');
+    const btnLoading = btn.querySelector('.ai-check-btn-loading');
+
+    function setLoading(loading) {
+        btn.disabled = loading;
+        input.disabled = loading;
+        btnText.style.display = loading ? 'none' : '';
+        btnLoading.style.display = loading ? 'inline' : 'none';
+    }
+
+    function showError(message) {
+        errorBox.textContent = message;
+        errorBox.style.display = 'block';
+        resultBox.style.display = 'none';
+    }
+
+    function showResult(html) {
+        resultBox.innerHTML = html;
+        resultBox.style.display = 'block';
+        errorBox.style.display = 'none';
+        resultBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    async function checkProfession() {
+        const profession = input.value.trim();
+        if (!profession) {
+            input.focus();
+            return;
+        }
+
+        setLoading(true);
+        errorBox.style.display = 'none';
+        resultBox.style.display = 'none';
+
+        try {
+            const response = await fetch('/api/public/ai-profession', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ profession })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                showError(data.error || 'Произошла ошибка. Попробуйте ещё раз.');
+                return;
+            }
+
+            showResult(data.html);
+
+        } catch (err) {
+            showError('Не удалось связаться с сервером. Проверьте интернет-соединение.');
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    btn.addEventListener('click', checkProfession);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') checkProfession();
+    });
 }
 
 // Track donation events (extend existing trackEvent function)

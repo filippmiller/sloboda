@@ -287,6 +287,84 @@ app.post('/api/user/upload/image', requireUserAuth, fileUpload.single('image'), 
 // PUBLIC API ROUTES
 // ============================================
 
+// Rate limiter for AI profession checker (10 requests per 15 min per IP)
+const professionLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    message: {
+        success: false,
+        error: 'Слишком много запросов. Попробуйте через несколько минут.'
+    }
+});
+
+// API: AI Profession Replacement Checker
+app.post('/api/public/ai-profession', professionLimiter, async (req, res) => {
+    try {
+        const { profession } = req.body;
+
+        if (!profession || typeof profession !== 'string' || profession.trim().length < 2) {
+            return res.status(400).json({
+                success: false,
+                error: 'Укажите вашу профессию'
+            });
+        }
+
+        if (profession.trim().length > 100) {
+            return res.status(400).json({
+                success: false,
+                error: 'Слишком длинное описание профессии'
+            });
+        }
+
+        const { callClaude } = require('./services/ai/anthropic');
+
+        const systemPrompt = `Ты — аналитик рынка труда и эксперт по влиянию ИИ на профессии. Твоя задача — честно и провокационно рассказать, как скоро ИИ заменит указанную профессию.
+
+ФОРМАТ ОТВЕТА (строго HTML, без markdown):
+1. Начни с оценки в формате: <div class="ai-verdict"><span class="ai-risk-label">Риск замены:</span> <span class="ai-risk-value ai-risk-{уровень}">{ВЫСОКИЙ/СРЕДНИЙ/НИЗКИЙ}</span></div>
+2. <div class="ai-timeline"><strong>Горизонт:</strong> укажи конкретные сроки (например, "2-4 года", "5-8 лет")</div>
+3. <div class="ai-explanation"><h4>Что уже происходит</h4><p>Опиши 2-3 конкретных примера, как ИИ уже выполняет задачи этой профессии. Будь конкретен — называй технологии, компании, продукты.</p></div>
+4. <div class="ai-impact"><h4>Что это значит для вас</h4><p>Объясни практические последствия: какие задачи исчезнут первыми, что останется человеку, как изменится зарплата.</p></div>
+5. <div class="ai-articles"><h4>Почитайте сами</h4><ul><li>Приведи 2-3 ссылки на реальные статьи на русском языке (с Хабра, РБК, Forbes Russia, VC.ru, Коммерсант) о замене этой профессии ИИ. Формат: <a href="URL" target="_blank" rel="noopener">Название статьи — Источник</a></li></ul></div>
+6. <div class="ai-conclusion"><p>Заверши провокационным выводом в 1-2 предложения, подталкивающим задуматься о плане Б.</p></div>
+
+ПРАВИЛА:
+- Пиши ТОЛЬКО на русском языке
+- Будь честным, но провокационным — цель заставить задуматься
+- Используй конкретные факты и цифры
+- Не приукрашивай и не преуменьшай
+- Если профессия ещё далека от замены — честно скажи, но укажи, какие элементы уже автоматизируются
+- Для уровня риска используй: high (высокий), medium (средний), low (низкий)
+- Если ввод не является профессией — ответь коротко что нужно ввести название профессии`;
+
+        const userPrompt = `Профессия: ${profession.trim()}`;
+
+        const { content } = await callClaude({
+            model: 'claude-haiku-4-20250514',
+            maxTokens: 1500,
+            systemPrompt,
+            userPrompt
+        });
+
+        res.json({ success: true, html: content });
+
+    } catch (error) {
+        console.error('[ai-profession] Error:', error.message);
+
+        if (error.message.includes('ANTHROPIC_API_KEY')) {
+            return res.status(503).json({
+                success: false,
+                error: 'Сервис ИИ временно недоступен'
+            });
+        }
+
+        res.status(500).json({
+            success: false,
+            error: 'Не удалось проанализировать профессию. Попробуйте ещё раз.'
+        });
+    }
+});
+
 // API: Submit registration (rate limited)
 app.post('/api/register', registrationLimiter, async (req, res) => {
     try {
