@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /dashboard/
+Disallow: /login
+Disallow: /register
+Disallow: /profile
+Disallow: /onboarding
+
+Sitemap: https://sloboda.land/sitemap.xml

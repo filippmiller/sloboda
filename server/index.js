@@ -93,6 +93,18 @@ const registrationLimiter = rateLimit({
     legacyHeaders: false,
 });
 
+// Rate limiting for login endpoints (IP-based, complements per-email limits in route handlers)
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20, // 20 login attempts per IP per 15 minutes (across all emails)
+    message: {
+        success: false,
+        error: 'Too many login attempts from this address. Please try again in 15 minutes.'
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
 // Middleware
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
@@ -146,6 +158,32 @@ if (hasClientBuild) {
     app.get('/admin/*', (req, res) => res.sendFile(clientIndexPath));
 }
 
+// Sitemap.xml (SEO)
+app.get('/sitemap.xml', (req, res) => {
+    const baseUrl = 'https://sloboda.land';
+    const today = new Date().toISOString().split('T')[0];
+    const urls = [
+        { loc: '/', changefreq: 'weekly', priority: '1.0' },
+        { loc: '/concept', changefreq: 'monthly', priority: '0.8' },
+        { loc: '/privacy', changefreq: 'yearly', priority: '0.3' },
+        { loc: '/updates', changefreq: 'weekly', priority: '0.6' },
+    ];
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls.map(u => `  <url>
+    <loc>${baseUrl}${u.loc}</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>${u.changefreq}</changefreq>
+    <priority>${u.priority}</priority>
+  </url>`).join('\n')}
+</urlset>`;
+
+    res.set('Content-Type', 'application/xml');
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.send(xml);
+});
+
 // Privacy policy page
 app.get('/privacy', (req, res) => {
     res.sendFile(path.join(__dirname, '../src/privacy.html'));
@@ -186,11 +224,13 @@ app.locals.db = db;
 // ============================================
 // AUTH ROUTES
 // ============================================
+app.use('/api/auth/login', loginLimiter);
 app.use('/api/auth', authRouter);
 
 // ============================================
 // USER AUTH & PORTAL ROUTES
 // ============================================
+app.use('/api/user/auth/login', loginLimiter);
 app.use('/api/user/auth', userAuthRouter);
 app.use('/api/user', userPortalRouter);
 
@@ -539,6 +579,52 @@ app.get('/api/admin/funding-goal', requireAuth, async (req, res) => {
     } catch (err) {
         console.error('Error fetching funding goal:', err);
         res.status(500).json({ success: false, error: 'Failed to fetch funding goal' });
+    }
+});
+
+// Export all registrations as CSV
+app.get('/api/registrations/export', requireAuth, async (req, res) => {
+    try {
+        const filters = {
+            status: req.query.status,
+            motivation: req.query.motivation,
+            search: req.query.search,
+        };
+
+        const registrations = await db.getRegistrations(filters);
+
+        const escapeCSV = (val) => {
+            if (val == null) return '';
+            const str = String(val);
+            if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                return `"${str.replace(/"/g, '""')}"`;
+            }
+            return str;
+        };
+
+        const headers = ['ID', 'Name', 'Email', 'Telegram', 'Location', 'Motivation', 'Participation', 'Skills', 'Budget', 'Status', 'Created'];
+        const rows = registrations.map(r => [
+            r.id,
+            escapeCSV(r.name),
+            escapeCSV(r.email),
+            escapeCSV(r.telegram),
+            escapeCSV(r.location),
+            escapeCSV(r.motivation),
+            escapeCSV(r.participation),
+            escapeCSV(Array.isArray(r.skills) ? r.skills.join('; ') : ''),
+            escapeCSV(r.budget),
+            escapeCSV(r.status),
+            r.created_at ? new Date(r.created_at).toISOString().split('T')[0] : '',
+        ].join(','));
+
+        const csv = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+
+        res.set('Content-Type', 'text/csv; charset=utf-8');
+        res.set('Content-Disposition', `attachment; filename="registrations-${new Date().toISOString().split('T')[0]}.csv"`);
+        res.send(csv);
+    } catch (err) {
+        console.error('Error exporting registrations:', err);
+        res.status(500).json({ success: false, error: 'Failed to export registrations' });
     }
 });
 

@@ -48,14 +48,6 @@ const STATUS_COLORS: Record<string, string> = {
 
 const PAGE_SIZE = 20
 
-function escapeCSV(val: string): string {
-  if (!val) return ''
-  if (val.includes(',') || val.includes('"') || val.includes('\n')) {
-    return `"${val.replace(/"/g, '""')}"`
-  }
-  return val
-}
-
 export default function Registrations() {
   const [registrations, setRegistrations] = useState<Registration[]>([])
   const [total, setTotal] = useState(0)
@@ -211,32 +203,29 @@ export default function Registrations() {
     fetchRegistrations()
   }
 
-  // CSV Export
-  const handleExportCSV = () => {
-    const headers = ['ID', 'Имя', 'Email', 'Телефон', 'Локация', 'Мотивация', 'Участие', 'Навыки', 'Бюджет', 'Статус', 'Дата']
-    const rows = registrations.map(r => [
-      String(r.id),
-      escapeCSV(r.name),
-      escapeCSV(r.email),
-      escapeCSV(r.phone ?? ''),
-      escapeCSV(r.location ?? ''),
-      escapeCSV(r.motivation ?? ''),
-      escapeCSV(r.participation ?? ''),
-      escapeCSV((r.skills ?? []).join('; ')),
-      escapeCSV(r.budget_range ?? ''),
-      escapeCSV(STATUS_LABELS[r.status] ?? r.status),
-      new Date(r.created_at).toLocaleDateString('ru-RU'),
-    ])
+  // CSV Export (server-side — exports ALL registrations, not just current page)
+  const handleExportCSV = async () => {
+    try {
+      const params = new URLSearchParams()
+      if (statusFilter) params.set('status', statusFilter)
+      if (search) params.set('search', search)
+      const query = params.toString()
+      const url = `/api/registrations/export${query ? `?${query}` : ''}`
 
-    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `registrations-${new Date().toISOString().split('T')[0]}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-    toast.success('CSV скачан')
+      const res = await fetch(url, { credentials: 'include' })
+      if (!res.ok) throw new Error('Export failed')
+
+      const blob = await res.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = blobUrl
+      a.download = `registrations-${new Date().toISOString().split('T')[0]}.csv`
+      a.click()
+      URL.revokeObjectURL(blobUrl)
+      toast.success('CSV скачан')
+    } catch {
+      toast.error('Ошибка экспорта')
+    }
   }
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
