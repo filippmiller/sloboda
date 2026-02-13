@@ -50,6 +50,8 @@ const AdminLanding = lazy(() => import('@/pages/admin/LandingContent'))
 const ForumThreads = lazy(() => import('@/pages/admin/ForumThreads'))
 const ForumRoles = lazy(() => import('@/pages/admin/ForumRoles'))
 const ForumModeration = lazy(() => import('@/pages/admin/ForumModeration'))
+const DomainCatalog = lazy(() => import('@/pages/admin/DomainCatalog'))
+const ChangePassword = lazy(() => import('@/pages/admin/ChangePassword'))
 const NotFound = lazy(() => import('@/pages/NotFound'))
 
 function LoadingSpinner() {
@@ -105,8 +107,9 @@ function App() {
           <Route path={ROUTES.CAMPAIGN_DETAIL} element={<Safe><CampaignDetail /></Safe>} />
         </Route>
 
-        {/* Admin login (no layout) */}
+        {/* Admin login & change password (no layout) */}
         <Route path={ROUTES.ADMIN_LOGIN} element={<AdminLogin />} />
+        <Route path={ROUTES.ADMIN_CHANGE_PASSWORD} element={<ChangePassword />} />
 
         {/* Admin routes (with sidebar layout + auth check) */}
         <Route element={<AdminLayout />}>
@@ -125,6 +128,7 @@ function App() {
           <Route path={ROUTES.ADMIN_FORUM} element={<Safe><ForumThreads /></Safe>} />
           <Route path={ROUTES.ADMIN_FORUM_ROLES} element={<Safe><ForumRoles /></Safe>} />
           <Route path={ROUTES.ADMIN_FORUM_MODERATION} element={<Safe><ForumModeration /></Safe>} />
+          <Route path={ROUTES.ADMIN_DOMAINS} element={<Safe><DomainCatalog /></Safe>} />
         </Route>
 
         {/* 404 */}

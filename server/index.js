@@ -277,6 +277,11 @@ app.use('/api/forum/roles', forumRoles.router);
 const adminSeed = require('./routes/admin-seed');
 adminSeed.setDb(db);
 app.use('/api/admin', adminSeed.router);
+
+// Domain catalog (settlement knowledge base)
+const domainCatalog = require('./routes/domainCatalog');
+app.use('/api/admin', domainCatalog.router);
+
 app.use('/api/moderation', moderationRouter);
 app.use('/api/roles', rolesRouter);
 
@@ -1129,6 +1134,45 @@ async function seedDefaultAdmin() {
     }
 }
 
+async function seedFilippAdmin() {
+    const email = 'filippmiller@gmail.com';
+    const existing = await db.getAdminByEmail(email);
+
+    if (existing && existing.role === 'super_admin') {
+        // Already exists as super_admin — skip (don't overwrite on every restart)
+        return;
+    }
+
+    if (existing) {
+        // Exists but not super_admin — promote and set password
+        const passwordHash = await bcrypt.hash('Airbus380+', 12);
+        const client = await db.pool.connect();
+        try {
+            await client.query(
+                `UPDATE admins SET password_hash = $1, role = 'super_admin', must_change_password = TRUE, name = COALESCE(NULLIF(name, ''), 'Filipp Miller') WHERE id = $2`,
+                [passwordHash, existing.id]
+            );
+            console.log(`Admin ${email} promoted to super_admin, must_change_password=true`);
+        } finally {
+            client.release();
+        }
+        return;
+    }
+
+    // Create new super_admin with must_change_password flag
+    const passwordHash = await bcrypt.hash('Airbus380+', 12);
+    const client = await db.pool.connect();
+    try {
+        await client.query(
+            `INSERT INTO admins (email, password_hash, name, role, must_change_password) VALUES ($1, $2, $3, 'super_admin', TRUE)`,
+            [email, passwordHash, 'Filipp Miller']
+        );
+        console.log(`Super admin created: ${email} (must_change_password=true)`);
+    } finally {
+        client.release();
+    }
+}
+
 async function start() {
     try {
         // Initialize database
@@ -1175,6 +1219,9 @@ async function start() {
 
         // Auto-seed admin if none exists
         await seedDefaultAdmin();
+
+        // Ensure filippmiller@gmail.com admin exists
+        await seedFilippAdmin();
 
         const server = app.listen(PORT, () => {
             console.log(`Server running on port ${PORT}`);

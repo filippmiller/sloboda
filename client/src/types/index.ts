@@ -18,6 +18,7 @@ export interface Admin {
   email: string
   name: string
   role: 'admin' | 'super_admin'
+  mustChangePassword?: boolean
 }
 
 export interface Post {

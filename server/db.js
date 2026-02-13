@@ -63,6 +63,7 @@ async function initDatabase() {
                 invited_by INTEGER REFERENCES admins(id),
                 invite_token VARCHAR(255),
                 invite_expires TIMESTAMP,
+                must_change_password BOOLEAN DEFAULT FALSE,
                 last_login TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -652,6 +653,11 @@ async function initDatabase() {
             END $$;
         `);
 
+        // Add must_change_password column to admins (migration)
+        await client.query(`
+            ALTER TABLE admins ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT FALSE
+        `);
+
         // Badges table
         await client.query(`
             CREATE TABLE IF NOT EXISTS badges (
@@ -882,7 +888,7 @@ async function getAdminById(id) {
     const client = await pool.connect();
     try {
         const result = await client.query(
-            'SELECT id, email, name, role, last_login, created_at FROM admins WHERE id = $1',
+            'SELECT id, email, name, role, must_change_password, last_login, created_at FROM admins WHERE id = $1',
             [id]
         );
         return result.rows[0] || null;
@@ -981,7 +987,7 @@ async function updateAdminPassword(id, passwordHash) {
     const client = await pool.connect();
     try {
         await client.query(
-            'UPDATE admins SET password_hash = $1 WHERE id = $2',
+            'UPDATE admins SET password_hash = $1, must_change_password = FALSE WHERE id = $2',
             [passwordHash, id]
         );
     } finally {

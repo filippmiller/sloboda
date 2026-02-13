@@ -18,8 +18,12 @@ export const useAdminStore = create<AdminState>((set) => ({
 
   login: async (email: string, password: string, rememberMe = false) => {
     const response = await adminApi.post('/auth/login', { email, password, rememberMe })
+    const admin = response.data.admin
+    if (response.data.mustChangePassword) {
+      admin.mustChangePassword = true
+    }
     set({
-      admin: response.data.admin,
+      admin,
       isAuthenticated: true,
       isLoading: false,
     })

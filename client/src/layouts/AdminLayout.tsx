@@ -23,6 +23,7 @@ import {
   X,
   MessageSquare,
   Globe,
+  BookOpen,
 } from 'lucide-react'
 import Skeleton from '@/components/ui/Skeleton'
 
@@ -33,6 +34,7 @@ const navItems = [
   { to: ROUTES.ADMIN_FORUM, label: 'Форум', icon: MessageSquare },
   { to: ROUTES.ADMIN_POSTS, label: 'Публикации', icon: FileText },
   { to: ROUTES.ADMIN_KNOWLEDGE, label: 'Знания', icon: Lightbulb },
+  { to: ROUTES.ADMIN_DOMAINS, label: 'Каталог доменов', icon: BookOpen },
   { to: ROUTES.ADMIN_CATEGORIES, label: 'Категории', icon: Tags },
   { to: ROUTES.ADMIN_FINANCE, label: 'Финансы', icon: Wallet },
   { to: ROUTES.ADMIN_LANDING, label: 'Главная страница', icon: Globe },
@@ -83,6 +85,10 @@ export default function AdminLayout() {
 
   if (!isAuthenticated) {
     return <Navigate to={ROUTES.ADMIN_LOGIN} replace />
+  }
+
+  if (admin?.mustChangePassword) {
+    return <Navigate to={ROUTES.ADMIN_CHANGE_PASSWORD} replace />
   }
 
   const sidebarContent = (

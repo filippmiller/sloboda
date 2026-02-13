@@ -28,8 +28,14 @@ export default function AdminLogin() {
     setLoading(true)
     try {
       await login(email, password, rememberMe)
-      toast.success('Добро пожаловать')
-      navigate(ROUTES.ADMIN_DASHBOARD)
+      const admin = useAdminStore.getState().admin
+      if (admin?.mustChangePassword) {
+        toast.info('Необходимо сменить пароль')
+        navigate(ROUTES.ADMIN_CHANGE_PASSWORD)
+      } else {
+        toast.success('Добро пожаловать')
+        navigate(ROUTES.ADMIN_DASHBOARD)
+      }
     } catch (err) {
       const axiosError = err as AxiosError<{ error: string }>
       const message = axiosError.response?.data?.error || 'Ошибка входа'

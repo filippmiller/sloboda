@@ -129,7 +129,8 @@ router.post('/login', async (req, res) => {
                 email: admin.email,
                 name: admin.name,
                 role: admin.role
-            }
+            },
+            mustChangePassword: !!admin.must_change_password,
         });
     } catch (err) {
         console.error('Login error:', err);
@@ -137,6 +138,53 @@ router.post('/login', async (req, res) => {
             success: false,
             error: 'Login failed'
         });
+    }
+});
+
+/**
+ * POST /api/auth/change-password
+ * Change password (used for forced password change and voluntary change)
+ */
+router.post('/change-password', requireAuth, async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+
+        if (!newPassword || newPassword.length < 8) {
+            return res.status(400).json({
+                success: false,
+                error: 'Новый пароль должен быть не менее 8 символов'
+            });
+        }
+
+        const admin = await db.getAdminByEmail(req.admin.email);
+        if (!admin) {
+            return res.status(404).json({ success: false, error: 'Admin not found' });
+        }
+
+        // If not forced change, require current password
+        if (!admin.must_change_password) {
+            if (!currentPassword) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Текущий пароль обязателен'
+                });
+            }
+            const valid = await bcrypt.compare(currentPassword, admin.password_hash);
+            if (!valid) {
+                return res.status(401).json({
+                    success: false,
+                    error: 'Неверный текущий пароль'
+                });
+            }
+        }
+
+        const passwordHash = await bcrypt.hash(newPassword, 12);
+        await db.updateAdminPassword(admin.id, passwordHash);
+
+        res.json({ success: true, message: 'Пароль успешно изменён' });
+    } catch (err) {
+        console.error('Change password error:', err);
+        res.status(500).json({ success: false, error: 'Ошибка смены пароля' });
     }
 });
 
@@ -169,7 +217,8 @@ router.get('/me', requireAuth, async (req, res) => {
                 id: admin.id,
                 email: admin.email,
                 name: admin.name,
-                role: admin.role
+                role: admin.role,
+                mustChangePassword: !!admin.must_change_password,
             }
         });
     } catch (err) {

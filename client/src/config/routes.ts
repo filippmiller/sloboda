@@ -41,6 +41,8 @@ export const ROUTES = {
   ADMIN_FORUM: '/admin/forum',
   ADMIN_FORUM_ROLES: '/admin/forum/roles',
   ADMIN_FORUM_MODERATION: '/admin/forum/moderation',
+  ADMIN_DOMAINS: '/admin/domains',
+  ADMIN_CHANGE_PASSWORD: '/admin/change-password',
 } as const
 
 export type RoutePath = (typeof ROUTES)[keyof typeof ROUTES]
