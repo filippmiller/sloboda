@@ -3,6 +3,63 @@
 
 ---
 
+## 2026-02-13 - Project Improvement Analysis & Implementation
+
+**Status**: Completed
+**Commits**: 20595fe
+
+### What was done
+- Deep analysis of entire codebase (server, client, landing page, database)
+- Generated 30 improvement ideas, critically evaluated each
+- Rejected 22 ideas for good reasons (already done, over-engineering, wrong timing)
+- Implemented 4 high-confidence improvements:
+  1. IP-based login rate limiting (20 req/15min) on admin + user login endpoints
+  2. robots.txt with proper allow/disallow + sitemap.xml dynamic endpoint
+  3. Verified database indexes already comprehensive (no work needed)
+  4. Server-side CSV export for registrations (replaces client-side page-only export)
+
+### Decisions made
+- Deferred structured logging (pino) - too wide-reaching for single session
+- Deferred server-side validation (Zod) - best done incrementally
+- Deferred XSS sanitization - needs jsdom dependency and careful testing
+- Deferred index.js split - high risk without test coverage
+
+---
+
+## 2026-02-12 - PRO Domain: Industrial Zone and Production (Brainstorm)
+
+**Status**: Completed
+**Duration**: ~45 minutes
+
+### What was done
+- Created comprehensive knowledge document `docs/domains/PRO/README.md` (1111 lines)
+- Conducted 20-iteration expert brainstorm with 5 specialists (Wood Processing Engineer, Mechanical Engineer, Concrete Specialist, Production Logistics, Production Economist)
+- Covered all 7 subdomains: House kit factory, Sawmill, Concrete production, Carpentry, Metalworking, Storage, Construction equipment
+- Produced detailed equipment lists with specific Russian manufacturer models and 2025-2026 prices
+- Calculated total production base budget: ~85 million rubles (~$850K)
+- Calculated monthly power consumption: ~31 MWh
+- Calculated staffing: ~46-48 people for full production zone
+- Estimated house kit cost at own production: ~1.02M rubles (40-60% cheaper than market)
+- Created 4-phase deployment plan spanning 12 months
+- Listed 24 follow-up artifacts to create
+
+### Decisions made
+- Frame construction chosen as primary building technology
+- Start with basic kit cutting (Variant A), upgrade to panel assembly (Variant B) after 3-6 months
+- Windows: purchase ready-made (not cost-effective to manufacture)
+- Drying chambers identified as bottleneck - start with 2, expand to 4
+- Construction equipment: buy used, except concrete pump (rent first year)
+- Sawmill waste: convert to pellets/briquettes (not waste, but energy resource)
+
+### Key equipment choices
+- Sawmills: Altai 900A-PROF (240K rubles each)
+- Drying chambers: NOVA SKN-25 (3.9M rubles each)
+- Concrete: BSP-500 mixer + Rifey-Kondor vibropress
+- Crane: Galichanin 25t on KAMAZ (used, ~6M rubles)
+- Main workshop: 60x24m steel frame building
+
+---
+
 ## 2026-02-12 - Update Project Documentation
 
 **Status**: Completed

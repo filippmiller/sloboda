@@ -47,3 +47,6 @@ server/uploads/
 !src/**/*.png
 !src/**/*.jpeg
 !src/**/*.jpg
+
+# Documentation (generated)
+docs/
