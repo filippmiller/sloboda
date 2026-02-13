@@ -48,5 +48,7 @@ server/uploads/
 !src/**/*.jpeg
 !src/**/*.jpg
 
-# Documentation (generated)
-docs/
+# Documentation (generated, except domain knowledge base)
+docs/*
+!docs/domains/
+!docs/05-SETTLEMENT-DOMAINS.md
