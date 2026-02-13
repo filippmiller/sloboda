@@ -1,6 +1,7 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import adminApi from '@/services/adminApi'
 import Card from '@/components/ui/Card'
+import KnowledgeModal from '@/components/KnowledgeModal'
 import { toast } from 'sonner'
 import {
   Loader2,
@@ -152,18 +153,26 @@ function StatCard({ label, value, icon: Icon }: { label: string; value: string |
   )
 }
 
+/** Extract numeric key like "1.1.1" from subsection title like "1.1.1 Общая площадь: Расчёт потребности" */
+function extractSectionKey(title: string): string | null {
+  const match = title.match(/^(\d+(?:\.\d+)+)/)
+  return match ? match[1] : null
+}
+
 function DomainCard({
   domain,
   maxLines,
   expanded,
   onToggle,
   categoryLabel,
+  onSubsectionClick,
 }: {
   domain: Domain
   maxLines: number
   expanded: boolean
   onToggle: () => void
   categoryLabel: string
+  onSubsectionClick: (domainCode: string, domainName: string, sectionKey: string, title: string) => void
 }) {
   const Icon = ICON_MAP[domain.icon] || BookOpen
   const catColor = CATEGORY_COLORS[domain.category] || 'bg-bg-elevated text-text-muted'
@@ -282,24 +291,45 @@ function DomainCard({
             <div>
               <p className="text-xs font-medium text-text-muted mb-2">Структура:</p>
               <div className="space-y-1">
-                {domain.sections.map((section, i) => (
+                {domain.sections.map((section, i) => {
+                  const secKey = extractSectionKey(section.title)
+                  return (
                   <div key={i}>
-                    <div className="flex items-start gap-2 py-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (secKey) onSubsectionClick(domain.code, domain.name, secKey, section.title)
+                      }}
+                      className="flex items-start gap-2 py-1 w-full text-left group/sec hover:bg-accent/5 rounded px-1 -mx-1 transition-colors"
+                    >
                       <Layers size={12} className="text-accent mt-0.5 flex-shrink-0" />
-                      <span className="text-xs font-medium text-text">{section.title}</span>
-                    </div>
+                      <span className="text-xs font-medium text-text group-hover/sec:text-accent transition-colors cursor-pointer">{section.title}</span>
+                    </button>
                     {section.subsections.length > 0 && (
                       <div className="ml-5 pl-3 border-l border-border/50 space-y-0.5">
-                        {section.subsections.map((sub, j) => (
-                          <div key={j} className="flex items-start gap-2 py-0.5">
-                            <Hash size={10} className="text-text-muted mt-0.5 flex-shrink-0" />
-                            <span className="text-[11px] text-text-secondary">{sub}</span>
-                          </div>
-                        ))}
+                        {section.subsections.map((sub, j) => {
+                          const sKey = extractSectionKey(sub)
+                          return (
+                            <button
+                              key={j}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (sKey) onSubsectionClick(domain.code, domain.name, sKey, sub)
+                              }}
+                              className="flex items-start gap-2 py-0.5 w-full text-left group/sub hover:bg-accent/5 rounded px-1 -mx-1 transition-colors"
+                            >
+                              <Hash size={10} className="text-text-muted mt-0.5 flex-shrink-0 group-hover/sub:text-accent transition-colors" />
+                              <span className="text-[11px] text-text-secondary group-hover/sub:text-accent transition-colors cursor-pointer">
+                                {sub}
+                              </span>
+                            </button>
+                          )
+                        })}
                       </div>
                     )}
                   </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}
@@ -315,6 +345,21 @@ export default function DomainCatalog() {
   const [expandedDomains, setExpandedDomains] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
+
+  // Knowledge modal state
+  const [modalOpen, setModalOpen] = useState(false)
+  const [modalDomainCode, setModalDomainCode] = useState<string | null>(null)
+  const [modalDomainName, setModalDomainName] = useState('')
+  const [modalSectionKey, setModalSectionKey] = useState<string | null>(null)
+  const [modalSectionTitle, setModalSectionTitle] = useState('')
+
+  const openKnowledgeModal = useCallback((domainCode: string, domainName: string, sectionKey: string, title: string) => {
+    setModalDomainCode(domainCode)
+    setModalDomainName(domainName)
+    setModalSectionKey(sectionKey)
+    setModalSectionTitle(title)
+    setModalOpen(true)
+  }, [])
 
   useEffect(() => {
     const fetchCatalog = async () => {
@@ -490,6 +535,7 @@ export default function DomainCatalog() {
             expanded={expandedDomains.has(domain.code)}
             onToggle={() => toggleDomain(domain.code)}
             categoryLabel={stats.categories[domain.category] || domain.category}
+            onSubsectionClick={openKnowledgeModal}
           />
         ))}
       </div>
@@ -499,6 +545,16 @@ export default function DomainCatalog() {
           Домены не найдены по заданным фильтрам
         </div>
       )}
+
+      {/* Knowledge article modal */}
+      <KnowledgeModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        domainCode={modalDomainCode}
+        domainName={modalDomainName}
+        sectionKey={modalSectionKey}
+        sectionTitle={modalSectionTitle}
+      />
     </div>
   )
 }

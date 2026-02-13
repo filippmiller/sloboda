@@ -228,4 +228,82 @@ router.get('/domains/:code', requireAuth, (req, res) => {
     });
 });
 
+/**
+ * GET /api/admin/domains/:code/sections/:sectionKey
+ * Returns the markdown content for a specific section/subsection.
+ * sectionKey format: "1.1.1" or "1.1" or "1.2.3" etc.
+ */
+router.get('/domains/:code/sections/:sectionKey', requireAuth, (req, res) => {
+    const { code, sectionKey } = req.params;
+    const meta = DOMAIN_META.find(d => d.code === code.toUpperCase());
+    if (!meta) return res.status(404).json({ success: false, error: 'Domain not found' });
+
+    const filePath = path.join(DOMAINS_DIR, meta.code, 'README.md');
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ success: false, error: 'Domain file not found' });
+    }
+
+    const content = fs.readFileSync(filePath, 'utf-8');
+    const lines = content.split('\n');
+
+    // Determine header level: "1.1" = ## level, "1.1.1" = ### level
+    const dots = sectionKey.split('.').length;
+    const headerPrefix = dots <= 2 ? '## ' : '### ';
+    const nextHeaderRegex = dots <= 2 ? /^## / : /^### /;
+
+    // Find the start of the section by matching the sectionKey in the header
+    let startIdx = -1;
+    let sectionTitle = '';
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.startsWith(headerPrefix) && line.includes(sectionKey)) {
+            startIdx = i;
+            sectionTitle = line.replace(/^#{2,3}\s+/, '').trim();
+            break;
+        }
+    }
+
+    if (startIdx === -1) {
+        return res.status(404).json({ success: false, error: `Section ${sectionKey} not found` });
+    }
+
+    // Find the end - next header of same or higher level, or --- separator for subsections
+    let endIdx = lines.length;
+    for (let i = startIdx + 1; i < lines.length; i++) {
+        const line = lines[i];
+        // Stop at next header of same or higher level
+        if (nextHeaderRegex.test(line) && !line.includes(sectionKey)) {
+            endIdx = i;
+            break;
+        }
+        // Also stop at ## headers when we're looking at ### subsections
+        if (dots > 2 && /^## /.test(line) && !/^### /.test(line)) {
+            endIdx = i;
+            break;
+        }
+    }
+
+    const sectionContent = lines.slice(startIdx, endIdx).join('\n').trim();
+
+    // Also check for a deeper knowledge file
+    const knowledgePath = path.join(DOMAINS_DIR, meta.code, 'knowledge', `${sectionKey}.md`);
+    let enrichedContent = null;
+    if (fs.existsSync(knowledgePath)) {
+        enrichedContent = fs.readFileSync(knowledgePath, 'utf-8');
+    }
+
+    res.json({
+        success: true,
+        data: {
+            domainCode: meta.code,
+            domainName: meta.name,
+            sectionKey,
+            sectionTitle,
+            content: enrichedContent || sectionContent,
+            hasEnrichedContent: !!enrichedContent,
+            sourceContent: sectionContent,
+        },
+    });
+});
+
 module.exports = { router, DOMAIN_META, CATEGORY_LABELS };
