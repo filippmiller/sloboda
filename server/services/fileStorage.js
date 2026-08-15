@@ -53,7 +53,24 @@ const upload = multer({
     }
 });
 
+function assertImageMagic(filePath) {
+    try {
+        const fd = fs.openSync(filePath, 'r');
+        const buf = Buffer.alloc(12);
+        fs.readSync(fd, buf, 0, 12, 0);
+        fs.closeSync(fd);
+        const isJpeg = buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
+        const isPng = buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47;
+        const isGif = buf.slice(0, 3).toString('ascii') === 'GIF';
+        const isWebp = buf.slice(0, 4).toString('ascii') === 'RIFF' && buf.slice(8, 12).toString('ascii') === 'WEBP';
+        return isJpeg || isPng || isGif || isWebp;
+    } catch (err) {
+        return false;
+    }
+}
+
 module.exports = {
     upload,
-    UPLOAD_DIR
+    UPLOAD_DIR,
+    assertImageMagic
 };

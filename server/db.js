@@ -648,9 +648,13 @@ async function initDatabase() {
                     SELECT 1 FROM information_schema.columns
                     WHERE table_name = 'users' AND column_name = 'map_visibility'
                 ) THEN
-                    ALTER TABLE users ADD COLUMN map_visibility BOOLEAN DEFAULT true;
+                    ALTER TABLE users ADD COLUMN map_visibility BOOLEAN DEFAULT false;
                 END IF;
             END $$;
+        `);
+
+        await client.query(`
+            ALTER TABLE users ALTER COLUMN map_visibility SET DEFAULT false
         `);
 
         // Add must_change_password column to admins (migration)

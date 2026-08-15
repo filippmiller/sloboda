@@ -24,6 +24,7 @@ import {
   MessageSquare,
   Globe,
   BookOpen,
+  Vote,
 } from 'lucide-react'
 import Skeleton from '@/components/ui/Skeleton'
 
@@ -32,6 +33,7 @@ const navItems = [
   { to: ROUTES.ADMIN_REGISTRATIONS, label: 'Заявки', icon: UserPlus, shortcut: 'G·R' },
   { to: ROUTES.ADMIN_USERS, label: 'Пользователи', icon: Users, shortcut: 'G·U' },
   { to: ROUTES.ADMIN_FORUM, label: 'Форум', icon: MessageSquare },
+  { to: ROUTES.ADMIN_COMMUNITY, label: 'Сообщество', icon: Vote },
   { to: ROUTES.ADMIN_POSTS, label: 'Публикации', icon: FileText },
   { to: ROUTES.ADMIN_KNOWLEDGE, label: 'Знания', icon: Lightbulb },
   { to: ROUTES.ADMIN_DOMAINS, label: 'Каталог доменов', icon: BookOpen },
