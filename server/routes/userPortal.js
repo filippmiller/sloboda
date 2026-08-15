@@ -1286,7 +1286,13 @@ router.patch('/campaigns/:id', requireUserAuth, async (req, res) => {
             return res.status(403).json({ success: false, error: 'Not authorized' });
         }
 
-        const updated = await db.updateCampaign(campaignId, req.body);
+        const updated = await db.updateCampaign(campaignId, {
+            title: req.body.title,
+            description: req.body.description,
+            goalAmount: req.body.goalAmount,
+            endDate: req.body.endDate,
+            status: req.body.status,
+        });
         res.json({ success: true, data: updated });
     } catch (err) {
         console.error('Error updating campaign:', err);
@@ -1296,31 +1302,13 @@ router.patch('/campaigns/:id', requireUserAuth, async (req, res) => {
 
 /**
  * POST /api/user/campaigns/:id/donate
- * Record donation (placeholder)
+ * Payments are not connected. Do not record fake amounts.
  */
 router.post('/campaigns/:id/donate', requireUserAuth, async (req, res) => {
-    try {
-        const { amount, donorName, message, isAnonymous } = req.body;
-
-        if (!amount || isNaN(parseInt(amount)) || parseInt(amount) < 10) {
-            return res.status(400).json({
-                success: false,
-                error: 'Amount must be at least 10 rubles'
-            });
-        }
-
-        const donation = await db.recordCampaignDonation(parseInt(req.params.id), {
-            amount: parseInt(amount),
-            donorName: donorName || req.user.name,
-            message: message || null,
-            isAnonymous: isAnonymous || false
-        });
-
-        res.json({ success: true, data: donation });
-    } catch (err) {
-        console.error('Error recording donation:', err);
-        res.status(500).json({ success: false, error: 'Failed to record donation' });
-    }
+    return res.status(501).json({
+        success: false,
+        error: 'Payments are not enabled. Donations cannot be recorded until a legal payment provider is connected.'
+    });
 });
 
 module.exports = { router, setDb };
