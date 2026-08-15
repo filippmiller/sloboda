@@ -10,8 +10,15 @@ function setDb(database) {
   db = database;
 }
 
-// POST /api/admin/seed-forum - One-time data seeding
+// POST /api/admin/seed-forum - One-time data seeding (development only)
 router.post('/seed-forum', requireAuth, async (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({
+      success: false,
+      error: 'Forum seeding is disabled in production'
+    });
+  }
+
   const client = await db.pool.connect();
 
   try {

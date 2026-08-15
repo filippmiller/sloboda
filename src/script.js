@@ -39,7 +39,7 @@ async function loadDynamicContent() {
         if (contentMap.bookmark_banner) renderBookmarkBanner(contentMap.bookmark_banner);
         if (contentMap.hero) renderHero(contentMap.hero);
         if (contentMap.reality_cards) renderRealityCards(contentMap.reality_cards);
-        if (contentMap.testimonials) renderTestimonials(contentMap.testimonials);
+        // Do not render stored testimonials: the seed data is fictional.
         if (contentMap.features) renderFeatures(contentMap.features);
         if (contentMap.donation_amounts) renderDonationAmounts(contentMap.donation_amounts);
     } catch (error) {
@@ -359,10 +359,9 @@ function initDonationModal() {
     donationSubmitBtn?.addEventListener('click', async () => {
         const amount = donationAmountInput?.value;
         const email = document.getElementById('donationEmail')?.value;
-        const recurring = document.getElementById('donationRecurring')?.checked;
 
         if (!amount || amount < 100) {
-            alert('Минимальная сумма: 100 рублей');
+            alert('Минимальная сумма намерения: 100 рублей');
             return;
         }
 
@@ -372,17 +371,8 @@ function initDonationModal() {
         }
 
         try {
-            // TODO: Integrate with actual payment processor (Yandex.Pay, Tinkoff Pay, etc.)
-            // For now, redirect to Telegram
-            const message = `Спасибо! Для завершения платежа напишите нам в Telegram:\n\nСумма: ₽${amount}\nEmail: ${email}\nРегулярный платёж: ${recurring ? 'Да' : 'Нет'}`;
-            alert(message);
-            window.open('https://t.me/sloboda_land', '_blank');
+            alert('Записали намерение на ' + amount + ' ₽. Это не платёж и не доля. Когда появится юридическое лицо, напишем на ' + email + '.');
             closeModal();
-
-            // In production, you would:
-            // 1. Create payment intent on backend
-            // 2. Redirect to payment processor
-            // 3. Handle callback and update UI
 
         } catch (error) {
             console.error('Donation error:', error);
@@ -1006,19 +996,7 @@ function initDonationForm() {
                 type: donationType
             });
 
-            // For now, redirect to Telegram (will integrate with payment processor later)
-            const message = `Благодарим за поддержку!\n\nСумма: ${selectedAmount}₽\nТип: ${donationType === 'recurring' ? 'Ежемесячно' : 'Один раз'}\n\nДля завершения платежа напишите нам в Telegram.`;
-            
-            if (confirm(message + '\n\nПерейти в Telegram?')) {
-                window.open('https://t.me/sloboda_land', '_blank');
-            }
-
-            // TODO: Production implementation:
-            // 1. Send donation intent to backend
-            // 2. Create payment with payment processor (Stripe, YooMoney, etc.)
-            // 3. Redirect to checkout
-            // 4. Handle webhook callback
-            // 5. Show success/failure message
+            alert('Оплаты нет и не будет, пока нет юридического лица. Мы запомнили сумму ' + selectedAmount + ' ₽ как намерение, не как платёж.');
         });
     }
 

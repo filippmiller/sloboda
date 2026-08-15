@@ -42,8 +42,15 @@ const PORT = process.env.PORT || 3000;
 // ============================================
 function validateEnvironment() {
     const warnings = [];
+    const defaultJwt = 'sloboda-admin-secret-change-in-production';
+    const jwtMissing = !process.env.JWT_SECRET || process.env.JWT_SECRET === defaultJwt;
 
-    if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'sloboda-admin-secret-change-in-production') {
+    if (jwtMissing && process.env.NODE_ENV === 'production') {
+        console.error('FATAL: JWT_SECRET must be set to a unique value in production. Refusing to start.');
+        process.exit(1);
+    }
+
+    if (jwtMissing) {
         warnings.push('JWT_SECRET is not set or uses the default value. Set a strong random secret in production.');
     }
 
@@ -412,10 +419,21 @@ app.post('/api/public/ai-profession', professionLimiter, async (req, res) => {
     } catch (error) {
         console.error('[ai-profession] Error:', error.message);
 
-        if (error.message.includes('ANTHROPIC_API_KEY')) {
+        if (error.message.includes('API_KEY') ||
+            error.message.includes('No AI provider configured')) {
             return res.status(503).json({
                 success: false,
                 error: 'Сервис ИИ временно недоступен'
+            });
+        }
+
+        if (error.message.includes('credit balance') ||
+            error.message.includes('quota') ||
+            error.message.includes('rate limit') ||
+            error.message.includes('safety filters')) {
+            return res.status(503).json({
+                success: false,
+                error: 'Сервис ИИ временно недоступен. Попробуйте позже.'
             });
         }
 
@@ -531,11 +549,14 @@ app.get('/api/health', async (req, res) => {
     try {
         const dbHealth = await db.healthCheck();
         const status = dbHealth.status === 'healthy' ? 200 : 503;
-        res.status(status).json({
+        const payload = {
             status: dbHealth.status === 'healthy' ? 'ok' : 'degraded',
             timestamp: new Date().toISOString(),
-            database: dbHealth
-        });
+        };
+        if (process.env.NODE_ENV !== 'production') {
+            payload.database = dbHealth;
+        }
+        res.status(status).json(payload);
     } catch (err) {
         res.status(503).json({
             status: 'degraded',
@@ -1092,8 +1113,13 @@ app.get('*', (req, res) => {
 
 async function seedDefaultAdmin() {
     const email = process.env.ADMIN_EMAIL || 'admin@sloboda.land';
-    const password = process.env.ADMIN_PASSWORD || 'changeme123';
+    const password = process.env.ADMIN_PASSWORD;
     const name = process.env.ADMIN_NAME || 'Super Admin';
+
+    if (!password) {
+        console.warn('ADMIN_PASSWORD is not set. Skipping automatic admin seed. Use create-admin if no admin exists.');
+        return;
+    }
 
     // Reset admin password if environment variable is set
     if (process.env.RESET_ADMIN_PASSWORD === 'true') {
@@ -1131,45 +1157,6 @@ async function seedDefaultAdmin() {
         console.log(`No active admins found. Creating default super admin: ${email}`);
         await createSuperAdmin(email, password, name);
         console.log('Default admin created. Please change the password after first login.');
-    }
-}
-
-async function seedFilippAdmin() {
-    const email = 'filippmiller@gmail.com';
-    const existing = await db.getAdminByEmail(email);
-
-    if (existing && existing.role === 'super_admin') {
-        // Already exists as super_admin — skip (don't overwrite on every restart)
-        return;
-    }
-
-    if (existing) {
-        // Exists but not super_admin — promote and set password
-        const passwordHash = await bcrypt.hash('Airbus380+', 12);
-        const client = await db.pool.connect();
-        try {
-            await client.query(
-                `UPDATE admins SET password_hash = $1, role = 'super_admin', must_change_password = TRUE, name = COALESCE(NULLIF(name, ''), 'Filipp Miller') WHERE id = $2`,
-                [passwordHash, existing.id]
-            );
-            console.log(`Admin ${email} promoted to super_admin, must_change_password=true`);
-        } finally {
-            client.release();
-        }
-        return;
-    }
-
-    // Create new super_admin with must_change_password flag
-    const passwordHash = await bcrypt.hash('Airbus380+', 12);
-    const client = await db.pool.connect();
-    try {
-        await client.query(
-            `INSERT INTO admins (email, password_hash, name, role, must_change_password) VALUES ($1, $2, $3, 'super_admin', TRUE)`,
-            [email, passwordHash, 'Filipp Miller']
-        );
-        console.log(`Super admin created: ${email} (must_change_password=true)`);
-    } finally {
-        client.release();
     }
 }
 
@@ -1217,11 +1204,8 @@ async function start() {
             process.exit(0);
         }
 
-        // Auto-seed admin if none exists
+        // Auto-seed admin if none exists and ADMIN_PASSWORD is provided
         await seedDefaultAdmin();
-
-        // Ensure filippmiller@gmail.com admin exists
-        await seedFilippAdmin();
 
         const server = app.listen(PORT, () => {
             console.log(`Server running on port ${PORT}`);
