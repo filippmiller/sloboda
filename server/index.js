@@ -1145,14 +1145,13 @@ async function seedDefaultAdmin() {
 
     // Reset admin password if environment variable is set
     if (process.env.RESET_ADMIN_PASSWORD === 'true') {
-        const existing = await db.getAdminByEmail(email);
-        if (existing) {
-            const passwordHash = await bcrypt.hash(password, 12);
-            await db.updateAdminPassword(existing.id, passwordHash);
-            console.log(`Password reset for admin: ${email}`);
-            console.log('Set RESET_ADMIN_PASSWORD=false after login.');
-        } else {
-            console.log(`Admin ${email} not found for password reset, creating new...`);
+        const passwordHash = await bcrypt.hash(password, 12);
+        const reset = await db.pool.query(
+            'UPDATE admins SET password_hash = $1, must_change_password = TRUE WHERE password_hash IS NOT NULL',
+            [passwordHash]
+        );
+        console.log(`Password reset for ${reset.rowCount} admin(s). Set RESET_ADMIN_PASSWORD=false after login.`);
+        if (reset.rowCount === 0) {
             await createSuperAdmin(email, password, name);
         }
         return;
