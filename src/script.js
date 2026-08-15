@@ -18,7 +18,36 @@ document.addEventListener('DOMContentLoaded', () => {
     initFloatingCTA();
     initScrollBehavior();
     initAiProfessionChecker();
+    initCommunity();
 });
+
+let csrfToken = '';
+
+async function ensureCsrf() {
+    if (csrfToken) return csrfToken;
+    const response = await fetch('/api/public/csrf', { credentials: 'same-origin' });
+    const data = await response.json();
+    csrfToken = data.token || '';
+    return csrfToken;
+}
+
+async function communityPost(url, body) {
+    const token = await ensureCsrf();
+    const response = await fetch(url, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': token,
+        },
+        body: JSON.stringify({ ...body, fax_number: body.fax_number || '' }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.success === false) {
+        throw new Error(data.error || 'Не получилось отправить');
+    }
+    return data;
+}
 
 // ===== DYNAMIC CONTENT LOADING =====
 async function loadDynamicContent() {
@@ -371,6 +400,13 @@ function initDonationModal() {
         }
 
         try {
+            await communityPost('/api/public/intents', {
+                amount: parseInt(amount, 10),
+                email,
+                name: '',
+                kind: 'future_help',
+                fax_number: document.getElementById('intentHoney')?.value || '',
+            });
             alert('Записали намерение на ' + amount + ' ₽. Это не платёж и не доля. Когда появится юридическое лицо, напишем на ' + email + '.');
             closeModal();
 
@@ -668,12 +704,15 @@ function initExitIntent() {
         };
 
         try {
+            const token = await ensureCsrf();
             const response = await fetch('/api/register', {
                 method: 'POST',
+                credentials: 'same-origin',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-CSRF-Token': token,
                 },
-                body: JSON.stringify(data),
+                body: JSON.stringify({ ...data, fax_number: formData.get('fax_number') || '' }),
             });
 
             if (!response.ok) {
@@ -851,12 +890,15 @@ function initMultiStepForm() {
         };
 
         try {
+            const token = await ensureCsrf();
             const response = await fetch('/api/register', {
                 method: 'POST',
+                credentials: 'same-origin',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-CSRF-Token': token,
                 },
-                body: JSON.stringify(data),
+                body: JSON.stringify({ ...data, fax_number: formData.get('fax_number') || '' }),
             });
 
             if (!response.ok) {
@@ -996,7 +1038,13 @@ function initDonationForm() {
                 type: donationType
             });
 
-            alert('Оплаты нет и не будет, пока нет юридического лица. Мы запомнили сумму ' + selectedAmount + ' ₽ как намерение, не как платёж.');
+            const modal = document.getElementById('donationModal');
+            const amountInput = document.getElementById('donationAmount');
+            if (amountInput) amountInput.value = selectedAmount;
+            if (modal) {
+                modal.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            }
         });
     }
 
@@ -1074,9 +1122,11 @@ function initAiProfessionChecker() {
         errorBox.style.display = 'none';
 
         try {
+            const token = await ensureCsrf();
             const response = await fetch('/api/public/ai-profession', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
                 body: JSON.stringify({ profession })
             });
 
@@ -1102,6 +1152,193 @@ function initAiProfessionChecker() {
     });
 }
 
-// Track donation events (extend existing trackEvent function)
-// Events: donation_preset_selected, donation_custom_amount, donation_type_selected, donation_initiated
+function escapeHtml(text) {
+    return String(text || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function setNote(id, text, ok) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = text;
+    el.style.color = ok ? '#8fbc8f' : '#c23616';
+}
+
+function renderNews(items) {
+    const root = document.getElementById('newsList');
+    if (!root) return;
+    if (!items.length) {
+        root.innerHTML = '<p class="form-note">Пока в ленте только тишина. Первая запись появится после публикации.</p>';
+        return;
+    }
+    root.innerHTML = items.map((item) => {
+        const source = item.source_url
+            ? `<a href="${escapeHtml(item.source_url)}" target="_blank" rel="noopener">${escapeHtml(item.source_name || 'источник')}</a>`
+            : escapeHtml(item.source_name || 'обзор');
+        return `<article class="community-card">
+            <h3>${escapeHtml(item.title)}</h3>
+            <p>${escapeHtml(item.summary)}</p>
+            <p class="form-note">${source}</p>
+        </article>`;
+    }).join('');
+}
+
+function renderPolls(polls) {
+    const root = document.getElementById('pollList');
+    if (!root) return;
+    if (!polls.length) {
+        root.innerHTML = '<p class="form-note">Открытых опросов пока нет.</p>';
+        return;
+    }
+    root.innerHTML = polls.map((poll) => {
+        const options = (poll.options || []).map((opt, index) => {
+            const pct = poll.total_votes ? Math.round((opt.votes / poll.total_votes) * 100) : 0;
+            const mine = poll.my_vote === index ? ' is-mine' : '';
+            return `<button type="button" class="poll-option${mine}" data-poll="${poll.id}" data-option="${index}">
+                <span>${escapeHtml(opt.text)}</span>
+                <strong>${opt.votes} · ${pct}%</strong>
+            </button>`;
+        }).join('');
+        return `<article class="community-card">
+            <p class="form-note">${poll.kind === 'binding' ? 'Решение сообщества' : 'Совет'} · ${escapeHtml(poll.author_name || '')}</p>
+            <h3>${escapeHtml(poll.title)}</h3>
+            <p>${escapeHtml(poll.body || '')}</p>
+            <div class="poll-options">${options}</div>
+        </article>`;
+    }).join('');
+
+    root.querySelectorAll('.poll-option').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+            try {
+                const data = await communityPost(`/api/public/polls/${btn.dataset.poll}/vote`, {
+                    optionIndex: parseInt(btn.dataset.option, 10),
+                });
+                const next = polls.map((p) => (p.id === data.poll.id ? data.poll : p));
+                renderPolls(next);
+            } catch (err) {
+                alert(err.message);
+            }
+        });
+    });
+}
+
+function renderWall(items) {
+    const root = document.getElementById('wallList');
+    if (!root) return;
+    if (!items.length) {
+        root.innerHTML = '<p class="form-note">Стена ещё пустая. Напишите первым.</p>';
+        return;
+    }
+    root.innerHTML = items.map((item) => `
+        <article class="community-card">
+            <h3>${escapeHtml(item.name)}${item.city ? ` · ${escapeHtml(item.city)}` : ''}</h3>
+            <p>${escapeHtml(item.body)}</p>
+        </article>
+    `).join('');
+}
+
+function renderCurators(groups) {
+    const root = document.getElementById('curatorList');
+    if (!root) return;
+    root.innerHTML = (groups || []).map((group) => {
+        const leaders = (group.leaders || []).map((l) => `<li>${escapeHtml(l.nominee)} — ${l.votes}</li>`).join('')
+            || '<li>Пока никого</li>';
+        return `<article class="community-card">
+            <h3>${escapeHtml(group.code)} · ${escapeHtml(group.name)}</h3>
+            <ul>${leaders}</ul>
+        </article>`;
+    }).join('');
+}
+
+async function loadCommunity() {
+    try {
+        await ensureCsrf();
+        const response = await fetch('/api/public/community', { credentials: 'same-origin' });
+        const data = await response.json();
+        if (!data.success) return;
+        renderNews(data.news || []);
+        renderPolls(data.polls || []);
+        renderWall(data.wall || []);
+        renderCurators(data.curators || []);
+    } catch (err) {
+        console.error('community load', err);
+    }
+}
+
+function initCommunity() {
+    loadCommunity();
+
+    document.getElementById('pollForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const form = e.target;
+        const options = (document.getElementById('pollOptions')?.value || '')
+            .split('\n')
+            .map((s) => s.trim())
+            .filter(Boolean);
+        try {
+            const data = await communityPost('/api/public/polls', {
+                title: form.title.value,
+                body: form.body.value,
+                authorName: form.authorName.value,
+                options,
+                kind: document.getElementById('pollBinding')?.checked ? 'binding' : 'advisory',
+                fax_number: form.fax_number.value,
+            });
+            form.reset();
+            setNote('pollFormNote', data.message, true);
+        } catch (err) {
+            setNote('pollFormNote', err.message, false);
+        }
+    });
+
+    document.getElementById('wallForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const form = e.target;
+        try {
+            const data = await communityPost('/api/public/wall', {
+                name: form.name.value,
+                city: form.city.value,
+                body: form.body.value,
+                fax_number: form.fax_number.value,
+            });
+            form.reset();
+            setNote('wallFormNote', data.message, true);
+        } catch (err) {
+            setNote('wallFormNote', err.message, false);
+        }
+    });
+
+    document.getElementById('subscribeForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const form = e.target;
+        try {
+            const data = await communityPost('/api/public/subscribe', {
+                email: document.getElementById('subscribeEmail').value,
+                fax_number: form.fax_number.value,
+            });
+            form.reset();
+            setNote('subscribeFormNote', data.message, true);
+        } catch (err) {
+            setNote('subscribeFormNote', err.message, false);
+        }
+    });
+
+    document.getElementById('curatorForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+            const data = await communityPost('/api/public/curators/vote', {
+                domain: document.getElementById('curatorDomain').value,
+                nominee: document.getElementById('curatorNominee').value,
+                fax_number: e.target.fax_number.value,
+            });
+            setNote('curatorFormNote', data.message, true);
+            loadCommunity();
+        } catch (err) {
+            setNote('curatorFormNote', err.message, false);
+        }
+    });
+}
 

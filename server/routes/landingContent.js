@@ -13,6 +13,23 @@ function setDb(database) {
     db = database;
 }
 
+function sanitizeLandingValue(value, sanitizeHtml) {
+    if (typeof value === 'string') {
+        return value.includes('<') ? sanitizeHtml(value) : value;
+    }
+    if (Array.isArray(value)) {
+        return value.map((item) => sanitizeLandingValue(item, sanitizeHtml));
+    }
+    if (value && typeof value === 'object') {
+        const out = {};
+        Object.keys(value).forEach((key) => {
+            out[key] = sanitizeLandingValue(value[key], sanitizeHtml);
+        });
+        return out;
+    }
+    return value;
+}
+
 // ============================================
 // PUBLIC ROUTES (no auth required)
 // ============================================
@@ -20,12 +37,12 @@ function setDb(database) {
 // Get all landing page content (public)
 router.get('/public/landing-content', async (req, res) => {
     try {
+        const { sanitizeHtml } = require('../utils/sanitizeHtml');
         const sections = await db.getLandingPageContent();
 
-        // Transform array to object for easier frontend consumption
         const content = {};
         sections.forEach(section => {
-            content[section.section] = section.content;
+            content[section.section] = sanitizeLandingValue(section.content, sanitizeHtml);
         });
 
         res.json(content);

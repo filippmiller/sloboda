@@ -552,6 +552,40 @@ export default function Library() {
                         {formatReadingTime(estimateReadingTime(getItemBody(item)))}
                       </span>
                     </div>
+                    {item._type === 'article' && (
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={async (e) => {
+                            e.stopPropagation()
+                            try {
+                              const res = await api.post(`/public/knowledge/${item.id}/quality`, { vote: 'safe' })
+                              toast.success(`Можно строить: ${res.data.safe} · Опасно: ${res.data.unsafe}`)
+                            } catch {
+                              toast.error('Не удалось оценить')
+                            }
+                          }}
+                        >
+                          Можно строить
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={async (e) => {
+                            e.stopPropagation()
+                            try {
+                              const res = await api.post(`/public/knowledge/${item.id}/quality`, { vote: 'unsafe' })
+                              toast.success(`Можно строить: ${res.data.safe} · Опасно: ${res.data.unsafe}`)
+                            } catch {
+                              toast.error('Не удалось оценить')
+                            }
+                          }}
+                        >
+                          Опасно / устарело
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </Card>
               </motion.div>

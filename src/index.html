@@ -67,6 +67,9 @@
             <nav class="nav" aria-label="Основная навигация">
                 <a href="#why" data-i18n="nav.why">Почему</a>
                 <a href="#how" data-i18n="nav.how">Как это работает</a>
+                <a href="#news" data-i18n="nav.news">Лента</a>
+                <a href="#voice" data-i18n="nav.voice">Голос</a>
+                <a href="#wall" data-i18n="nav.wall">Стена</a>
                 <a href="#founder" data-i18n="nav.about">О нас</a>
                 <a href="#faq" data-i18n="nav.faq">Вопросы</a>
             </nav>
@@ -652,6 +655,123 @@
         </div>
     </section>
 
+    <section class="section" id="news">
+        <div class="container">
+            <h2 class="section-title text-center">Лента</h2>
+            <p class="section-intro text-center">Короткие новости. Агент собирает черновики, человек публикует. Без источника — это обзор, не факт.</p>
+            <div id="newsList" class="community-list"></div>
+        </div>
+    </section>
+
+    <section class="section section-dark" id="voice">
+        <div class="container">
+            <h2 class="section-title text-center">Голос сообщества</h2>
+            <p class="section-intro text-center">Создайте опрос. Он появится после проверки. Один человек — один голос. Голос не покупается.</p>
+            <div id="pollList" class="community-list"></div>
+            <form class="community-form" id="pollForm">
+                <h3>Новый опрос</h3>
+                <input type="text" name="fax_number" class="hp-field" tabindex="-1" autocomplete="off">
+                <div class="form-group">
+                    <label for="pollTitle">Вопрос</label>
+                    <input id="pollTitle" name="title" required maxlength="180" placeholder="Что решаем вместе?">
+                </div>
+                <div class="form-group">
+                    <label for="pollBody">Пояснение</label>
+                    <textarea id="pollBody" name="body" maxlength="800" rows="2" placeholder="Зачем этот вопрос"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="pollAuthor">Как вас представить</label>
+                    <input id="pollAuthor" name="authorName" maxlength="80" placeholder="Имя">
+                </div>
+                <div class="form-group">
+                    <label>Варианты — каждый с новой строки, минимум два</label>
+                    <textarea id="pollOptions" rows="4" required placeholder="Первый вариант&#10;Второй вариант"></textarea>
+                </div>
+                <label class="check-row">
+                    <input type="checkbox" id="pollBinding">
+                    Это решение, которого будем держаться, не просто совет
+                </label>
+                <button type="submit" class="cta-btn cta-btn-primary">Отправить на проверку</button>
+                <p class="form-note" id="pollFormNote"></p>
+            </form>
+        </div>
+    </section>
+
+    <section class="section" id="wall">
+        <div class="container">
+            <h2 class="section-title text-center">Стена гостей</h2>
+            <p class="section-intro text-center">Коротко: кто вы и зачем вы здесь. Сообщение не появляется сразу.</p>
+            <div id="wallList" class="community-list"></div>
+            <form class="community-form" id="wallForm">
+                <input type="text" name="fax_number" class="hp-field" tabindex="-1" autocomplete="off">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="wallName">Имя</label>
+                        <input id="wallName" name="name" required maxlength="80">
+                    </div>
+                    <div class="form-group">
+                        <label for="wallCity">Город</label>
+                        <input id="wallCity" name="city" maxlength="80">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="wallBody">Сообщение</label>
+                    <textarea id="wallBody" name="body" required maxlength="600" rows="3"></textarea>
+                </div>
+                <button type="submit" class="cta-btn cta-btn-primary">Оставить на проверку</button>
+                <p class="form-note" id="wallFormNote"></p>
+            </form>
+        </div>
+    </section>
+
+    <section class="section section-dark" id="curators">
+        <div class="container">
+            <h2 class="section-title text-center">Кураторы знаний</h2>
+            <p class="section-intro text-center">За кого больше голосов — тот ведёт раздел. Голос можно сменить. Деньги голос не покупают.</p>
+            <div id="curatorList" class="curator-grid"></div>
+            <form class="community-form" id="curatorForm">
+                <input type="text" name="fax_number" class="hp-field" tabindex="-1" autocomplete="off">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="curatorDomain">Раздел</label>
+                        <select id="curatorDomain" required>
+                            <option value="GEN">Общие принципы</option>
+                            <option value="DOM">Дом и стройка</option>
+                            <option value="EKO">Еда и хозяйство</option>
+                            <option value="ENR">Энергия</option>
+                            <option value="VOD">Вода</option>
+                            <option value="MED">Здоровье</option>
+                            <option value="OBR">Обучение</option>
+                            <option value="NOR">Право</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="curatorNominee">Кого предлагаете</label>
+                        <input id="curatorNominee" required maxlength="80" placeholder="Имя или псевдоним">
+                    </div>
+                </div>
+                <button type="submit" class="cta-btn cta-btn-primary">Отдать голос</button>
+                <p class="form-note" id="curatorFormNote"></p>
+            </form>
+        </div>
+    </section>
+
+    <section class="section" id="letters">
+        <div class="container">
+            <h2 class="section-title text-center">Письма</h2>
+            <p class="section-intro text-center">Раз в неделю: новые знания, опросы, новости. Без страха и без рекламы.</p>
+            <form class="community-form community-form-narrow" id="subscribeForm">
+                <input type="text" name="fax_number" class="hp-field" tabindex="-1" autocomplete="off">
+                <div class="form-group">
+                    <label for="subscribeEmail">Почта</label>
+                    <input id="subscribeEmail" type="email" required placeholder="you@email.com">
+                </div>
+                <button type="submit" class="cta-btn cta-btn-primary">Подписаться</button>
+                <p class="form-note" id="subscribeFormNote"></p>
+            </form>
+        </div>
+    </section>
+
     <!-- CTA SECTION - Join Now -->
     <section class="section section-cta" id="join">
         <div class="container">
@@ -685,6 +805,7 @@
                     <!-- Step 1: Basic Info -->
                     <div class="form-step active" data-step="1">
                         <h3>Базовая информация</h3>
+                        <input type="text" name="fax_number" class="hp-field" tabindex="-1" autocomplete="off">
                         <div class="form-group">
                             <label for="email">Email *</label>
                             <input type="email" id="email" name="email" required placeholder="your@email.com">
@@ -843,29 +964,8 @@
             <button class="cta-btn cta-btn-primary btn-block" id="donate-btn">Оставить намерение помочь</button>
 
             <p class="donation-note">
-                Оплаты на сайте нет. Юридического лица нет. Кнопка не списывает деньги — только записывает, что вы хотите помочь, когда это станет законно.
+                Оплаты нет. Это не пай и не доля. Когда появится кооператив, намерение можно будет оформить настоящей бумагой.
             </p>
-
-            <!-- Recurring vs One-time comparison -->
-            <div class="recurring-comparison">
-                <div class="comparison-col">
-                    <h4>Разовый взнос</h4>
-                    <ul>
-                        <li>Единственный платёж</li>
-                        <li>Можно забыть повторить</li>
-                        <li>Сложнее планировать бюджет</li>
-                    </ul>
-                </div>
-                <div class="comparison-col highlighted">
-                    <h4>Ежемесячная поддержка</h4>
-                    <ul>
-                        <li><span class="checkmark">✅</span> Автоматическое списание</li>
-                        <li><span class="checkmark">✅</span> Предсказуемый доход для проекта</li>
-                        <li><span class="checkmark">✅</span> Отменить можно в любой момент</li>
-                        <li><span class="checkmark">✅</span> Эксклюзивные отчёты для подписчиков</li>
-                    </ul>
-                </div>
-            </div>
 
             <!-- Link to financial reports -->
             <p class="text-center" style="margin: 2rem 0;">
@@ -881,6 +981,7 @@
             <button class="modal-close" id="donationModalClose">&times;</button>
             <h3 id="donationModalTitle">Намерение помочь</h3>
             <div class="donation-form">
+                <input type="text" name="fax_number" id="intentHoney" class="hp-field" tabindex="-1" autocomplete="off">
                 <p>Сейчас мы не принимаем платежи. Если хотите помочь деньгами позже — напишите сумму и почту. Это не счёт и не доля.</p>
                 <div class="form-group">
                     <label for="donationAmount">Сумма, о которой думаете, ₽</label>

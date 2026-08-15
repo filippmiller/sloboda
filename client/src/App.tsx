@@ -51,6 +51,7 @@ const ForumThreads = lazy(() => import('@/pages/admin/ForumThreads'))
 const ForumRoles = lazy(() => import('@/pages/admin/ForumRoles'))
 const ForumModeration = lazy(() => import('@/pages/admin/ForumModeration'))
 const DomainCatalog = lazy(() => import('@/pages/admin/DomainCatalog'))
+const AdminCommunity = lazy(() => import('@/pages/admin/Community'))
 const ChangePassword = lazy(() => import('@/pages/admin/ChangePassword'))
 const NotFound = lazy(() => import('@/pages/NotFound'))
 
@@ -129,6 +130,7 @@ function App() {
           <Route path={ROUTES.ADMIN_FORUM_ROLES} element={<Safe><ForumRoles /></Safe>} />
           <Route path={ROUTES.ADMIN_FORUM_MODERATION} element={<Safe><ForumModeration /></Safe>} />
           <Route path={ROUTES.ADMIN_DOMAINS} element={<Safe><DomainCatalog /></Safe>} />
+          <Route path={ROUTES.ADMIN_COMMUNITY} element={<Safe><AdminCommunity /></Safe>} />
         </Route>
 
         {/* 404 */}

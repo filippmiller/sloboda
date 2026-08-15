@@ -32,10 +32,13 @@ const { router: rolesRouter, setDb: setRolesDb } = require('./routes/roles');
 const { requireAuth, requireSuperAdmin } = require('./middleware/auth');
 const emailService = require('./services/email');
 const { setDb: setAiQueueDb } = require('./services/ai/queue');
-const { upload: fileUpload } = require('./services/fileStorage');
+const { upload: fileUpload, assertImageMagic } = require('./services/fileStorage');
+const { sanitizeHtml } = require('./utils/sanitizeHtml');
+const { requireCsrf, rejectHoneypot } = require('./middleware/csrf');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+app.set('trust proxy', 1);
 
 // ============================================
 // ENVIRONMENT VALIDATION
@@ -204,8 +207,12 @@ app.get('/concept', (req, res) => {
 // Serve static files from src directory (landing page assets)
 app.use(express.static(path.join(__dirname, '../src')));
 
-// Serve uploaded files
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Serve uploaded files as inert content
+app.use('/uploads', (req, res, next) => {
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.set('Content-Disposition', 'inline');
+    next();
+}, express.static(path.join(__dirname, 'uploads')));
 
 // Inject database and services into route modules
 setAuthDb(db);
@@ -292,6 +299,20 @@ app.use('/api/admin', domainCatalog.router);
 app.use('/api/moderation', moderationRouter);
 app.use('/api/roles', rolesRouter);
 
+const community = require('./routes/community');
+community.setDb(db);
+const communityWriteLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 12,
+    message: { success: false, error: 'Слишком много сообщений. Подождите немного.' },
+});
+app.use('/api/public/polls', communityWriteLimiter);
+app.use('/api/public/wall', communityWriteLimiter);
+app.use('/api/public/subscribe', communityWriteLimiter);
+app.use('/api/public/intents', communityWriteLimiter);
+app.use('/api/public/curators', communityWriteLimiter);
+app.use('/api', community.router);
+
 // ============================================
 // IMAGE UPLOAD ROUTE (authenticated)
 // ============================================
@@ -302,8 +323,8 @@ app.post('/api/upload/image', requireAuth, fileUpload.single('image'), (req, res
     }
 
     const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
-    if (!allowedImageTypes.includes(req.file.mimetype)) {
-        // Delete the uploaded file since it's not an image
+    const magicOk = assertImageMagic(req.file.path);
+    if (!allowedImageTypes.includes(req.file.mimetype) || !magicOk) {
         const filePath = req.file.path;
         fs.unlink(filePath, () => {});
         return res.status(400).json({ success: false, error: 'Only image files are allowed (jpeg, png, webp, gif)' });
@@ -323,7 +344,8 @@ app.post('/api/user/upload/image', requireUserAuth, fileUpload.single('image'), 
     }
 
     const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
-    if (!allowedImageTypes.includes(req.file.mimetype)) {
+    const magicOk = assertImageMagic(req.file.path);
+    if (!allowedImageTypes.includes(req.file.mimetype) || !magicOk) {
         const filePath = req.file.path;
         fs.unlink(filePath, () => {});
         return res.status(400).json({ success: false, error: 'Only image files are allowed (jpeg, png, webp, gif)' });
@@ -414,7 +436,7 @@ app.post('/api/public/ai-profession', professionLimiter, async (req, res) => {
             userPrompt
         });
 
-        res.json({ success: true, html: content });
+        res.json({ success: true, html: sanitizeHtml(content) });
 
     } catch (error) {
         console.error('[ai-profession] Error:', error.message);
@@ -445,7 +467,7 @@ app.post('/api/public/ai-profession', professionLimiter, async (req, res) => {
 });
 
 // API: Submit registration (rate limited)
-app.post('/api/register', registrationLimiter, async (req, res) => {
+app.post('/api/register', registrationLimiter, requireCsrf, rejectHoneypot, async (req, res) => {
     try {
         const data = req.body;
 
@@ -1164,6 +1186,7 @@ async function start() {
     try {
         // Initialize database
         await db.initDatabase();
+        await community.ensureTables();
 
         // Auto-run forum migrations if MIGRATE_ON_START=true
         const { checkAndRunMigrations } = require('./scripts/migrate-on-startup');
