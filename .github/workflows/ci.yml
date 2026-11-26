@@ -15,7 +15,7 @@ on:
 jobs:
   verify:
     name: Lint, Build, PostgreSQL 17 & Playwright E2E
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     services:
