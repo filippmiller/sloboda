@@ -21,8 +21,8 @@ test.describe('Sloboda Built-React End-to-End Browser Journeys', () => {
       const pool = new Pool({ connectionString: process.env.DATABASE_URL });
       const hash = await bcrypt.hash(applicantPassword, 10);
       await pool.query(
-        `INSERT INTO users (email, name, password_hash, status, membership_status, settlement_id, onboarding_completed)
-         VALUES ($1, $2, $3, 'active', 'observer', 'sloboda-pilot', true)
+        `INSERT INTO users (email, name, password_hash, status, membership_status, settlement_id, onboarding_completed_at)
+         VALUES ($1, $2, $3, 'active', 'observer', 'sloboda-pilot', NOW())
          ON CONFLICT (email) DO NOTHING`,
         [applicantEmail, applicantName, hash]
       );
