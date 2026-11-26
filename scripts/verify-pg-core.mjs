@@ -332,8 +332,8 @@ async function run() {
     await coreStore.castGovernanceBallot({ proposalId: prop.id, userId: u1, chamber: 'member', optionIndex: 0 });
     const closed = await coreStore.closeProposal(prop.id);
     assert.equal(closed.outcome.adopted, true);
-    assert.equal(closed.proposal.protocol_json.mandate_auto_issued, false);
-    assert.equal(closed.proposal.protocol_json.majority_rule, 'strict_majority_of_non_abstain_cast_weight');
+    assert.equal(closed.outcome.mandate_auto_issued, false);
+    assert.equal(closed.outcome.majority_rule, 'strict_majority_of_non_abstain_cast_weight');
 
     // SLB-R1-16: PG listProposals must populate my_eligibility on closed proposals
     const listedForU1 = await coreStore.listProposals(u1);
