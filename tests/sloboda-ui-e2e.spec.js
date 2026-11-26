@@ -128,15 +128,15 @@ test.describe('Sloboda Built-React End-to-End Browser Journeys', () => {
 
       // Submit a verified contribution via UI form
       const contribForm = adminPage.locator('form').first();
-      await contribForm.locator('input[placeholder*="Имя"], input[type="text"]').first().fill('E2E Пайщик');
-      await contribForm.locator('input[type="number"], input[inputmode="decimal"]').first().fill('5000');
+      await contribForm.getByPlaceholder('Иван Петров').fill('E2E Пайщик');
+      await contribForm.getByPlaceholder('1000.00').fill('5000');
       await contribForm.locator('button[type="submit"]').click();
       await expect(adminPage.locator('body')).toContainText('E2E Пайщик', { timeout: 15000 });
 
       // Submit a verified paid expense via UI form
       const expenseForm = adminPage.locator('form').nth(1);
-      await expenseForm.locator('input[type="text"]').first().fill('E2E Щебень для дороги');
-      await expenseForm.locator('input[type="number"], input[inputmode="decimal"]').first().fill('2000');
+      await expenseForm.getByPlaceholder('Закупка солнечных инверторов').fill('E2E Щебень для дороги');
+      await expenseForm.getByPlaceholder('5000.00').fill('2000');
       await expenseForm.locator('button[type="submit"]').click();
       await expect(adminPage.locator('body')).toContainText('E2E Щебень для дороги', { timeout: 15000 });
 
