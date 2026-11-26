@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import Button from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
-import axios from 'axios';
+import api from '@/services/api';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/utils';
 
@@ -44,9 +44,13 @@ export function BanUserModal({
 
     setIsSubmitting(true);
     try {
-      await axios.post(`/api/moderation/users/${userId}/ban`, {
+      const expiresAt = duration
+        ? new Date(Date.now() + duration * 3600 * 1000).toISOString()
+        : null;
+      await api.post(`/moderation/users/${userId}/ban`, {
         reason: reason.trim(),
-        duration_hours: duration
+        duration_hours: duration,
+        expiresAt
       });
 
       toast.success(t('forum.moderation.toasts.userBanned', { name: userName }));

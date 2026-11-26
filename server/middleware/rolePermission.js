@@ -18,67 +18,75 @@ function requirePermission(permissionName) {
 
     const db = req.app.locals.db;
 
-    // Check if banned
-    const activeBan = await db.getActiveBan(req.user.id);
-    if (activeBan) {
-      return res.status(403).json({
-        success: false,
-        error: 'Your account is banned',
-        banReason: activeBan.reason,
-        expiresAt: activeBan.expires_at
-      });
-    }
+    try {
+      // Check if banned
+      const activeBan = await db.getActiveBan(req.user.id);
+      if (activeBan) {
+        return res.status(403).json({
+          success: false,
+          error: 'Your account is banned',
+          banReason: activeBan.reason,
+          expiresAt: activeBan.expires_at
+        });
+      }
 
-    const userRole = await db.getUserRole(req.user.id);
-    const roleConfig = ROLE_TIERS[userRole.role];
+      const userRole = await db.getUserRole(req.user.id);
+      const roleConfig = userRole ? ROLE_TIERS[userRole.role] : null;
 
-    if (!roleConfig) {
+      if (!roleConfig) {
+        return res.status(500).json({
+          success: false,
+          error: 'Invalid user role configuration'
+        });
+      }
+
+      if (!roleConfig.permissions[permissionName]) {
+        return res.status(403).json({
+          success: false,
+          error: `Permission denied: ${permissionName}`,
+          requiredRole: findMinimumRoleForPermission(permissionName)
+        });
+      }
+
+      // Check daily limits
+      if (permissionName === 'can_create_threads') {
+        const todayCount = await db.getUserThreadsToday(req.user.id);
+        const limit = roleConfig.permissions.max_threads_per_day;
+
+        if (limit && todayCount >= limit) {
+          return res.status(429).json({
+            success: false,
+            error: `Daily thread limit reached (${limit})`,
+            resetsAt: getNextMidnight()
+          });
+        }
+      }
+
+      if (permissionName === 'can_comment') {
+        const todayCount = await db.getUserCommentsToday(req.user.id);
+        const limit = roleConfig.permissions.max_comments_per_day;
+
+        if (limit && todayCount >= limit) {
+          return res.status(429).json({
+            success: false,
+            error: `Daily comment limit reached (${limit})`,
+            resetsAt: getNextMidnight()
+          });
+        }
+      }
+
+      // Store userRole in request for later use
+      req.userRole = userRole;
+      req.roleConfig = roleConfig;
+
+      next();
+    } catch (err) {
+      console.error('Role permission middleware error:', err);
       return res.status(500).json({
         success: false,
-        error: 'Invalid user role configuration'
+        error: 'Failed to verify user permissions'
       });
     }
-
-    if (!roleConfig.permissions[permissionName]) {
-      return res.status(403).json({
-        success: false,
-        error: `Permission denied: ${permissionName}`,
-        requiredRole: findMinimumRoleForPermission(permissionName)
-      });
-    }
-
-    // Check daily limits
-    if (permissionName === 'can_create_threads') {
-      const todayCount = await db.getUserThreadsToday(req.user.id);
-      const limit = roleConfig.permissions.max_threads_per_day;
-
-      if (limit && todayCount >= limit) {
-        return res.status(429).json({
-          success: false,
-          error: `Daily thread limit reached (${limit})`,
-          resetsAt: getNextMidnight()
-        });
-      }
-    }
-
-    if (permissionName === 'can_comment') {
-      const todayCount = await db.getUserCommentsToday(req.user.id);
-      const limit = roleConfig.permissions.max_comments_per_day;
-
-      if (limit && todayCount >= limit) {
-        return res.status(429).json({
-          success: false,
-          error: `Daily comment limit reached (${limit})`,
-          resetsAt: getNextMidnight()
-        });
-      }
-    }
-
-    // Store userRole in request for later use
-    req.userRole = userRole;
-    req.roleConfig = roleConfig;
-
-    next();
   };
 }
 

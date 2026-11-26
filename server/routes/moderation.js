@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { requireUserAuth } = require('../middleware/userAuth');
 const { requirePermission } = require('../middleware/rolePermission');
+const { requireCsrfIfCookie } = require('../middleware/csrf');
+const { parsePositiveInt } = require('../utils/validation');
 
 let db;
 
@@ -9,10 +11,22 @@ function setDb(database) {
   db = database;
 }
 
+function parsePagination(query) {
+  const rawPage = parseInt(query.page, 10);
+  const rawLimit = parseInt(query.limit, 10);
+  const page = Number.isFinite(rawPage) ? Math.max(1, rawPage) : 1;
+  const limit = Number.isFinite(rawLimit) ? Math.min(100, Math.max(1, rawLimit)) : 50;
+  const offset = (page - 1) * limit;
+  return { page, limit, offset };
+}
+
 // POST /api/moderation/threads/:id/pin - Pin/unpin thread (requires can_pin_threads)
-router.post('/threads/:id/pin', requireUserAuth, requirePermission('can_pin_threads'), async (req, res) => {
+router.post('/threads/:id/pin', requireUserAuth, requireCsrfIfCookie, requirePermission('can_pin_threads'), async (req, res) => {
   try {
-    const { id } = req.params;
+    const threadId = parsePositiveInt(req.params.id);
+    if (!threadId) {
+      return res.status(400).json({ error: 'Invalid thread ID' });
+    }
     const { pinned } = req.body;
 
     if (typeof pinned !== 'boolean') {
@@ -22,7 +36,7 @@ router.post('/threads/:id/pin', requireUserAuth, requirePermission('can_pin_thre
     // Check if thread exists
     const threadResult = await db.pool.query(`
       SELECT id FROM forum_threads WHERE id = $1 AND is_deleted = false
-    `, [id]);
+    `, [threadId]);
 
     if (threadResult.rows.length === 0) {
       return res.status(404).json({ error: 'Thread not found' });
@@ -33,11 +47,11 @@ router.post('/threads/:id/pin', requireUserAuth, requirePermission('can_pin_thre
       UPDATE forum_threads
       SET is_pinned = $1, updated_at = NOW()
       WHERE id = $2
-    `, [pinned, id]);
+    `, [pinned, threadId]);
 
     res.json({
       message: `Thread ${pinned ? 'pinned' : 'unpinned'} successfully`,
-      threadId: parseInt(id),
+      threadId,
       pinned
     });
   } catch (error) {
@@ -47,9 +61,12 @@ router.post('/threads/:id/pin', requireUserAuth, requirePermission('can_pin_thre
 });
 
 // POST /api/moderation/threads/:id/lock - Lock/unlock thread (requires can_lock_threads)
-router.post('/threads/:id/lock', requireUserAuth, requirePermission('can_lock_threads'), async (req, res) => {
+router.post('/threads/:id/lock', requireUserAuth, requireCsrfIfCookie, requirePermission('can_lock_threads'), async (req, res) => {
   try {
-    const { id } = req.params;
+    const threadId = parsePositiveInt(req.params.id);
+    if (!threadId) {
+      return res.status(400).json({ error: 'Invalid thread ID' });
+    }
     const { locked } = req.body;
 
     if (typeof locked !== 'boolean') {
@@ -59,7 +76,7 @@ router.post('/threads/:id/lock', requireUserAuth, requirePermission('can_lock_th
     // Check if thread exists
     const threadResult = await db.pool.query(`
       SELECT id FROM forum_threads WHERE id = $1 AND is_deleted = false
-    `, [id]);
+    `, [threadId]);
 
     if (threadResult.rows.length === 0) {
       return res.status(404).json({ error: 'Thread not found' });
@@ -70,11 +87,11 @@ router.post('/threads/:id/lock', requireUserAuth, requirePermission('can_lock_th
       UPDATE forum_threads
       SET is_locked = $1, updated_at = NOW()
       WHERE id = $2
-    `, [locked, id]);
+    `, [locked, threadId]);
 
     res.json({
       message: `Thread ${locked ? 'locked' : 'unlocked'} successfully`,
-      threadId: parseInt(id),
+      threadId,
       locked
     });
   } catch (error) {
@@ -84,27 +101,30 @@ router.post('/threads/:id/lock', requireUserAuth, requirePermission('can_lock_th
 });
 
 // POST /api/moderation/users/:id/warn - Warn a user (requires can_warn_users)
-router.post('/users/:id/warn', requireUserAuth, requirePermission('can_warn_users'), async (req, res) => {
+router.post('/users/:id/warn', requireUserAuth, requireCsrfIfCookie, requirePermission('can_warn_users'), async (req, res) => {
   try {
-    const { id } = req.params;
+    const userId = parsePositiveInt(req.params.id);
+    if (!userId) {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
     const { reason } = req.body;
     const moderatorId = req.user.id;
 
-    if (!reason || reason.length < 5) {
+    if (typeof reason !== 'string' || reason.trim().length < 5) {
       return res.status(400).json({ error: 'Warning reason must be at least 5 characters' });
     }
 
     // Check if user exists
     const userResult = await db.pool.query(`
       SELECT id, name FROM users WHERE id = $1
-    `, [id]);
+    `, [userId]);
 
     if (userResult.rows.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
 
     // Cannot warn yourself
-    if (parseInt(id) === moderatorId) {
+    if (userId === moderatorId) {
       return res.status(403).json({ error: 'You cannot warn yourself' });
     }
 
@@ -114,7 +134,7 @@ router.post('/users/:id/warn', requireUserAuth, requirePermission('can_warn_user
       (user_id, moderator_id, action_type, reason)
       VALUES ($1, $2, 'warn', $3)
       RETURNING *
-    `, [id, moderatorId, reason]);
+    `, [userId, moderatorId, reason.trim()]);
 
     res.status(201).json({
       message: 'Warning issued successfully',
@@ -127,30 +147,47 @@ router.post('/users/:id/warn', requireUserAuth, requirePermission('can_warn_user
 });
 
 // POST /api/moderation/users/:id/ban - Ban a user (requires can_ban_users_temporary; permanent ban checks can_ban_users_permanent)
-router.post('/users/:id/ban', requireUserAuth, requirePermission('can_ban_users_temporary'), async (req, res) => {
+router.post('/users/:id/ban', requireUserAuth, requireCsrfIfCookie, requirePermission('can_ban_users_temporary'), async (req, res) => {
   try {
-    const { id } = req.params;
-    const { reason, expiresAt } = req.body;
+    const userId = parsePositiveInt(req.params.id);
+    if (!userId) {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+    const { reason, expiresAt: rawExpiresAt, duration_hours: rawDurationHours } = req.body;
+    let resolvedExpiresAt = rawExpiresAt || null;
+    if (!resolvedExpiresAt && rawDurationHours !== undefined && rawDurationHours !== null && rawDurationHours !== '') {
+      const hours = Number(rawDurationHours);
+      if (!Number.isFinite(hours) || hours <= 0) {
+        return res.status(400).json({ error: 'Invalid duration_hours' });
+      }
+      resolvedExpiresAt = new Date(Date.now() + hours * 3600 * 1000).toISOString();
+    } else if (resolvedExpiresAt) {
+      const parsedDate = new Date(resolvedExpiresAt);
+      if (Number.isNaN(parsedDate.getTime())) {
+        return res.status(400).json({ error: 'Invalid expiresAt timestamp' });
+      }
+      resolvedExpiresAt = parsedDate.toISOString();
+    }
     const moderatorId = req.user.id;
-    if (!expiresAt && !req.roleConfig?.permissions?.can_ban_users_permanent) {
+    if (!resolvedExpiresAt && !req.roleConfig?.permissions?.can_ban_users_permanent) {
       return res.status(403).json({ error: 'Permanent bans require super_moderator permission' });
     }
 
-    if (!reason || reason.length < 5) {
+    if (typeof reason !== 'string' || reason.trim().length < 5) {
       return res.status(400).json({ error: 'Ban reason must be at least 5 characters' });
     }
 
     // Check if user exists
     const userResult = await db.pool.query(`
       SELECT id, name FROM users WHERE id = $1
-    `, [id]);
+    `, [userId]);
 
     if (userResult.rows.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
 
     // Cannot ban yourself
-    if (parseInt(id) === moderatorId) {
+    if (userId === moderatorId) {
       return res.status(403).json({ error: 'You cannot ban yourself' });
     }
 
@@ -158,7 +195,7 @@ router.post('/users/:id/ban', requireUserAuth, requirePermission('can_ban_users_
     const banCheckResult = await db.pool.query(`
       SELECT id FROM forum_moderation_actions
       WHERE user_id = $1 AND action_type = 'ban' AND is_active = true
-    `, [id]);
+    `, [userId]);
 
     if (banCheckResult.rows.length > 0) {
       return res.status(400).json({ error: 'User is already banned' });
@@ -170,7 +207,7 @@ router.post('/users/:id/ban', requireUserAuth, requirePermission('can_ban_users_
       (user_id, moderator_id, action_type, reason, expires_at)
       VALUES ($1, $2, 'ban', $3, $4)
       RETURNING *
-    `, [id, moderatorId, reason, expiresAt || null]);
+    `, [userId, moderatorId, reason.trim(), resolvedExpiresAt]);
 
     res.status(201).json({
       message: 'User banned successfully',
@@ -182,50 +219,85 @@ router.post('/users/:id/ban', requireUserAuth, requirePermission('can_ban_users_
   }
 });
 
-// POST /api/moderation/users/:id/unban - Unban a user (requires can_ban)
-router.post('/users/:id/unban', requireUserAuth, requirePermission('can_ban'), async (req, res) => {
+// POST /api/moderation/users/:id/unban - Unban a user (requires can_ban_users_temporary; permanent ban lift requires can_ban_users_permanent)
+router.post('/users/:id/unban', requireUserAuth, requireCsrfIfCookie, requirePermission('can_ban_users_temporary'), async (req, res) => {
+  const userId = parsePositiveInt(req.params.id);
+  if (!userId) {
+    return res.status(400).json({ error: 'Invalid user ID' });
+  }
+  const moderatorId = req.user.id;
+  let client;
+  let inTx = false;
   try {
-    const { id } = req.params;
-    const moderatorId = req.user.id;
+    client = await db.pool.connect();
+    await client.query('BEGIN');
+    inTx = true;
 
-    // Check if user is banned
-    const banResult = await db.pool.query(`
-      SELECT id FROM forum_moderation_actions
+    // Lock active ban rows for this user
+    const banResult = await client.query(`
+      SELECT id, expires_at FROM forum_moderation_actions
       WHERE user_id = $1 AND action_type = 'ban' AND is_active = true
-    `, [id]);
+      FOR UPDATE
+    `, [userId]);
 
     if (banResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      inTx = false;
       return res.status(404).json({ error: 'No active ban found for this user' });
     }
 
-    // Deactivate the ban
-    await db.pool.query(`
+    const hasPermanentBan = banResult.rows.some((row) => row.expires_at === null);
+    if (hasPermanentBan && !req.roleConfig?.permissions?.can_ban_users_permanent) {
+      await client.query('ROLLBACK');
+      inTx = false;
+      return res.status(403).json({ error: 'Unbanning permanently banned users requires super_moderator permission' });
+    }
+
+    const lockedIds = banResult.rows.map((row) => row.id);
+
+    // Deactivate only the locked ban rows
+    await client.query(`
       UPDATE forum_moderation_actions
       SET is_active = false, updated_at = NOW()
-      WHERE user_id = $1 AND action_type = 'ban' AND is_active = true
-    `, [id]);
+      WHERE id = ANY($1)
+    `, [lockedIds]);
 
     // Record the unban action
-    await db.pool.query(`
+    await client.query(`
       INSERT INTO forum_moderation_actions
       (user_id, moderator_id, action_type, reason)
       VALUES ($1, $2, 'unban', 'Ban lifted')
-    `, [id, moderatorId]);
+    `, [userId, moderatorId]);
+
+    await client.query('COMMIT');
+    inTx = false;
 
     res.json({ message: 'User unbanned successfully' });
   } catch (error) {
+    if (inTx && client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackErr) {
+        console.error('Error rolling back unban transaction:', rollbackErr);
+      }
+    }
     console.error('Error unbanning user:', error);
     res.status(500).json({ error: 'Failed to unban user' });
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
 });
 
-// GET /api/moderation/users/:id/history - Get moderation history for a user (requires can_moderate)
-router.get('/users/:id/history', requireUserAuth, requirePermission('can_moderate'), async (req, res) => {
+// GET /api/moderation/users/:id/history - Get moderation history for a user (requires can_view_user_history)
+router.get('/users/:id/history', requireUserAuth, requirePermission('can_view_user_history'), async (req, res) => {
   try {
-    const { id } = req.params;
-    const { page = 1, limit = 50 } = req.query;
-
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const userId = parsePositiveInt(req.params.id);
+    if (!userId) {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+    const { page, limit, offset } = parsePagination(req.query);
 
     const result = await db.pool.query(`
       SELECT
@@ -238,24 +310,24 @@ router.get('/users/:id/history', requireUserAuth, requirePermission('can_moderat
       WHERE ma.user_id = $1
       ORDER BY ma.created_at DESC
       LIMIT $2 OFFSET $3
-    `, [id, parseInt(limit), offset]);
+    `, [userId, limit, offset]);
 
     // Get total count
     const countResult = await db.pool.query(`
       SELECT COUNT(*) as total
       FROM forum_moderation_actions
       WHERE user_id = $1
-    `, [id]);
+    `, [userId]);
 
-    const total = parseInt(countResult.rows[0].total);
+    const total = parseInt(countResult.rows[0].total, 10);
 
     res.json({
       actions: result.rows,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page,
+        limit,
         total,
-        totalPages: Math.ceil(total / parseInt(limit))
+        totalPages: Math.ceil(total / limit)
       }
     });
   } catch (error) {
@@ -264,12 +336,11 @@ router.get('/users/:id/history', requireUserAuth, requirePermission('can_moderat
   }
 });
 
-// GET /api/moderation/actions - Get all moderation actions (requires can_moderate)
-router.get('/actions', requireUserAuth, requirePermission('can_moderate'), async (req, res) => {
+// GET /api/moderation/actions - Get all moderation actions (requires can_view_mod_log)
+router.get('/actions', requireUserAuth, requirePermission('can_view_mod_log'), async (req, res) => {
   try {
-    const { page = 1, limit = 50, actionType, isActive } = req.query;
-
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const { actionType, isActive } = req.query;
+    const { page, limit, offset } = parsePagination(req.query);
 
     let query = `
       SELECT
@@ -298,7 +369,7 @@ router.get('/actions', requireUserAuth, requirePermission('can_moderate'), async
     }
 
     query += ` ORDER BY ma.created_at DESC LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
-    params.push(parseInt(limit), offset);
+    params.push(limit, offset);
 
     const result = await db.pool.query(query, params);
 
@@ -319,15 +390,15 @@ router.get('/actions', requireUserAuth, requirePermission('can_moderate'), async
     }
 
     const countResult = await db.pool.query(countQuery, countParams);
-    const total = parseInt(countResult.rows[0].total);
+    const total = parseInt(countResult.rows[0].total, 10);
 
     res.json({
       actions: result.rows,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page,
+        limit,
         total,
-        totalPages: Math.ceil(total / parseInt(limit))
+        totalPages: Math.ceil(total / limit)
       }
     });
   } catch (error) {
@@ -336,8 +407,8 @@ router.get('/actions', requireUserAuth, requirePermission('can_moderate'), async
   }
 });
 
-// GET /api/moderation/banned-users - Get list of currently banned users (requires can_moderate)
-router.get('/banned-users', requireUserAuth, requirePermission('can_moderate'), async (req, res) => {
+// GET /api/moderation/banned-users - Get list of currently banned users (requires can_view_mod_log)
+router.get('/banned-users', requireUserAuth, requirePermission('can_view_mod_log'), async (req, res) => {
   try {
     const result = await db.pool.query(`
       SELECT DISTINCT
@@ -364,20 +435,23 @@ router.get('/banned-users', requireUserAuth, requirePermission('can_moderate'), 
   }
 });
 
-// POST /api/moderation/comments/:id/delete - Hard delete comment (requires can_moderate)
-router.post('/comments/:id/delete', requireUserAuth, requirePermission('can_moderate'), async (req, res) => {
+// POST /api/moderation/comments/:id/delete - Delete comment (requires can_delete_others_content)
+router.post('/comments/:id/delete', requireUserAuth, requireCsrfIfCookie, requirePermission('can_delete_others_content'), async (req, res) => {
   try {
-    const { id } = req.params;
+    const commentId = parsePositiveInt(req.params.id);
+    if (!commentId) {
+      return res.status(400).json({ error: 'Invalid comment ID' });
+    }
     const { reason } = req.body;
 
-    if (!reason || reason.length < 5) {
+    if (typeof reason !== 'string' || reason.trim().length < 5) {
       return res.status(400).json({ error: 'Deletion reason must be at least 5 characters' });
     }
 
     // Check if comment exists
     const commentResult = await db.pool.query(`
       SELECT * FROM forum_comments WHERE id = $1
-    `, [id]);
+    `, [commentId]);
 
     if (commentResult.rows.length === 0) {
       return res.status(404).json({ error: 'Comment not found' });
@@ -388,7 +462,7 @@ router.post('/comments/:id/delete', requireUserAuth, requirePermission('can_mode
       UPDATE forum_comments
       SET is_deleted = true, updated_at = NOW()
       WHERE id = $1
-    `, [id]);
+    `, [commentId]);
 
     // Record the moderation action
     await db.pool.query(`
@@ -398,8 +472,8 @@ router.post('/comments/:id/delete', requireUserAuth, requirePermission('can_mode
     `, [
       commentResult.rows[0].author_id,
       req.user.id,
-      reason,
-      JSON.stringify({ commentId: id })
+      reason.trim(),
+      JSON.stringify({ commentId })
     ]);
 
     res.json({ message: 'Comment deleted successfully' });
@@ -409,20 +483,23 @@ router.post('/comments/:id/delete', requireUserAuth, requirePermission('can_mode
   }
 });
 
-// POST /api/moderation/threads/:id/delete - Hard delete thread (requires can_moderate)
-router.post('/threads/:id/delete', requireUserAuth, requirePermission('can_moderate'), async (req, res) => {
+// POST /api/moderation/threads/:id/delete - Delete thread (requires can_delete_others_content)
+router.post('/threads/:id/delete', requireUserAuth, requireCsrfIfCookie, requirePermission('can_delete_others_content'), async (req, res) => {
   try {
-    const { id } = req.params;
+    const threadId = parsePositiveInt(req.params.id);
+    if (!threadId) {
+      return res.status(400).json({ error: 'Invalid thread ID' });
+    }
     const { reason } = req.body;
 
-    if (!reason || reason.length < 5) {
+    if (typeof reason !== 'string' || reason.trim().length < 5) {
       return res.status(400).json({ error: 'Deletion reason must be at least 5 characters' });
     }
 
     // Check if thread exists
     const threadResult = await db.pool.query(`
       SELECT * FROM forum_threads WHERE id = $1
-    `, [id]);
+    `, [threadId]);
 
     if (threadResult.rows.length === 0) {
       return res.status(404).json({ error: 'Thread not found' });
@@ -433,7 +510,7 @@ router.post('/threads/:id/delete', requireUserAuth, requirePermission('can_moder
       UPDATE forum_threads
       SET is_deleted = true, updated_at = NOW()
       WHERE id = $1
-    `, [id]);
+    `, [threadId]);
 
     // Record the moderation action
     await db.pool.query(`
@@ -443,8 +520,8 @@ router.post('/threads/:id/delete', requireUserAuth, requirePermission('can_moder
     `, [
       threadResult.rows[0].author_id,
       req.user.id,
-      reason,
-      JSON.stringify({ threadId: id })
+      reason.trim(),
+      JSON.stringify({ threadId })
     ]);
 
     res.json({ message: 'Thread deleted successfully' });
