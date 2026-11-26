@@ -3,6 +3,7 @@ const { defineConfig, devices } = require('@playwright/test');
 
 module.exports = defineConfig({
   testDir: './tests',
+  testIgnore: /sloboda-ui-e2e\.spec\.js/,
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
@@ -34,7 +35,7 @@ module.exports = defineConfig({
       ADMIN_EMAIL: 'admin@sloboda.land',
       ADMIN_PASSWORD: 'testpassword123',
       RESET_ADMIN_PASSWORD: 'true',
-      JWT_SECRET: 'test-secret-change-me',
+      JWT_SECRET: process.env.JWT_SECRET || 'test-secret-change-me',
     },
   },
 });

@@ -110,6 +110,13 @@ test.describe('Sloboda Core Acceptance Suite', () => {
         expect(app2.status()).toBe(201);
         const app2Data = await app2.json();
 
+        // Missing expected_version must return 400 Bad Request
+        const missingVerRev = await request.post(`/api/admin/applications/${app1Data.application.id}/review`, {
+            headers: { Authorization: `Bearer ${superAdminTok}` },
+            data: { status: 'in_review' },
+        });
+        expect(missingVerRev.status()).toBe(400);
+
         // 2. Admin accepts both applications (with optimistic version check)
         const rev1 = await request.post(`/api/admin/applications/${app1Data.application.id}/review`, {
             headers: { Authorization: `Bearer ${superAdminTok}` },
@@ -123,6 +130,13 @@ test.describe('Sloboda Core Acceptance Suite', () => {
             data: { status: 'rejected', expected_version: 1 },
         });
         expect(staleRev.status()).toBe(409);
+
+        // Terminal accepted application cannot be reverted to rejected even with current version
+        const terminalRev = await request.post(`/api/admin/applications/${app1Data.application.id}/review`, {
+            headers: { Authorization: `Bearer ${superAdminTok}` },
+            data: { status: 'rejected', expected_version: 2 },
+        });
+        expect(terminalRev.status()).toBe(409);
 
         const rev2 = await request.post(`/api/admin/applications/${app2Data.application.id}/review`, {
             headers: { Authorization: `Bearer ${superAdminTok}` },
@@ -283,6 +297,33 @@ test.describe('Sloboda Core Acceptance Suite', () => {
             },
         });
         expect(validReconcile.ok()).toBeTruthy();
+        const reconcileBody = await validReconcile.json();
+        expect(reconcileBody.verification.consistency_verified).toBe(true);
+        expect(reconcileBody.verification.cryptographic_election_verified).toBe(false);
+        expect(reconcileBody.verification.authoritative_protocol_updated).toBe(false);
+
+        // External authoritative_engine & multi-seat proposals must be rejected with 400
+        const badExt = await request.post('/api/governance/proposals', {
+            headers: { Authorization: `Bearer ${superAdminTok}` },
+            data: {
+                title: 'Unsupported external engine',
+                vote_type: 'council_election',
+                authoritative_engine: 'loomio',
+                options: ['A', 'B'],
+            },
+        });
+        expect(badExt.status()).toBe(400);
+
+        const badSeats = await request.post('/api/governance/proposals', {
+            headers: { Authorization: `Bearer ${superAdminTok}` },
+            data: {
+                title: 'Unsupported multi-seat',
+                vote_type: 'council_election',
+                seats_count: 3,
+                options: ['A', 'B', 'C'],
+            },
+        });
+        expect(badSeats.status()).toBe(400);
 
         // 6. Dual Consent: fails if Member chamber and Capital chamber choose DIFFERENT winners!
         const pDual = await request.post('/api/governance/proposals', {
@@ -399,7 +440,19 @@ test.describe('Sloboda Core Acceptance Suite', () => {
         expect(myLedger.contributions[0].allocations[0].financing_share_label).toContain('1/10');
         expect(myLedger.contributions[0].allocations[0].receipt_url).toContain('mixer-001.pdf');
 
-        // Zero double-spend: trying to spend another 100 RUB from 'mixer-pilot' fails with 409 Conflict
+        // Missing idempotency_key must be rejected with 400 Bad Request
+        const missingKey = await request.post('/api/admin/ledger/expenses', {
+            headers: { Authorization: `Bearer ${superAdminTok}` },
+            data: {
+                purpose: 'mixer-pilot',
+                title: 'Без ключа идемпотентности',
+                amount_kopecks: 10000,
+                allocation_rule: 'fifo',
+            },
+        });
+        expect(missingKey.status()).toBe(400);
+
+        // Zero double-spend: trying to spend another 100 RUB from 'mixer-pilot' with a valid key fails with 409 Conflict
         const doubleSpend = await request.post('/api/admin/ledger/expenses', {
             headers: { Authorization: `Bearer ${superAdminTok}` },
             data: {
@@ -407,6 +460,7 @@ test.describe('Sloboda Core Acceptance Suite', () => {
                 title: 'Повторное списание',
                 amount_kopecks: 10000,
                 allocation_rule: 'fifo',
+                idempotency_key: 'expense-mixer-double-spend-001',
             },
         });
         expect(doubleSpend.status()).toBe(409);
@@ -429,5 +483,32 @@ test.describe('Sloboda Core Acceptance Suite', () => {
 
         const milestonesRes = await request.get('/api/public/construction/milestones');
         expect(milestonesRes.status()).toBe(200);
+    });
+
+    test('SLB-R1-17: Moderation routes map exclusively to canonical permissions in server/config/roles.js', async () => {
+        const fs = require('node:fs');
+        const path = require('node:path');
+        const { ROLE_TIERS } = require('../server/config/roles');
+        const allCanonicalPerms = new Set();
+        for (const tier of Object.values(ROLE_TIERS)) {
+            for (const key of Object.keys(tier.permissions || {})) {
+                allCanonicalPerms.add(key);
+            }
+        }
+        const modSource = fs.readFileSync(path.join(__dirname, '..', 'server', 'routes', 'moderation.js'), 'utf8');
+        const matches = [...modSource.matchAll(/requirePermission\(['"]([^'"]+)['"]\)/g)].map((m) => m[1]);
+        expect(matches.length).toBeGreaterThanOrEqual(7);
+        for (const perm of matches) {
+            expect(allCanonicalPerms.has(perm)).toBe(true);
+        }
+        // Verify role separation: moderator has temp ban + mod log + history + delete, super_moderator also has permanent ban
+        expect(ROLE_TIERS.moderator.permissions.can_ban_users_temporary).toBe(true);
+        expect(ROLE_TIERS.moderator.permissions.can_ban_users_permanent).toBeFalsy();
+        expect(ROLE_TIERS.moderator.permissions.can_view_mod_log).toBe(true);
+        expect(ROLE_TIERS.moderator.permissions.can_view_user_history).toBe(true);
+        expect(ROLE_TIERS.moderator.permissions.can_delete_others_content).toBe(true);
+        expect(ROLE_TIERS.super_moderator.permissions.can_ban_users_permanent).toBe(true);
+        expect(ROLE_TIERS.member.permissions.can_ban_users_temporary).toBeFalsy();
+        expect(ROLE_TIERS.member.permissions.can_view_mod_log).toBeFalsy();
     });
 });
