@@ -166,7 +166,7 @@ async function run() {
         VALUES ('other-settlement', 'other_road', 'Other Road', 'roads', 'км', 5, 0, 500000, 'planned')
         RETURNING id
     `);
-    const pilotMs = await pool.query("SELECT id FROM construction_milestones WHERE settlement_id = 'sloboda-pilot' AND code = 'roads'");
+    const pilotMs = await pool.query("SELECT id FROM construction_milestones WHERE settlement_id = 'sloboda-pilot' AND code = 'EARTHWORKS_PITS'");
 
     // Record 10,000 RUB contribution (1,000,000 kopecks)
     const c1 = await coreStore.recordContribution({
