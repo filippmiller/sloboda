@@ -71,7 +71,7 @@ test.describe('Sloboda Built-React End-to-End Browser Journeys', () => {
       await reviewerPage.fill('input[type="email"], input[name="email"]', process.env.ADMIN_EMAIL || 'admin@sloboda.land');
       await reviewerPage.fill('input[type="password"], input[name="password"]', process.env.ADMIN_PASSWORD || 'testpassword123');
       await reviewerPage.click('button[type="submit"]');
-      await reviewerPage.waitForURL(/\/admin/, { timeout: 15000 });
+      await reviewerPage.waitForURL((url) => url.pathname === '/admin' || url.pathname === '/admin/dashboard', { timeout: 15000 });
 
       // Navigate to Admin Applications Reviewer Workspace
       await reviewerPage.goto('/admin/applications');
@@ -121,7 +121,7 @@ test.describe('Sloboda Built-React End-to-End Browser Journeys', () => {
       await adminPage.fill('input[type="email"], input[name="email"]', process.env.ADMIN_EMAIL || 'admin@sloboda.land');
       await adminPage.fill('input[type="password"], input[name="password"]', process.env.ADMIN_PASSWORD || 'testpassword123');
       await adminPage.click('button[type="submit"]');
-      await adminPage.waitForURL(/\/admin/, { timeout: 15000 });
+      await adminPage.waitForURL((url) => url.pathname === '/admin' || url.pathname === '/admin/dashboard', { timeout: 15000 });
 
       await adminPage.goto('/admin/finance');
       await expect(adminPage.locator('body')).toContainText(/Реестр взносов и расходов/i, { timeout: 15000 });
