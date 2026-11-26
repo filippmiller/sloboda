@@ -89,7 +89,12 @@ export default function DashboardLayout() {
 
   // Redirect to onboarding if not completed
   if (needsOnboarding) {
-    return <Navigate to={ROUTES.ONBOARDING} replace />
+    const currentPath = `${location.pathname}${location.search}`
+    const onboardingUrl =
+      currentPath !== ROUTES.DASHBOARD && currentPath.startsWith('/') && !currentPath.startsWith('//')
+        ? `${ROUTES.ONBOARDING}?redirect=${encodeURIComponent(currentPath)}`
+        : ROUTES.ONBOARDING
+    return <Navigate to={onboardingUrl} replace />
   }
 
   const handleLogout = async () => {

@@ -69,6 +69,24 @@ const OUTCOME_REASON_LABELS: Record<string, string> = {
   chamber_winner_mismatch: 'Палаты выбрали разные варианты',
 }
 
+const ENGINE_LABELS: Record<string, string> = {
+  native_named: 'Нативное открытое',
+  native_secret: 'Нативное тайное',
+}
+
+const MAJORITY_RULE_LABELS: Record<string, string> = {
+  strict_majority_of_non_abstain_cast_weight:
+    'Строгое большинство (>50%) от голосов без учёта воздержавшихся',
+}
+
+const QUORUM_RULE_LABELS: Record<string, string> = {
+  turnout_including_abstain_pct_of_eligible:
+    'Явка (включая воздержавшихся) в % от замороженного списка правомочных',
+}
+
+const SECRET_BALLOT_BOUNDARY_NOTE =
+  'Индивидуальный выбор скрыт от других участников и не публикуется в протоколе; сервер проверяет допуск при приёме голоса (защита от оператора сервера/БД и деанонимизации при единогласном/единичном голосовании не заявляется).'
+
 function shortenHash(hash: string | null): string {
   if (!hash) return '—'
   if (hash.length <= 16) return hash
@@ -111,10 +129,10 @@ export default function Governance() {
         )
         const baseList = res.data.proposals ?? []
 
-        // PG-mode list endpoint may omit per-user snapshot eligibility; enrich open proposals via detail endpoint
+        // PG-mode list endpoint omits per-user snapshot eligibility; enrich open and closed proposals via detail endpoint
         const enriched = await Promise.all(
           baseList.map(async (p) => {
-            if (p.status === 'open' && p.my_eligibility === null) {
+            if ((p.status === 'open' || p.status === 'closed') && p.my_eligibility === null) {
               try {
                 const detailRes = await api.get<{
                   success: boolean
@@ -122,7 +140,7 @@ export default function Governance() {
                 }>(`/governance/proposals/${p.id}`)
                 return detailRes.data.proposal ?? p
               } catch {
-                return p
+                return { ...p, my_eligibility: undefined }
               }
             }
             return p
@@ -322,45 +340,69 @@ export default function Governance() {
                         Дедлайн: {new Date(proposal.closes_at).toLocaleString('ru-RU')}
                       </span>
                     )}
-                    <span>Движок: {proposal.authoritative_engine}</span>
+                    <span>
+                      Движок:{' '}
+                      {ENGINE_LABELS[proposal.authoritative_engine] ??
+                        proposal.authoritative_engine}
+                    </span>
                   </div>
+
+                  {proposal.secret_ballot && (
+                    <div className="p-2.5 rounded-lg bg-amber-500/5 border border-amber-500/20 text-xs text-text-secondary flex items-start gap-2">
+                      <EyeOff size={14} className="text-amber-400 shrink-0 mt-0.5" />
+                      <span>{SECRET_BALLOT_BOUNDARY_NOTE}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Caller Eligibility */}
                 <div className="p-3 rounded-lg bg-bg-elevated/70 border border-border text-xs space-y-1">
                   <div className="font-medium text-text flex items-center gap-1.5">
                     <Users size={14} className="text-accent" />
-                    Ваше право голоса (my_eligibility):
+                    Ваше право голоса:
                   </div>
                   {elig ? (
-                    <div className="flex flex-wrap gap-3 text-text-secondary">
-                      <span>
-                        Палата участников:{' '}
-                        {canVoteMember ? (
-                          <strong className="text-green">
-                            Доступна ({elig.member_weight} голос)
-                          </strong>
-                        ) : (
-                          <span>нет допуска</span>
-                        )}
-                      </span>
-                      <span>·</span>
-                      <span>
-                        Палата капитала:{' '}
-                        {canVoteCapital ? (
-                          <strong className="text-green">
-                            Доступна ({formatKopeckStringToRubles(elig.capital_weight_kopecks)})
-                          </strong>
-                        ) : (
-                          <span>нет доли</span>
-                        )}
-                      </span>
+                    <div className="space-y-1">
+                      {proposal.status === 'closed' && (
+                        <p className="text-text font-medium">
+                          Вы были в замороженном списке избирателей
+                        </p>
+                      )}
+                      <div className="flex flex-wrap gap-3 text-text-secondary">
+                        <span>
+                          Палата участников:{' '}
+                          {canVoteMember ? (
+                            <strong className="text-green">
+                              {proposal.status === 'closed' ? 'Был допуск' : 'Доступна'} (
+                              {elig.member_weight} голос)
+                            </strong>
+                          ) : (
+                            <span>{proposal.status === 'closed' ? 'допуска не было' : 'нет допуска'}</span>
+                          )}
+                        </span>
+                        <span>·</span>
+                        <span>
+                          Палата капитала:{' '}
+                          {canVoteCapital ? (
+                            <strong className="text-green">
+                              {proposal.status === 'closed' ? 'Был допуск' : 'Доступна'} (
+                              {formatKopeckStringToRubles(elig.capital_weight_kopecks)})
+                            </strong>
+                          ) : (
+                            <span>{proposal.status === 'closed' ? 'доли не было' : 'нет доли'}</span>
+                          )}
+                        </span>
+                      </div>
                     </div>
+                  ) : elig === undefined ? (
+                    <p className="text-text-muted">Данные о личном допуске не загружены</p>
                   ) : (
                     <p className="text-text-muted">
                       {proposal.status === 'draft'
                         ? 'Список избирателей будет зафиксирован при открытии голосования.'
-                        : 'Вы не включены в замороженный список избирателей этого голосования.'}
+                        : proposal.status === 'closed'
+                          ? 'Вы не входили в замороженный список этого голосования'
+                          : 'Вы не включены в замороженный список избирателей этого голосования.'}
                     </p>
                   )}
                 </div>
@@ -525,13 +567,34 @@ export default function Governance() {
 
                     {proposal.protocol_json?.outcome && (
                       <div className="space-y-3">
-                        <p className="text-xs text-text-secondary">
-                          Основание:{' '}
-                          <span className="text-text font-medium">
-                            {OUTCOME_REASON_LABELS[proposal.protocol_json.outcome.reason] ??
-                              proposal.protocol_json.outcome.reason}
-                          </span>
-                        </p>
+                        <div className="space-y-1 text-xs text-text-secondary">
+                          <p>
+                            Основание:{' '}
+                            <span className="text-text font-medium">
+                              {OUTCOME_REASON_LABELS[proposal.protocol_json.outcome.reason] ??
+                                proposal.protocol_json.outcome.reason}
+                            </span>
+                          </p>
+                          {proposal.protocol_json.outcome.majority_rule && (
+                            <p>
+                              Правило большинства:{' '}
+                              <span className="text-text">
+                                {MAJORITY_RULE_LABELS[
+                                  proposal.protocol_json.outcome.majority_rule
+                                ] ?? proposal.protocol_json.outcome.majority_rule}
+                              </span>
+                            </p>
+                          )}
+                          {proposal.protocol_json.outcome.quorum_rule && (
+                            <p>
+                              Правило кворума:{' '}
+                              <span className="text-text">
+                                {QUORUM_RULE_LABELS[proposal.protocol_json.outcome.quorum_rule] ??
+                                  proposal.protocol_json.outcome.quorum_rule}
+                              </span>
+                            </p>
+                          )}
+                        </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           {(['member', 'capital'] as const).map((chamberKey) => {

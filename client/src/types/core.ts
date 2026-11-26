@@ -125,6 +125,10 @@ export interface ProposalProtocol {
     adopted: boolean
     winning_option_index: number | null
     reason: string
+    majority_rule?: string
+    quorum_rule?: string
+    mandate_auto_issued?: boolean
+    secrecy_boundary?: string
     chambers: {
       member?: ChamberOutcome
       capital?: ChamberOutcome
@@ -159,7 +163,7 @@ export interface GovernanceProposal {
   closes_at: string | null
   closed_at: string | null
   created_at: string
-  my_eligibility: VoterEligibility | null
+  my_eligibility?: VoterEligibility | null
 }
 
 export interface MoneyValue {
@@ -235,6 +239,88 @@ export interface ConstructionMilestone {
   status: string
   photo_url: string | null
   updated_at: string
+}
+
+export interface AdminApplicationItem extends MemberApplication {
+  portfolio?: PortfolioItem[]
+}
+
+export interface PublicLedgerExpenseSummary {
+  id: number
+  title: string
+  category: string
+  amount: MoneyValue
+  asset_name: string | null
+  asset_location: string | null
+  photo_url: string | null
+  status: string
+  paid_at: string | null
+}
+
+export interface PublicLedgerSummary {
+  settlement_id: string
+  totals: {
+    received: MoneyValue
+    available: MoneyValue
+    reserved: MoneyValue
+    paid: MoneyValue
+    refunded: MoneyValue
+    contributions_count: number
+  }
+  milestones: ConstructionMilestone[]
+  recent_expenses: PublicLedgerExpenseSummary[]
+}
+
+export interface AdminLedgerExpense {
+  id: number
+  settlement_id: string
+  purpose: string
+  title: string
+  category: string
+  amount: MoneyValue
+  milestone_id: number | null
+  asset_name: string | null
+  asset_location: string | null
+  receipt_url: string | null
+  photo_url: string | null
+  allocation_rule: string
+  status: string
+  financial_status?: string
+  dispute_status?: string
+  version?: number
+  paid_at: string | null
+  created_at: string
+  allocations?: Array<{
+    id: number
+    contribution_id: number
+    amount: MoneyValue
+    allocation_rule: string
+    financing_share_label: string
+    legal_right_type: string
+  }>
+}
+
+/** Validates same-origin relative redirect paths (must start with '/' and not '//') */
+export function getSafeRedirectPath(
+  raw: string | null | undefined,
+  fallback = '/dashboard',
+): string {
+  if (!raw) return fallback
+  const trimmed = raw.trim()
+  if (trimmed.startsWith('/') && !trimmed.startsWith('//')) {
+    return trimmed
+  }
+  return fallback
+}
+
+/** Converts a positive decimal ruble string (up to 2 decimal places) to an integer kopeck string */
+export function rublesToKopecksString(input: string): string | null {
+  const normalized = input.trim().replace(',', '.')
+  if (!/^\d+(\.\d{1,2})?$/.test(normalized)) return null
+  const [rubStr, kopStr = ''] = normalized.split('.')
+  const kopecks = BigInt(rubStr) * 100n + BigInt(kopStr.padEnd(2, '0'))
+  if (kopecks <= 0n) return null
+  return kopecks.toString()
 }
 
 /** Validates user-supplied URLs so only http(s) or site-relative paths are rendered as links */

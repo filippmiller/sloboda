@@ -25,12 +25,14 @@ import {
   Globe,
   BookOpen,
   Vote,
+  Briefcase,
 } from 'lucide-react'
 import Skeleton from '@/components/ui/Skeleton'
 
 const navItems = [
   { to: ROUTES.ADMIN_DASHBOARD, label: 'Обзор', icon: LayoutDashboard, shortcut: 'G·D' },
   { to: ROUTES.ADMIN_REGISTRATIONS, label: 'Заявки', icon: UserPlus, shortcut: 'G·R' },
+  { to: ROUTES.ADMIN_APPLICATIONS, label: 'Заявки на членство', icon: Briefcase },
   { to: ROUTES.ADMIN_USERS, label: 'Пользователи', icon: Users, shortcut: 'G·U' },
   { to: ROUTES.ADMIN_FORUM, label: 'Форум', icon: MessageSquare },
   { to: ROUTES.ADMIN_COMMUNITY, label: 'Сообщество', icon: Vote },

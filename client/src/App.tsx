@@ -39,6 +39,7 @@ const CampaignDetail = lazy(() => import('@/pages/user/CampaignDetail'))
 const AdminLogin = lazy(() => import('@/pages/admin/Login'))
 const AdminDashboard = lazy(() => import('@/pages/admin/Dashboard'))
 const Registrations = lazy(() => import('@/pages/admin/Registrations'))
+const AdminApplications = lazy(() => import('@/pages/admin/Applications'))
 const Users = lazy(() => import('@/pages/admin/Users'))
 const Posts = lazy(() => import('@/pages/admin/Posts'))
 const Knowledge = lazy(() => import('@/pages/admin/Knowledge'))
@@ -120,6 +121,7 @@ function App() {
         <Route element={<AdminLayout />}>
           <Route path={ROUTES.ADMIN_DASHBOARD} element={<Safe><AdminDashboard /></Safe>} />
           <Route path={ROUTES.ADMIN_REGISTRATIONS} element={<Safe><Registrations /></Safe>} />
+          <Route path={ROUTES.ADMIN_APPLICATIONS} element={<Safe><AdminApplications /></Safe>} />
           <Route path={ROUTES.ADMIN_USERS} element={<Safe><Users /></Safe>} />
           <Route path={ROUTES.ADMIN_POSTS} element={<Safe><Posts /></Safe>} />
           <Route path={ROUTES.ADMIN_KNOWLEDGE} element={<Safe><Knowledge /></Safe>} />

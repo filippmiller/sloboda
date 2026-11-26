@@ -1,11 +1,13 @@
 import { useEffect } from 'react'
-import { Outlet, useNavigate } from 'react-router-dom'
+import { Outlet, useNavigate, useSearchParams } from 'react-router-dom'
 import { ROUTES } from '@/config/routes'
 import { useAuthStore } from '@/stores/authStore'
+import { getSafeRedirectPath } from '@/types/core'
 import { Loader2 } from 'lucide-react'
 
 export default function OnboardingLayout() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { user, isAuthenticated, isLoading, checkAuth } = useAuthStore()
 
   useEffect(() => {
@@ -14,13 +16,16 @@ export default function OnboardingLayout() {
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      navigate(ROUTES.LOGIN, { replace: true })
+      const target = getSafeRedirectPath(searchParams.get('redirect'), '')
+      const loginUrl = target ? `${ROUTES.LOGIN}?redirect=${encodeURIComponent(target)}` : ROUTES.LOGIN
+      navigate(loginUrl, { replace: true })
     }
-    // If onboarding already done, go to dashboard
+    // If onboarding already done, go to redirect target or dashboard
     if (!isLoading && user?.onboardingCompletedAt) {
-      navigate(ROUTES.DASHBOARD, { replace: true })
+      const target = getSafeRedirectPath(searchParams.get('redirect'), ROUTES.DASHBOARD)
+      navigate(target, { replace: true })
     }
-  }, [isLoading, isAuthenticated, user, navigate])
+  }, [isLoading, isAuthenticated, user, navigate, searchParams])
 
   if (isLoading) {
     return (

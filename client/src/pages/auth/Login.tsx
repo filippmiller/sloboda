@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'motion/react'
 import { Mail, Lock, Wand2, Check, KeyRound } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import api from '@/services/api'
+import { getSafeRedirectPath } from '@/types/core'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 
@@ -69,7 +70,9 @@ export default function Login() {
     const token = searchParams.get('reset')
     if (token) {
       setResetToken(token)
-      setSearchParams({}, { replace: true })
+      const nextParams = new URLSearchParams(searchParams)
+      nextParams.delete('reset')
+      setSearchParams(nextParams, { replace: true })
     }
   }, [searchParams, setSearchParams])
 
@@ -104,7 +107,8 @@ export default function Login() {
     try {
       await login(data.email, data.password)
       toast.success(t('auth.login.welcomeToast'))
-      navigate('/dashboard')
+      const targetPath = getSafeRedirectPath(searchParams.get('redirect'), '/dashboard')
+      navigate(targetPath, { replace: true })
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message :

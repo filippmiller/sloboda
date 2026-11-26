@@ -40,8 +40,13 @@ api.interceptors.response.use(
       if (!isAuthRoute) {
         redirecting = true
         toast.error(i18n.t('common.errors.sessionExpired'))
+        const currentPath = `${window.location.pathname}${window.location.search}`
+        const isSafeRelative = currentPath.startsWith('/') && !currentPath.startsWith('//')
+        const loginUrl = isSafeRelative
+          ? `/login?redirect=${encodeURIComponent(currentPath)}`
+          : '/login'
         setTimeout(() => {
-          window.location.replace('/login')
+          window.location.replace(loginUrl)
         }, 300)
       }
     }

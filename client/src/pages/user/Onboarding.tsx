@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'motion/react'
@@ -7,6 +7,7 @@ import { ArrowLeft, ArrowRight, Check, Loader2 } from 'lucide-react'
 import { ROUTES } from '@/config/routes'
 import { useAuthStore } from '@/stores/authStore'
 import api from '@/services/api'
+import { getSafeRedirectPath } from '@/types/core'
 import Button from '@/components/ui/Button'
 import StepIndicator from '@/components/onboarding/StepIndicator'
 import StepAvatar from '@/components/onboarding/StepAvatar'
@@ -55,6 +56,8 @@ const initialData: OnboardingData = {
 export default function Onboarding() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const redirectTarget = getSafeRedirectPath(searchParams.get('redirect'), ROUTES.DASHBOARD)
   const checkAuth = useAuthStore((s) => s.checkAuth)
   const [step, setStep] = useState(0)
   const [data, setData] = useState<OnboardingData>(initialData)
@@ -92,7 +95,7 @@ export default function Onboarding() {
     try {
       await api.post('/user/onboarding/complete')
       await checkAuth()
-      navigate(ROUTES.DASHBOARD, { replace: true })
+      navigate(redirectTarget, { replace: true })
     } catch {
       toast.error(t('common.errors.unknownError'))
     } finally {
@@ -135,7 +138,7 @@ export default function Onboarding() {
       await checkAuth()
 
       toast.success(t('onboarding.successTitle'))
-      navigate(ROUTES.DASHBOARD, { replace: true })
+      navigate(redirectTarget, { replace: true })
     } catch {
       toast.error(t('common.errors.unknownError'))
     } finally {

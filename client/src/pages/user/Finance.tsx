@@ -14,6 +14,7 @@ import {
   Image as ImageIcon,
   Shield,
   Coins,
+  AlertCircle,
 } from 'lucide-react'
 import {
   PieChart,
@@ -32,9 +33,11 @@ import Card from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import { SkeletonCard, SkeletonTable } from '@/components/ui/Skeleton'
 import {
+  extractApiError,
   safeExternalUrl,
   type ConstructionMilestone,
   type MyLedgerData,
+  type PublicLedgerSummary,
 } from '@/types/core'
 
 interface FinanceSummary {
@@ -145,6 +148,9 @@ export default function Finance() {
 
   const [myLedger, setMyLedger] = useState<MyLedgerData | null>(null)
   const [ledgerLoading, setLedgerLoading] = useState(true)
+  const [publicLedger, setPublicLedger] = useState<PublicLedgerSummary | null>(null)
+  const [publicLedgerError, setPublicLedgerError] = useState<string | null>(null)
+  const [publicLedgerLoading, setPublicLedgerLoading] = useState(true)
   const [milestones, setMilestones] = useState<ConstructionMilestone[]>([])
   const [milestonesLoading, setMilestonesLoading] = useState(true)
 
@@ -181,8 +187,9 @@ export default function Finance() {
     let cancelled = false
 
     async function fetchCoreLedgerAndConstruction() {
-      const [ledgerRes, milestonesRes] = await Promise.allSettled([
+      const [ledgerRes, publicSummaryRes, milestonesRes] = await Promise.allSettled([
         api.get<{ success: boolean } & MyLedgerData>('/ledger/my'),
+        api.get<{ success: boolean } & PublicLedgerSummary>('/public/ledger/summary'),
         api.get<{ success: boolean; milestones: ConstructionMilestone[] }>(
           '/public/construction/milestones',
         ),
@@ -197,6 +204,16 @@ export default function Finance() {
         })
       }
       setLedgerLoading(false)
+
+      if (publicSummaryRes.status === 'fulfilled') {
+        setPublicLedger(publicSummaryRes.value.data)
+        setPublicLedgerError(null)
+      } else {
+        setPublicLedgerError(
+          extractApiError(publicSummaryRes.reason, 'Не удалось загрузить верифицированный реестр'),
+        )
+      }
+      setPublicLedgerLoading(false)
 
       if (milestonesRes.status === 'fulfilled') {
         setMilestones(milestonesRes.value.data.milestones ?? [])
@@ -268,6 +285,81 @@ export default function Finance() {
       {/* Tab 1: Existing Settlement Summary & Transactions */}
       {activeTab === 'overview' && (
         <div className="space-y-8">
+          {/* Verified Kopeck Ledger (FIFO) vs Legacy Operational Journal Banner */}
+          <Card variant="highlighted" className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Shield size={18} className="text-accent" />
+                <h2 className="text-base font-semibold font-display text-text">
+                  Верифицированный реестр в копейках (FIFO)
+                </h2>
+                <Badge variant="info">Прослеживаемый контур</Badge>
+              </div>
+              {publicLedger && (
+                <span className="text-xs text-text-muted">
+                  Взносов в реестре: {publicLedger.totals.contributions_count}
+                </span>
+              )}
+            </div>
+
+            <p className="text-xs text-text-secondary leading-relaxed">
+              Ниже показаны точные итоги{' '}
+              <strong className="text-text">Верифицированного реестра в копейках (FIFO)</strong> —
+              каждая копейка взноса связана с конкретным расходом и этапом стройки.{' '}
+              <span className="text-text-muted">
+                Операционный журнал (legacy transactions) ниже ведётся как отдельный контур учёта
+                и не суммируется с копеечным реестром.
+              </span>
+            </p>
+
+            {publicLedgerLoading ? (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <SkeletonCard />
+                <SkeletonCard />
+                <SkeletonCard />
+                <SkeletonCard />
+              </div>
+            ) : publicLedgerError ? (
+              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400 flex items-center gap-2">
+                <AlertCircle size={14} />
+                <span>{publicLedgerError}</span>
+              </div>
+            ) : publicLedger ? (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3 rounded-lg bg-bg-elevated/60 border border-border">
+                  <p className="text-xs text-text-muted">Получено</p>
+                  <p className="text-base font-bold font-display text-text mt-0.5">
+                    {publicLedger.totals.received.rubles_str} ₽
+                  </p>
+                </div>
+                <div className="p-3 rounded-lg bg-bg-elevated/60 border border-border">
+                  <p className="text-xs text-text-muted">Доступно</p>
+                  <p className="text-base font-bold font-display text-green mt-0.5">
+                    {publicLedger.totals.available.rubles_str} ₽
+                  </p>
+                </div>
+                <div className="p-3 rounded-lg bg-bg-elevated/60 border border-border">
+                  <p className="text-xs text-text-muted">В резерве</p>
+                  <p className="text-base font-bold font-display text-amber-400 mt-0.5">
+                    {publicLedger.totals.reserved.rubles_str} ₽
+                  </p>
+                </div>
+                <div className="p-3 rounded-lg bg-bg-elevated/60 border border-border">
+                  <p className="text-xs text-text-muted">Оплачено</p>
+                  <p className="text-base font-bold font-display text-accent mt-0.5">
+                    {publicLedger.totals.paid.rubles_str} ₽
+                  </p>
+                </div>
+              </div>
+            ) : null}
+          </Card>
+
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold font-display text-text">
+              Операционный журнал (legacy transactions)
+            </h2>
+          </div>
+
           {/* Summary cards */}
           {summary ? (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
