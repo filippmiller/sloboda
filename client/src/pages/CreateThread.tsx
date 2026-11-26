@@ -1,12 +1,13 @@
 // Create new thread page
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input, { Textarea } from '@/components/ui/Input';
 import { useForumStore } from '@/stores/forumStore';
 import { useAuthStore } from '@/stores/authStore';
+import { getApiErrorMessage } from '@/lib/utils';
 
 export default function CreateThread() {
   const { t } = useTranslation();
@@ -46,8 +47,8 @@ export default function CreateThread() {
 
       // Navigate to the new thread
       navigate(`/forum/thread/${thread.id}`);
-    } catch (err: any) {
-      setError(err.response?.data?.error || t('forum.createThread.error'));
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, t('forum.createThread.error')));
       setIsSubmitting(false);
     }
   };

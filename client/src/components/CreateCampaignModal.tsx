@@ -4,6 +4,7 @@ import api from '@/services/api'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/utils'
 
 interface CreateCampaignModalProps {
   onClose: () => void
@@ -52,9 +53,9 @@ export default function CreateCampaignModal({ onClose, onCampaignCreated }: Crea
         endDate: formData.endDate || undefined
       })
       onCampaignCreated()
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to create campaign:', error)
-      toast.error(error.response?.data?.error || 'Не удалось создать сбор')
+      toast.error(getApiErrorMessage(error, 'Не удалось создать сбор'))
     } finally {
       setLoading(false)
     }

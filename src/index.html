@@ -125,51 +125,41 @@
 
         <div class="hero-content">
             <div class="hero-badge" data-animate="fade-in">
-                ⚡ Создано с помощью ИИ
+                Открытая инженерная программа · 21 направление
             </div>
 
             <h1 class="hero-title" data-animate="fade-up">
-                Вы это чувствуете,<br>не так ли?
+                Проектируем Слободу вместе
             </h1>
 
             <div class="hero-body" data-animate="fade-up-delay">
                 <p class="hero-text">
-                    Тревога, когда видишь очередное объявление о сокращениях.<br>
-                    Узел в желудке при новостях о банковской нестабильности.<br>
-                    Тихий вопрос: <strong>«А что, если всё это развалится?»</strong>
+                    Собираем строителей, инженеров, архитекторов, агрономов, экономистов, юристов и практиков, чтобы совместно разработать воспроизводимую модель доступного автономного поселения (сценарии 200, 500, 1000 и 2000 домов).
                 </p>
 
                 <p class="hero-answer">
-                    <strong>Вы не параноик. Вы проницательны.</strong><br>
-                    И вы попали куда нужно.
+                    <strong>Членство доступно без оплаты.</strong><br>
+                    На выборах совета — один человек, один голос. Каждый рубль будущего бюджета прослеживается до чека и объекта.
                 </p>
             </div>
 
             <div class="hero-ctas" data-animate="fade-up-delay-2">
                 <a href="#join" class="cta-btn cta-btn-primary">
-                    <span>Обеспечить своё место</span>
+                    <span>Подать заявку и портфолио</span>
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M7.5 15L12.5 10L7.5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                 </a>
-                <button class="cta-btn cta-btn-secondary" id="videoBtn">
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M6.66675 5L14.1667 10L6.66675 15V5Z" fill="currentColor"/>
-                    </svg>
-                    <span>Смотреть обзор (3 мин)</span>
-                </button>
+                <a href="/concept" class="cta-btn cta-btn-secondary">
+                    <span>Концепция и 21 домен</span>
+                </a>
             </div>
 
             <!-- Honest truth callout -->
             <div class="truth-callout" data-animate="fade-in-delay">
                 <p class="truth-callout-text">
-                    <strong>Мы не будем вас обманывать.</strong><br>
-                    Многие сайты пишут "500+ участников" или "собрано 800K". Мы могли бы так же, но это было бы неискренне. <strong>Проект только начинается</strong>. Сейчас нас мало — и это ваш шанс быть у истоков. Будьте первыми, кто построит это вместе с нами.
+                    <strong>Честные правила с первого дня:</strong> никаких нарисованных цифр и фейковых сборов. Все публичные сводки и этапы стройки читаются напрямую из базы, а приём платежей закрыт до оформления юрлица и утверждения сметы.
                 </p>
-            </div>
-
-            <div class="truth-callout" data-animate="fade-in-delay">
-                <p class="truth-callout-text">Никаких нарисованных участников и собранных сумм. Когда появятся настоящие числа — они будут из базы.</p>
             </div>
         </div>
     </section>
@@ -663,17 +653,26 @@
         </div>
     </section>
 
+    <section class="section" id="ledger-panel">
+        <div class="container">
+            <h2 class="section-title text-center">Прозрачность реестра и панель стройки</h2>
+            <p class="section-intro text-center">Агрегированная сводка по подтверждённым поступлениям, резервам, оплатам и физическим этапам стройки (без персональных данных). Детальное отслеживание каждого взноса доступно в личном кабинете.</p>
+            <div id="ledgerSummaryPanel" class="community-list"></div>
+            <div id="constructionMilestonesList" class="community-list" style="margin-top: 1.5rem;"></div>
+        </div>
+    </section>
+
     <section class="section section-dark" id="voice">
         <div class="container">
-            <h2 class="section-title text-center">Голос сообщества</h2>
-            <p class="section-intro text-center">Создайте опрос. Он появится после проверки. Один человек — один голос. Голос не покупается.</p>
+            <h2 class="section-title text-center">Совещательные опросы сообщества</h2>
+            <p class="section-intro text-center">Публичные опросы носят исключительно совещательный характер. Обязательные решения, выборы совета (1 человек = 1 голос) и имущественные голосования проходят в защищённом контуре участников.</p>
             <div id="pollList" class="community-list"></div>
             <form class="community-form" id="pollForm">
-                <h3>Новый опрос</h3>
+                <h3>Предложить совещательный опрос</h3>
                 <input type="text" name="fax_number" class="hp-field" tabindex="-1" autocomplete="off">
                 <div class="form-group">
                     <label for="pollTitle">Вопрос</label>
-                    <input id="pollTitle" name="title" required maxlength="180" placeholder="Что решаем вместе?">
+                    <input id="pollTitle" name="title" required maxlength="180" placeholder="Что обсудим вместе?">
                 </div>
                 <div class="form-group">
                     <label for="pollBody">Пояснение</label>
@@ -687,10 +686,7 @@
                     <label>Варианты — каждый с новой строки, минимум два</label>
                     <textarea id="pollOptions" rows="4" required placeholder="Первый вариант&#10;Второй вариант"></textarea>
                 </div>
-                <label class="check-row">
-                    <input type="checkbox" id="pollBinding">
-                    Это решение, которого будем держаться, не просто совет
-                </label>
+                <p class="form-note">Опубликованные гостевые опросы всегда имеют статус «Совещательный опрос».</p>
                 <button type="submit" class="cta-btn cta-btn-primary">Отправить на проверку</button>
                 <p class="form-note" id="pollFormNote"></p>
             </form>

@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Heart, Users, TrendingUp, Share2, ArrowLeft, Copy } from 'lucide-react'
+import { Heart, TrendingUp, Share2, ArrowLeft, Copy } from 'lucide-react'
 import api from '@/services/api'
 import Button from '@/components/ui/Button'
 import Card from '@/components/ui/Card'
@@ -39,7 +39,7 @@ export default function CampaignDetail() {
   const [loading, setLoading] = useState(true)
   const [showDonateModal, setShowDonateModal] = useState(false)
 
-  const fetchCampaign = async () => {
+  const fetchCampaign = useCallback(async () => {
     try {
       setLoading(true)
       const response = await api.get(`/user/campaigns/${id}`)
@@ -51,11 +51,11 @@ export default function CampaignDetail() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [id, navigate])
 
   useEffect(() => {
     fetchCampaign()
-  }, [id])
+  }, [fetchCampaign])
 
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat('ru-RU').format(amount)

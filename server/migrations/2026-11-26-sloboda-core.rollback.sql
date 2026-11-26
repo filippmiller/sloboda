@@ -1,0 +1,54 @@
+-- Sloboda Core Platform Non-Destructive Rollback (2026-11-26)
+-- Policy: NEVER drop populated application, governance, financial, or construction evidence.
+-- Runs in a single transaction with ACCESS EXCLUSIVE locks acquired before checking row counts.
+
+BEGIN;
+
+DO $$
+DECLARE
+    tbl TEXT;
+    cnt BIGINT;
+    tables TEXT[] := ARRAY[
+        'ledger_postings',
+        'expense_allocations',
+        'ledger_expenses',
+        'construction_milestones',
+        'contributions',
+        'council_delegations',
+        'governance_secret_ballots',
+        'governance_voter_receipts',
+        'governance_ballots',
+        'governance_voter_snapshots',
+        'governance_proposals',
+        'portfolio_items',
+        'member_applications'
+    ];
+BEGIN
+    FOREACH tbl IN ARRAY tables LOOP
+        IF to_regclass('public.' || tbl) IS NOT NULL THEN
+            EXECUTE format('LOCK TABLE %I IN ACCESS EXCLUSIVE MODE', tbl);
+            EXECUTE format('SELECT COUNT(*) FROM %I', tbl) INTO cnt;
+            IF cnt > 0 THEN
+                RAISE EXCEPTION 'Refusing destructive rollback: table % has % rows. Roll back application code while preserving database records.', tbl, cnt;
+            END IF;
+        END IF;
+    END LOOP;
+END $$;
+
+DROP TABLE IF EXISTS ledger_postings;
+DROP TABLE IF EXISTS expense_allocations;
+DROP TABLE IF EXISTS ledger_expenses;
+DROP TABLE IF EXISTS construction_milestones;
+DROP TABLE IF EXISTS contributions;
+DROP TABLE IF EXISTS council_delegations;
+DROP TABLE IF EXISTS governance_secret_ballots;
+DROP TABLE IF EXISTS governance_voter_receipts;
+DROP TABLE IF EXISTS governance_ballots;
+DROP TABLE IF EXISTS governance_voter_snapshots;
+DROP TABLE IF EXISTS governance_proposals;
+DROP TABLE IF EXISTS portfolio_items;
+DROP TABLE IF EXISTS member_applications;
+
+DELETE FROM schema_migrations WHERE version = '2026-11-26-sloboda-core';
+
+COMMIT;

@@ -1,6 +1,7 @@
 // Forum state management with Zustand
 import { create } from 'zustand';
 import axios from 'axios';
+import { getApiErrorMessage } from '@/lib/utils';
 
 interface Thread {
   id: number;
@@ -23,7 +24,7 @@ interface Thread {
   last_activity_at: string;
 }
 
-interface Comment {
+export interface Comment {
   id: number;
   body: string;
   thread_id: number;
@@ -125,9 +126,9 @@ export const useForumStore = create<ForumState>((set, get) => ({
 
       const response = await axios.get(`/api/forum/threads?${params}`);
       set({ threads: response.data.threads, threadsLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
-        threadsError: error.response?.data?.error || 'Failed to load threads',
+        threadsError: getApiErrorMessage(error, 'Failed to load threads'),
         threadsLoading: false
       });
     }
@@ -142,9 +143,9 @@ export const useForumStore = create<ForumState>((set, get) => ({
         comments: response.data.comments || [],
         threadsLoading: false
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
-        threadsError: error.response?.data?.error || 'Failed to load thread',
+        threadsError: getApiErrorMessage(error, 'Failed to load thread'),
         threadsLoading: false
       });
     }
@@ -202,9 +203,9 @@ export const useForumStore = create<ForumState>((set, get) => ({
         comments: response.data.comments || [],
         commentsLoading: false
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
-        commentsError: error.response?.data?.error || 'Failed to load comments',
+        commentsError: getApiErrorMessage(error, 'Failed to load comments'),
         commentsLoading: false
       });
     }
@@ -267,7 +268,7 @@ export const useForumStore = create<ForumState>((set, get) => ({
     try {
       const response = await axios.get('/api/roles/user/me');
       set({ userRole: response.data.role, roleLoading: false });
-    } catch (error) {
+    } catch {
       set({ roleLoading: false });
     }
   },

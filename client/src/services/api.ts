@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { toast } from 'sonner'
 import i18n from '@/i18n'
+import { getCsrfToken, MUTATING_METHODS } from '@/services/csrf'
 
 const api = axios.create({
   baseURL: '/api',
@@ -10,11 +11,18 @@ const api = axios.create({
   },
 })
 
-// Automatically append current language to GET requests for translated content
-api.interceptors.request.use((config) => {
+// Automatically append current language to GET requests and attach CSRF token on mutations
+api.interceptors.request.use(async (config) => {
+  const method = (config.method || 'get').toLowerCase()
   const lang = i18n.language
-  if (lang && lang !== 'ru' && config.method === 'get') {
+  if (lang && lang !== 'ru' && method === 'get') {
     config.params = { ...config.params, lang }
+  }
+  if (MUTATING_METHODS.has(method)) {
+    const token = await getCsrfToken()
+    if (token) {
+      config.headers.set('X-CSRF-Token', token)
+    }
   }
   return config
 })

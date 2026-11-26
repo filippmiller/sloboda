@@ -3,9 +3,59 @@ import { toast } from 'sonner';
 import adminApi from '@/services/adminApi';
 import { Save, RotateCw, Eye, Plus, Trash2, Edit2 } from 'lucide-react';
 
+interface BookmarkBannerContent {
+  enabled: boolean;
+  text: string;
+}
+
+interface HeroContent {
+  badge: string;
+  title: string;
+  text: string;
+  answer: string;
+}
+
+interface RealityCard {
+  type: string;
+  title: string;
+  question?: string;
+  answer?: string;
+  warning?: string;
+  content?: string;
+  cta?: string;
+}
+
+interface TestimonialItem {
+  quote: string;
+  name: string;
+  role: string;
+  avatar: string;
+}
+
+interface FeatureItem {
+  number: string | number;
+  title: string;
+  description: string;
+}
+
+interface DonationAmountItem {
+  amount: number;
+  description: string;
+  popular: boolean;
+}
+
+type LandingContentValue =
+  | BookmarkBannerContent
+  | HeroContent
+  | RealityCard[]
+  | TestimonialItem[]
+  | FeatureItem[]
+  | DonationAmountItem[]
+  | Record<string, unknown>;
+
 interface LandingSection {
   section: string;
-  content: any;
+  content: LandingContentValue;
   updated_at: string;
   updated_by_email?: string;
 }
@@ -15,7 +65,7 @@ export default function LandingContent() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editingSection, setEditingSection] = useState<string | null>(null);
-  const [editContent, setEditContent] = useState<any>(null);
+  const [editContent, setEditContent] = useState<LandingContentValue | null>(null);
 
   useEffect(() => {
     fetchSections();
@@ -26,7 +76,7 @@ export default function LandingContent() {
       setLoading(true);
       const response = await adminApi.get('/admin/landing-content');
       setSections(response.data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching sections:', error);
       toast.error('Ошибка загрузки контента');
     } finally {
@@ -54,7 +104,7 @@ export default function LandingContent() {
       setEditingSection(null);
       setEditContent(null);
       fetchSections();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving section:', error);
       toast.error('Ошибка сохранения');
     } finally {
@@ -67,31 +117,32 @@ export default function LandingContent() {
 
     switch (name) {
       case 'bookmark_banner':
-        return renderBookmarkBannerEditor(content);
+        return renderBookmarkBannerEditor(content as BookmarkBannerContent);
       case 'hero':
-        return renderHeroEditor(content);
+        return renderHeroEditor(content as HeroContent);
       case 'reality_cards':
-        return renderRealityCardsEditor(content);
+        return renderRealityCardsEditor(content as RealityCard[]);
       case 'testimonials':
-        return renderTestimonialsEditor(content);
+        return renderTestimonialsEditor(content as TestimonialItem[]);
       case 'features':
-        return renderFeaturesEditor(content);
+        return renderFeaturesEditor(content as FeatureItem[]);
       case 'donation_amounts':
-        return renderDonationAmountsEditor(content);
+        return renderDonationAmountsEditor(content as DonationAmountItem[]);
       default:
         return <pre className="text-sm">{JSON.stringify(content, null, 2)}</pre>;
     }
   };
 
-  const renderBookmarkBannerEditor = (content: any) => {
+  const renderBookmarkBannerEditor = (content: BookmarkBannerContent) => {
+    const draft = (editContent as BookmarkBannerContent | null) ?? content;
     return (
       <div className="space-y-4">
         <div>
           <label className="block mb-2 font-medium">
             <input
               type="checkbox"
-              checked={editContent?.enabled ?? content.enabled}
-              onChange={(e) => setEditContent({ ...editContent, enabled: e.target.checked })}
+              checked={draft.enabled}
+              onChange={(e) => setEditContent({ ...draft, enabled: e.target.checked })}
               className="mr-2"
             />
             Включен
@@ -100,8 +151,8 @@ export default function LandingContent() {
         <div>
           <label className="block mb-2 font-medium">Текст</label>
           <textarea
-            value={editContent?.text ?? content.text}
-            onChange={(e) => setEditContent({ ...editContent, text: e.target.value })}
+            value={draft.text}
+            onChange={(e) => setEditContent({ ...draft, text: e.target.value })}
             className="w-full p-3 bg-gray-800 border border-gray-700 rounded"
             rows={3}
           />
@@ -110,23 +161,24 @@ export default function LandingContent() {
     );
   };
 
-  const renderHeroEditor = (content: any) => {
+  const renderHeroEditor = (content: HeroContent) => {
+    const draft = (editContent as HeroContent | null) ?? content;
     return (
       <div className="space-y-4">
         <div>
           <label className="block mb-2 font-medium">Бейдж</label>
           <input
             type="text"
-            value={editContent?.badge ?? content.badge}
-            onChange={(e) => setEditContent({ ...editContent, badge: e.target.value })}
+            value={draft.badge}
+            onChange={(e) => setEditContent({ ...draft, badge: e.target.value })}
             className="w-full p-3 bg-gray-800 border border-gray-700 rounded"
           />
         </div>
         <div>
           <label className="block mb-2 font-medium">Заголовок (можно использовать HTML)</label>
           <textarea
-            value={editContent?.title ?? content.title}
-            onChange={(e) => setEditContent({ ...editContent, title: e.target.value })}
+            value={draft.title}
+            onChange={(e) => setEditContent({ ...draft, title: e.target.value })}
             className="w-full p-3 bg-gray-800 border border-gray-700 rounded"
             rows={2}
           />
@@ -134,8 +186,8 @@ export default function LandingContent() {
         <div>
           <label className="block mb-2 font-medium">Текст (можно использовать HTML)</label>
           <textarea
-            value={editContent?.text ?? content.text}
-            onChange={(e) => setEditContent({ ...editContent, text: e.target.value })}
+            value={draft.text}
+            onChange={(e) => setEditContent({ ...draft, text: e.target.value })}
             className="w-full p-3 bg-gray-800 border border-gray-700 rounded"
             rows={4}
           />
@@ -143,8 +195,8 @@ export default function LandingContent() {
         <div>
           <label className="block mb-2 font-medium">Ответ (можно использовать HTML)</label>
           <textarea
-            value={editContent?.answer ?? content.answer}
-            onChange={(e) => setEditContent({ ...editContent, answer: e.target.value })}
+            value={draft.answer}
+            onChange={(e) => setEditContent({ ...draft, answer: e.target.value })}
             className="w-full p-3 bg-gray-800 border border-gray-700 rounded"
             rows={2}
           />
@@ -153,15 +205,15 @@ export default function LandingContent() {
     );
   };
 
-  const renderRealityCardsEditor = (content: any) => {
-    const cards = editContent ?? content;
+  const renderRealityCardsEditor = (content: RealityCard[]) => {
+    const cards = (editContent ?? content) as RealityCard[];
 
     // Guard: Ensure cards is an array
     if (!Array.isArray(cards)) {
       return <div className="text-red-500">Error: Content is not an array</div>;
     }
 
-    const updateCard = (index: number, field: string, value: any) => {
+    const updateCard = (index: number, field: keyof RealityCard, value: string) => {
       const newCards = [...cards];
       newCards[index] = { ...newCards[index], [field]: value };
       setEditContent(newCards);
@@ -169,7 +221,7 @@ export default function LandingContent() {
 
     return (
       <div className="space-y-6">
-        {cards.map((card: any, index: number) => (
+        {cards.map((card, index) => (
           <div key={index} className="p-4 bg-gray-800 rounded border border-gray-700">
             <h4 className="font-bold mb-3">Карточка {index + 1} ({card.type})</h4>
             <div className="space-y-3">
@@ -244,15 +296,15 @@ export default function LandingContent() {
     );
   };
 
-  const renderTestimonialsEditor = (content: any) => {
-    const testimonials = editContent ?? content;
+  const renderTestimonialsEditor = (content: TestimonialItem[]) => {
+    const testimonials = (editContent ?? content) as TestimonialItem[];
 
     // Guard: Ensure testimonials is an array
     if (!Array.isArray(testimonials)) {
       return <div className="text-red-500">Error: Content is not an array</div>;
     }
 
-    const updateTestimonial = (index: number, field: string, value: any) => {
+    const updateTestimonial = (index: number, field: keyof TestimonialItem, value: string) => {
       const newTestimonials = [...testimonials];
       newTestimonials[index] = { ...newTestimonials[index], [field]: value };
       setEditContent(newTestimonials);
@@ -263,13 +315,13 @@ export default function LandingContent() {
     };
 
     const removeTestimonial = (index: number) => {
-      const newTestimonials = testimonials.filter((_: any, i: number) => i !== index);
+      const newTestimonials = testimonials.filter((_, i) => i !== index);
       setEditContent(newTestimonials);
     };
 
     return (
       <div className="space-y-4">
-        {testimonials.map((testimonial: any, index: number) => (
+        {testimonials.map((testimonial, index) => (
           <div key={index} className="p-4 bg-gray-800 rounded border border-gray-700">
             <div className="flex justify-between mb-3">
               <h4 className="font-bold">Отзыв {index + 1}</h4>
@@ -334,15 +386,15 @@ export default function LandingContent() {
     );
   };
 
-  const renderFeaturesEditor = (content: any) => {
-    const features = editContent ?? content;
+  const renderFeaturesEditor = (content: FeatureItem[]) => {
+    const features = (editContent ?? content) as FeatureItem[];
 
     // Guard: Ensure features is an array
     if (!Array.isArray(features)) {
       return <div className="text-red-500">Error: Content is not an array</div>;
     }
 
-    const updateFeature = (index: number, field: string, value: any) => {
+    const updateFeature = (index: number, field: keyof FeatureItem, value: string) => {
       const newFeatures = [...features];
       newFeatures[index] = { ...newFeatures[index], [field]: value };
       setEditContent(newFeatures);
@@ -350,7 +402,7 @@ export default function LandingContent() {
 
     return (
       <div className="space-y-4">
-        {features.map((feature: any, index: number) => (
+        {features.map((feature, index) => (
           <div key={index} className="p-4 bg-gray-800 rounded border border-gray-700">
             <h4 className="font-bold mb-3">Feature {feature.number}</h4>
             <div className="space-y-3">
@@ -379,15 +431,19 @@ export default function LandingContent() {
     );
   };
 
-  const renderDonationAmountsEditor = (content: any) => {
-    const amounts = editContent ?? content;
+  const renderDonationAmountsEditor = (content: DonationAmountItem[]) => {
+    const amounts = (editContent ?? content) as DonationAmountItem[];
 
     // Guard: Ensure amounts is an array
     if (!Array.isArray(amounts)) {
       return <div className="text-red-500">Error: Content is not an array</div>;
     }
 
-    const updateAmount = (index: number, field: string, value: any) => {
+    const updateAmount = <K extends keyof DonationAmountItem>(
+      index: number,
+      field: K,
+      value: DonationAmountItem[K]
+    ) => {
       const newAmounts = [...amounts];
       newAmounts[index] = { ...newAmounts[index], [field]: value };
       setEditContent(newAmounts);
@@ -398,13 +454,13 @@ export default function LandingContent() {
     };
 
     const removeAmount = (index: number) => {
-      const newAmounts = amounts.filter((_: any, i: number) => i !== index);
+      const newAmounts = amounts.filter((_, i) => i !== index);
       setEditContent(newAmounts);
     };
 
     return (
       <div className="space-y-4">
-        {amounts.map((item: any, index: number) => (
+        {amounts.map((item, index) => (
           <div key={index} className="p-4 bg-gray-800 rounded border border-gray-700">
             <div className="flex justify-between mb-3">
               <h4 className="font-bold">Сумма {index + 1}</h4>

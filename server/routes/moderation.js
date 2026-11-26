@@ -9,8 +9,8 @@ function setDb(database) {
   db = database;
 }
 
-// POST /api/moderation/threads/:id/pin - Pin/unpin thread (requires can_moderate)
-router.post('/threads/:id/pin', requireUserAuth, requirePermission('can_moderate'), async (req, res) => {
+// POST /api/moderation/threads/:id/pin - Pin/unpin thread (requires can_pin_threads)
+router.post('/threads/:id/pin', requireUserAuth, requirePermission('can_pin_threads'), async (req, res) => {
   try {
     const { id } = req.params;
     const { pinned } = req.body;
@@ -46,8 +46,8 @@ router.post('/threads/:id/pin', requireUserAuth, requirePermission('can_moderate
   }
 });
 
-// POST /api/moderation/threads/:id/lock - Lock/unlock thread (requires can_moderate)
-router.post('/threads/:id/lock', requireUserAuth, requirePermission('can_moderate'), async (req, res) => {
+// POST /api/moderation/threads/:id/lock - Lock/unlock thread (requires can_lock_threads)
+router.post('/threads/:id/lock', requireUserAuth, requirePermission('can_lock_threads'), async (req, res) => {
   try {
     const { id } = req.params;
     const { locked } = req.body;
@@ -83,8 +83,8 @@ router.post('/threads/:id/lock', requireUserAuth, requirePermission('can_moderat
   }
 });
 
-// POST /api/moderation/users/:id/warn - Warn a user (requires can_moderate)
-router.post('/users/:id/warn', requireUserAuth, requirePermission('can_moderate'), async (req, res) => {
+// POST /api/moderation/users/:id/warn - Warn a user (requires can_warn_users)
+router.post('/users/:id/warn', requireUserAuth, requirePermission('can_warn_users'), async (req, res) => {
   try {
     const { id } = req.params;
     const { reason } = req.body;
@@ -126,12 +126,15 @@ router.post('/users/:id/warn', requireUserAuth, requirePermission('can_moderate'
   }
 });
 
-// POST /api/moderation/users/:id/ban - Ban a user (requires can_ban)
-router.post('/users/:id/ban', requireUserAuth, requirePermission('can_ban'), async (req, res) => {
+// POST /api/moderation/users/:id/ban - Ban a user (requires can_ban_users_temporary; permanent ban checks can_ban_users_permanent)
+router.post('/users/:id/ban', requireUserAuth, requirePermission('can_ban_users_temporary'), async (req, res) => {
   try {
     const { id } = req.params;
     const { reason, expiresAt } = req.body;
     const moderatorId = req.user.id;
+    if (!expiresAt && !req.roleConfig?.permissions?.can_ban_users_permanent) {
+      return res.status(403).json({ error: 'Permanent bans require super_moderator permission' });
+    }
 
     if (!reason || reason.length < 5) {
       return res.status(400).json({ error: 'Ban reason must be at least 5 characters' });

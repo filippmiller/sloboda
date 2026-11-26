@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { MessageSquare, Eye, MessageCircle, Pin, Lock, Trash2, Edit, Search, Shield, AlertTriangle, BarChart3 } from 'lucide-react'
+import { MessageSquare, Eye, MessageCircle, Pin, Lock, Trash2, Edit, Search, Shield, AlertTriangle } from 'lucide-react'
 import { ROUTES } from '@/config/routes'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -31,16 +31,18 @@ export default function ForumThreads() {
   const [sortBy, setSortBy] = useState<'recent' | 'popular' | 'oldest'>('recent')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const searchQueryRef = useRef(searchQuery)
 
-  useEffect(() => {
-    fetchThreads()
-  }, [sortBy, page])
+  const handleSearchChange = (value: string) => {
+    searchQueryRef.current = value
+    setSearchQuery(value)
+  }
 
-  const fetchThreads = async () => {
+  const fetchThreads = useCallback(async () => {
     try {
       setLoading(true)
       const response = await axios.get('/api/forum/threads', {
-        params: { page, limit: 20, sortBy, search: searchQuery || undefined }
+        params: { page, limit: 20, sortBy, search: searchQueryRef.current || undefined }
       })
       setThreads(response.data.threads)
       setTotalPages(response.data.pagination.totalPages)
@@ -50,7 +52,11 @@ export default function ForumThreads() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [page, sortBy])
+
+  useEffect(() => {
+    fetchThreads()
+  }, [fetchThreads])
 
   const handleTogglePin = async (threadId: number, isPinned: boolean) => {
     try {
@@ -59,7 +65,7 @@ export default function ForumThreads() {
       })
       toast.success(isPinned ? 'Тема откреплена' : 'Тема закреплена')
       fetchThreads()
-    } catch (error) {
+    } catch {
       toast.error('Ошибка при изменении статуса')
     }
   }
@@ -71,7 +77,7 @@ export default function ForumThreads() {
       })
       toast.success(isLocked ? 'Тема разблокирована' : 'Тема заблокирована')
       fetchThreads()
-    } catch (error) {
+    } catch {
       toast.error('Ошибка при изменении статуса')
     }
   }
@@ -83,14 +89,17 @@ export default function ForumThreads() {
       await axios.delete(`/api/forum/moderation/threads/${threadId}`)
       toast.success('Тема удалена')
       fetchThreads()
-    } catch (error) {
+    } catch {
       toast.error('Ошибка при удалении темы')
     }
   }
 
   const handleSearch = () => {
-    setPage(1)
-    fetchThreads()
+    if (page === 1) {
+      fetchThreads()
+    } else {
+      setPage(1)
+    }
   }
 
   return (
@@ -138,7 +147,7 @@ export default function ForumThreads() {
               <Input
                 placeholder="Поиск по заголовку или содержимому..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
               />
             </div>

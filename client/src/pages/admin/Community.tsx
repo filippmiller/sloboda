@@ -7,16 +7,59 @@ import { Loader2 } from 'lucide-react'
 
 type Tab = 'wall' | 'polls' | 'news' | 'intents' | 'subscribers'
 
+interface WallItem {
+  id: number
+  status: string
+  name: string
+  city?: string | null
+  body: string
+}
+
+interface PollItem {
+  id: number
+  status: string
+  kind: string
+  author_name: string
+  title: string
+  body: string
+  options?: string[]
+}
+
+interface NewsItem {
+  id: number
+  status: string
+  created_by: string
+  source_name: string
+  title: string
+  summary: string
+  source_url?: string | null
+}
+
+interface IntentItem {
+  id: number
+  email: string
+  amount: number
+  kind: string
+  name?: string | null
+}
+
+interface SubscriberItem {
+  id: number
+  email: string
+  confirmed_at?: string | null
+  unsubscribed_at?: string | null
+}
+
 export default function Community() {
   const [tab, setTab] = useState<Tab>('wall')
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [data, setData] = useState<{
-    wall: any[]
-    polls: any[]
-    news: any[]
-    intents: any[]
-    subscribers: any[]
+    wall: WallItem[]
+    polls: PollItem[]
+    news: NewsItem[]
+    intents: IntentItem[]
+    subscribers: SubscriberItem[]
   }>({ wall: [], polls: [], news: [], intents: [], subscribers: [] })
 
   const load = async () => {

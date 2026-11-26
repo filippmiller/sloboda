@@ -1,5 +1,4 @@
 // Main forum page with thread listing and filters
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Plus, TrendingUp, Clock, Award, Flame } from 'lucide-react';

@@ -1,10 +1,11 @@
 // Moderator action buttons for threads
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pin, Lock, Unlock, AlertTriangle, Ban, Trash2 } from 'lucide-react';
+import { Pin, Lock, Unlock, AlertTriangle } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import axios from 'axios';
 import { toast } from 'sonner';
+import { getApiErrorMessage } from '@/lib/utils';
 
 interface ModActionsProps {
   threadId: number;
@@ -19,7 +20,6 @@ export function ModActions({
   threadId,
   isPinned,
   isLocked,
-  authorId,
   onUpdate,
   className
 }: ModActionsProps) {
@@ -34,8 +34,8 @@ export function ModActions({
       });
       toast.success(isPinned ? t('forum.moderation.toasts.threadUnpinned') : t('forum.moderation.toasts.threadPinned'));
       onUpdate();
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || t('forum.moderation.toasts.failedToUpdate'));
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, t('forum.moderation.toasts.failedToUpdate')));
     } finally {
       setIsProcessing(false);
     }
@@ -49,8 +49,8 @@ export function ModActions({
       });
       toast.success(isLocked ? t('forum.moderation.toasts.threadUnlocked') : t('forum.moderation.toasts.threadLocked'));
       onUpdate();
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || t('forum.moderation.toasts.failedToUpdate'));
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, t('forum.moderation.toasts.failedToUpdate')));
     } finally {
       setIsProcessing(false);
     }

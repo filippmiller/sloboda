@@ -20,6 +20,8 @@ const Library = lazy(() => import('@/pages/user/Library'))
 const Librarian = lazy(() => import('@/pages/user/Librarian'))
 const KnowledgeSubmit = lazy(() => import('@/pages/user/KnowledgeSubmit'))
 const Finance = lazy(() => import('@/pages/user/Finance'))
+const Applications = lazy(() => import('@/pages/user/Applications'))
+const Governance = lazy(() => import('@/pages/user/Governance'))
 const Bookmarks = lazy(() => import('@/pages/user/Bookmarks'))
 const Notifications = lazy(() => import('@/pages/user/Notifications'))
 const Profile = lazy(() => import('@/pages/user/Profile'))
@@ -94,6 +96,8 @@ function App() {
           <Route path={ROUTES.LIBRARIAN} element={<Safe><Librarian /></Safe>} />
           <Route path={ROUTES.SUBMIT} element={<Safe><KnowledgeSubmit /></Safe>} />
           <Route path={ROUTES.FINANCE} element={<Safe><Finance /></Safe>} />
+          <Route path={ROUTES.APPLICATIONS} element={<Safe><Applications /></Safe>} />
+          <Route path={ROUTES.GOVERNANCE} element={<Safe><Governance /></Safe>} />
           <Route path={ROUTES.BOOKMARKS} element={<Safe><Bookmarks /></Safe>} />
           <Route path={ROUTES.NOTIFICATIONS} element={<Safe><Notifications /></Safe>} />
           <Route path={ROUTES.PROFILE} element={<Safe><Profile /></Safe>} />

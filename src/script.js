@@ -58,15 +58,17 @@ async function loadDynamicContent() {
             return; // Fall back to hardcoded content
         }
 
-        const sections = await response.json();
-        const contentMap = sections.reduce((acc, section) => {
-            acc[section.section] = section.content;
-            return acc;
-        }, {});
+        const raw = await response.json();
+        const contentMap = Array.isArray(raw)
+            ? raw.reduce((acc, section) => {
+                acc[section.section] = section.content;
+                return acc;
+            }, {})
+            : (raw && typeof raw === 'object' ? raw : {});
 
-        // Render each section
+        // Render each section (skip legacy fear-based hero seed if unversioned)
         if (contentMap.bookmark_banner) renderBookmarkBanner(contentMap.bookmark_banner);
-        if (contentMap.hero) renderHero(contentMap.hero);
+        if (contentMap.hero && contentMap.hero.schemaVersion >= 2) renderHero(contentMap.hero);
         if (contentMap.reality_cards) renderRealityCards(contentMap.reality_cards);
         // Do not render stored testimonials: the seed data is fictional.
         if (contentMap.features) renderFeatures(contentMap.features);
@@ -1203,7 +1205,7 @@ function renderPolls(polls) {
             </button>`;
         }).join('');
         return `<article class="community-card">
-            <p class="form-note">${poll.kind === 'binding' ? 'Решение сообщества' : 'Совет'} · ${escapeHtml(poll.author_name || '')}</p>
+            <p class="form-note">Совещательный опрос · ${escapeHtml(poll.author_name || '')}</p>
             <h3>${escapeHtml(poll.title)}</h3>
             <p>${escapeHtml(poll.body || '')}</p>
             <div class="poll-options">${options}</div>
@@ -1268,8 +1270,48 @@ async function loadCommunity() {
     }
 }
 
+async function loadPublicLedgerAndConstruction() {
+    const summaryEl = document.getElementById('ledgerSummaryPanel');
+    const milestonesEl = document.getElementById('constructionMilestonesList');
+    if (!summaryEl && !milestonesEl) return;
+    try {
+        const res = await fetch('/api/public/ledger/summary');
+        const data = await res.json();
+        if (!data.success) return;
+        if (summaryEl && data.totals) {
+            summaryEl.innerHTML = `
+                <article class="community-card">
+                    <h3>Подтверждённые поступления</h3>
+                    <p><strong>${escapeHtml(data.totals.received.rubles_str)} ₽</strong> (${data.totals.contributions_count} записей)</p>
+                </article>
+                <article class="community-card">
+                    <h3>Доступно / В резерве</h3>
+                    <p>Доступно: <strong>${escapeHtml(data.totals.available.rubles_str)} ₽</strong> · Резерв: <strong>${escapeHtml(data.totals.reserved.rubles_str)} ₽</strong></p>
+                </article>
+                <article class="community-card">
+                    <h3>Оплачено по актам и чекам</h3>
+                    <p><strong>${escapeHtml(data.totals.paid.rubles_str)} ₽</strong></p>
+                </article>
+            `;
+        }
+        if (milestonesEl && Array.isArray(data.milestones)) {
+            milestonesEl.innerHTML = data.milestones.map((m) => `
+                <article class="community-card">
+                    <p class="form-note">${escapeHtml(m.category)} · ${escapeHtml(m.status)}</p>
+                    <h3>${escapeHtml(m.title)}</h3>
+                    <p>Факт / План: <strong>${escapeHtml(String(m.actual_qty))} / ${escapeHtml(String(m.planned_qty))} ${escapeHtml(m.unit)}</strong></p>
+                    <p class="form-note">Оплачено: ${escapeHtml(m.spent.rubles_str)} ₽ из ${escapeHtml(m.budget.rubles_str)} ₽</p>
+                </article>
+            `).join('');
+        }
+    } catch (err) {
+        console.error('public ledger load', err);
+    }
+}
+
 function initCommunity() {
     loadCommunity();
+    loadPublicLedgerAndConstruction();
 
     document.getElementById('pollForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -1284,7 +1326,7 @@ function initCommunity() {
                 body: form.body.value,
                 authorName: form.authorName.value,
                 options,
-                kind: document.getElementById('pollBinding')?.checked ? 'binding' : 'advisory',
+                kind: 'advisory',
                 fax_number: form.fax_number.value,
             });
             form.reset();

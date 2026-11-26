@@ -1,11 +1,12 @@
 // Moderation log display
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, Shield } from 'lucide-react';
+import { Shield } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import axios from 'axios';
 import { formatDistanceToNow } from 'date-fns';
 import { useDateLocale } from '@/hooks/useDateLocale';
+import { getApiErrorMessage } from '@/lib/utils';
 
 interface ModAction {
   id: number;
@@ -47,8 +48,8 @@ export function ModLog({ limit = 50, userId, threadId }: ModLogProps) {
 
         const response = await axios.get(`/api/moderation/actions?${params}`);
         setActions(response.data.actions || []);
-      } catch (err: any) {
-        setError(err.response?.data?.error || 'Failed to load moderation log');
+      } catch (err: unknown) {
+        setError(getApiErrorMessage(err, 'Failed to load moderation log'));
       } finally {
         setLoading(false);
       }

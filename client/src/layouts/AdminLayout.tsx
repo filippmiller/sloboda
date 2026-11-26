@@ -50,8 +50,10 @@ export default function AdminLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const { admin, isAuthenticated, isLoading, logout, checkAuth } = useAdminStore()
-  const [mobileOpen, setMobileOpen] = useState(false)
+  const [mobileMenuPath, setMobileMenuPath] = useState<string | null>(null)
   const [helpOpen, setHelpOpen] = useState(false)
+  const mobileOpen = mobileMenuPath === location.pathname
+  const setMobileOpen = (open: boolean) => setMobileMenuPath(open ? location.pathname : null)
 
   // Enable keyboard shortcuts
   useAdminKeyboardShortcuts({
@@ -62,10 +64,6 @@ export default function AdminLayout() {
   useEffect(() => {
     checkAuth()
   }, [checkAuth])
-
-  useEffect(() => {
-    setMobileOpen(false)
-  }, [location.pathname])
 
   const handleLogout = async () => {
     await logout()

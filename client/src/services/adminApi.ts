@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { toast } from 'sonner'
+import { getCsrfToken, MUTATING_METHODS } from '@/services/csrf'
 
 const adminApi = axios.create({
   baseURL: '/api',
@@ -7,6 +8,17 @@ const adminApi = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+})
+
+adminApi.interceptors.request.use(async (config) => {
+  const method = (config.method || 'get').toLowerCase()
+  if (MUTATING_METHODS.has(method)) {
+    const token = await getCsrfToken()
+    if (token) {
+      config.headers.set('X-CSRF-Token', token)
+    }
+  }
+  return config
 })
 
 let redirecting = false

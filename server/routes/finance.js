@@ -172,6 +172,11 @@ let cachedPublicSummary = null;
 let cacheTimestamp = 0;
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
+function invalidatePublicFinanceCache() {
+    cachedPublicSummary = null;
+    cacheTimestamp = 0;
+}
+
 // GET /api/public/finance/summary
 router.get('/public/finance/summary', async (req, res) => {
     try {
@@ -181,10 +186,13 @@ router.get('/public/finance/summary', async (req, res) => {
         }
 
         const summary = await db.getFinanceSummary();
+        const coreStore = require('../services/coreStore');
+        const ledger = await coreStore.getPublicLedgerSummary();
         cachedPublicSummary = {
             totalIncome: summary.totalIncome,
             totalExpenses: summary.totalExpenses,
-            balance: summary.balance
+            balance: summary.balance,
+            ledgerTotals: ledger.totals,
         };
         cacheTimestamp = now;
 
@@ -195,4 +203,4 @@ router.get('/public/finance/summary', async (req, res) => {
     }
 });
 
-module.exports = { router, setDb };
+module.exports = { router, setDb, invalidatePublicFinanceCache };

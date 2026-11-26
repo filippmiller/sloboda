@@ -29,16 +29,36 @@ function issueCsrf(req, res) {
     return { token, voter };
 }
 
+function safeEqual(a, b) {
+    if (typeof a !== 'string' || typeof b !== 'string') return false;
+    const bufA = Buffer.from(a);
+    const bufB = Buffer.from(b);
+    if (bufA.length !== bufB.length) return false;
+    return crypto.timingSafeEqual(bufA, bufB);
+}
+
 function requireCsrf(req, res, next) {
     const cookieToken = req.cookies?.[COOKIE];
     const headerToken = req.get('x-csrf-token') || req.body?.csrfToken;
-    if (!cookieToken || !headerToken || cookieToken !== headerToken) {
+    if (!cookieToken || !headerToken || !safeEqual(cookieToken, headerToken)) {
         return res.status(403).json({
             success: false,
             error: 'Проверка формы не прошла. Обновите страницу и попробуйте снова.',
         });
     }
     next();
+}
+
+/**
+ * Enforce CSRF on cookie-authenticated mutations; pure Bearer token requests
+ * (without auth cookies) are exempt from cookie-CSRF.
+ */
+function requireCsrfIfCookie(req, res, next) {
+    const hasAuthCookie = Boolean(req.cookies?.userToken || req.cookies?.adminToken);
+    if (!hasAuthCookie) {
+        return next();
+    }
+    return requireCsrf(req, res, next);
 }
 
 function honeypotTripped(body) {
@@ -60,6 +80,7 @@ function getVoterKey(req) {
 module.exports = {
     issueCsrf,
     requireCsrf,
+    requireCsrfIfCookie,
     rejectHoneypot,
     getVoterKey,
 };

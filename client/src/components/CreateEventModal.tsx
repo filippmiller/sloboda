@@ -4,6 +4,7 @@ import api from '@/services/api'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/utils'
 
 interface CreateEventModalProps {
   onClose: () => void
@@ -42,9 +43,9 @@ export default function CreateEventModal({ onClose, onEventCreated }: CreateEven
         maxAttendees: formData.maxAttendees ? parseInt(formData.maxAttendees) : undefined
       })
       onEventCreated()
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to create event:', error)
-      toast.error(error.response?.data?.error || 'Не удалось создать событие')
+      toast.error(getApiErrorMessage(error, 'Не удалось создать событие'))
     } finally {
       setLoading(false)
     }

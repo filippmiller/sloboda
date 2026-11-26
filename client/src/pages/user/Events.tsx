@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { Calendar, MapPin, Users, Plus, Filter } from 'lucide-react'
+import { Calendar, MapPin, Users, Plus } from 'lucide-react'
 import api from '@/services/api'
 import Button from '@/components/ui/Button'
 import Card from '@/components/ui/Card'
@@ -46,7 +46,7 @@ export default function Events() {
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
 
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     try {
       setLoading(true)
       const endpoint = filter === 'my-rsvps'
@@ -61,11 +61,11 @@ export default function Events() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [filter])
 
   useEffect(() => {
     fetchEvents()
-  }, [filter])
+  }, [fetchEvents])
 
   const handleRSVP = async (eventId: number, status: string) => {
     try {

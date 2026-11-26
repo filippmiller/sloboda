@@ -11,6 +11,8 @@ export const ROUTES = {
   LIBRARIAN: '/librarian',
   SUBMIT: '/submit',
   FINANCE: '/finance',
+  APPLICATIONS: '/applications',
+  GOVERNANCE: '/governance',
   BOOKMARKS: '/bookmarks',
   NOTIFICATIONS: '/notifications',
   PROFILE: '/profile',

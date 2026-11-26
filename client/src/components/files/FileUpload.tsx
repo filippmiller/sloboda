@@ -1,8 +1,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Upload, X, File, Image, FileText, Loader2, Trash2, Download, HardDrive } from 'lucide-react'
+import { Upload, File, Image, FileText, Loader2, Trash2, Download, HardDrive } from 'lucide-react'
 import api from '@/services/api'
-import Button from '@/components/ui/Button'
 import { toast } from 'sonner'
 
 interface UserFile {

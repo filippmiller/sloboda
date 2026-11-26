@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
 import axios from 'axios';
 import { toast } from 'sonner';
+import { getApiErrorMessage } from '@/lib/utils';
 
 interface WarnUserModalProps {
   userId: number;
@@ -42,8 +43,8 @@ export function WarnUserModal({
       onSuccess?.();
       onClose();
       setReason('');
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || t('forum.moderation.toasts.failedToWarn'));
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, t('forum.moderation.toasts.failedToWarn')));
     } finally {
       setIsSubmitting(false);
     }

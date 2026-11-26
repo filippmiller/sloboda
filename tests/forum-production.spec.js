@@ -11,9 +11,11 @@
 
 const { test, expect } = require('@playwright/test');
 
-const PROD_URL = 'https://sloboda-production.up.railway.app';
+const RUN_PROD = process.env.RUN_PROD_TESTS === 'true';
+const PROD_URL = process.env.PROD_BASE_URL || 'https://sloboda-production.up.railway.app';
 
-test.describe('Forum System - Production', () => {
+test.describe('Forum System - Production (Opt-in)', () => {
+  test.skip(!RUN_PROD, 'Set RUN_PROD_TESTS=true to run production smoke tests');
 
   test('Forum landing page loads', async ({ page }) => {
     await page.goto(`${PROD_URL}/forum`);
@@ -189,6 +191,7 @@ test.describe('Forum System - Production', () => {
 });
 
 test.describe('Forum Authentication Flow', () => {
+  test.skip(!RUN_PROD, 'Set RUN_PROD_TESTS=true to run production smoke tests');
 
   test('Unauthenticated access to forum', async ({ page }) => {
     await page.goto(`${PROD_URL}/forum`);
