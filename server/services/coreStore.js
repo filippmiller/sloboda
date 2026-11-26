@@ -11,6 +11,8 @@ const path = require('path');
 const crypto = require('crypto');
 const core = require('./slobodaCore');
 
+const DEFAULT_SETTLEMENT = 'sloboda-pilot';
+
 let dbRef = null;
 
 function isPgMode() {
@@ -19,7 +21,7 @@ function isPgMode() {
 
 // In-memory store used when TEST_NO_DB=true
 const mem = {
-    users: new Map(), // userId -> { id, email, name, membership_status, membership_admitted_at, settlement_id }
+    users: new Map(), // userId -> { id, email, name, status, membership_status, membership_admitted_at, settlement_id }
     nextUserId: 100,
     applications: [],
     nextAppId: 1,
@@ -49,18 +51,18 @@ const mem = {
 };
 
 function seedDefaultMilestonesMem() {
-    if (mem.milestones.length > 0) return;
+    if (mem.milestones.some((m) => m.settlement_id === DEFAULT_SETTLEMENT)) return;
     const defaults = [
         { code: 'EARTHWORKS_PITS', title: 'Котлованы под первую очередь', category: 'earthworks', unit: 'шт.', planned_qty: 20, actual_qty: 0, budget_kopecks: 200000000n, status: 'planned' },
         { code: 'SCREW_PILES', title: 'Винтовые сваи (установлено)', category: 'piles', unit: 'шт.', planned_qty: 240, actual_qty: 0, budget_kopecks: 180000000n, status: 'planned' },
         { code: 'HOUSE_KITS', title: 'Домокомплекты первой очереди', category: 'house_kits', unit: 'комплект', planned_qty: 20, actual_qty: 0, budget_kopecks: 1500000000n, status: 'planned' },
         { code: 'FOAM_PLANT', title: 'Мобильный завод пенобетона', category: 'foam_plant', unit: 'комплекс', planned_qty: 1, actual_qty: 0, budget_kopecks: 450000000n, status: 'planned' },
-        { code: 'START_EQUIPMENT', title: 'Стартовый инструмент и техника', category: 'equipment', unit: 'ед.', planned_qty: 15, actual_qty: 0, budget_kopecks: 150000000n, status: 'in_progress' },
+        { code: 'START_EQUIPMENT', title: 'Стартовый инструмент и техника', category: 'equipment', unit: 'ед.', planned_qty: 15, actual_qty: 0, budget_kopecks: 150000000n, status: 'planned' },
     ];
     for (const d of defaults) {
         mem.milestones.push({
             id: mem.nextMilestoneId++,
-            settlement_id: 'sloboda-pilot',
+            settlement_id: DEFAULT_SETTLEMENT,
             photo_url: null,
             updated_at: new Date().toISOString(),
             ...d,
@@ -78,22 +80,43 @@ async function ensureCoreSchema() {
         return;
     }
     const migrationPath = path.join(__dirname, '../migrations/2026-11-26-sloboda-core.sql');
-    const sql = fs.readFileSync(migrationPath, 'utf8');
+    const migrationR2Path = path.join(__dirname, '../migrations/2026-11-26-sloboda-core-r2.sql');
     const client = await dbRef.pool.connect();
     try {
-        await client.query(sql);
-        const mCount = await client.query('SELECT COUNT(*)::int AS n FROM construction_milestones');
-        if (mCount.rows[0].n === 0) {
+        const applied = new Set();
+        const tblRes = await client.query(`SELECT to_regclass('schema_migrations') AS tbl`);
+        if (tblRes.rows[0]?.tbl) {
+            const migRes = await client.query(
+                `SELECT version FROM schema_migrations WHERE version = ANY($1)`,
+                [['2026-11-26-sloboda-core', '2026-11-26-sloboda-core-r2']]
+            );
+            for (const row of migRes.rows) {
+                applied.add(row.version);
+            }
+        }
+        if (!applied.has('2026-11-26-sloboda-core')) {
+            const sql = fs.readFileSync(migrationPath, 'utf8');
+            await client.query(sql);
+        }
+        if (!applied.has('2026-11-26-sloboda-core-r2')) {
+            const sqlR2 = fs.readFileSync(migrationR2Path, 'utf8');
+            await client.query(sqlR2);
+        }
+        const mCount = await client.query(
+            'SELECT COUNT(*)::int AS cnt FROM construction_milestones WHERE settlement_id = $1',
+            [DEFAULT_SETTLEMENT]
+        );
+        if (mCount.rows[0].cnt === 0) {
             await client.query(`
-                INSERT INTO construction_milestones (code, title, category, unit, planned_qty, actual_qty, budget_kopecks, status)
+                INSERT INTO construction_milestones (settlement_id, code, title, category, unit, planned_qty, actual_qty, budget_kopecks, status)
                 VALUES
-                    ('EARTHWORKS_PITS', 'Котлованы под первую очередь', 'earthworks', 'шт.', 20, 0, 200000000, 'planned'),
-                    ('SCREW_PILES', 'Винтовые сваи (установлено)', 'piles', 'шт.', 240, 0, 180000000, 'planned'),
-                    ('HOUSE_KITS', 'Домокомплекты первой очереди', 'house_kits', 'комплект', 20, 0, 1500000000, 'planned'),
-                    ('FOAM_PLANT', 'Мобильный завод пенобетона', 'foam_plant', 'комплекс', 1, 0, 450000000, 'planned'),
-                    ('START_EQUIPMENT', 'Стартовый инструмент и техника', 'equipment', 'ед.', 15, 0, 150000000, 'in_progress')
-                ON CONFLICT (code) DO NOTHING
-            `);
+                    ($1, 'EARTHWORKS_PITS', 'Котлованы под первую очередь', 'earthworks', 'шт.', 20, 0, 200000000, 'planned'),
+                    ($1, 'SCREW_PILES', 'Винтовые сваи (установлено)', 'piles', 'шт.', 240, 0, 180000000, 'planned'),
+                    ($1, 'HOUSE_KITS', 'Домокомплекты первой очереди', 'house_kits', 'комплект', 20, 0, 1500000000, 'planned'),
+                    ($1, 'FOAM_PLANT', 'Мобильный завод пенобетона', 'foam_plant', 'комплекс', 1, 0, 450000000, 'planned'),
+                    ($1, 'START_EQUIPMENT', 'Стартовый инструмент и техника', 'equipment', 'ед.', 15, 0, 150000000, 'planned')
+                ON CONFLICT (settlement_id, code) DO NOTHING
+            `, [DEFAULT_SETTLEMENT]);
         }
     } finally {
         client.release();
@@ -104,21 +127,7 @@ async function ensureCoreSchema() {
 // USER MEMBERSHIP HELPERS
 // ============================================
 
-async function upsertUserRecord({ id, email, name, membership_status = 'observer', settlement_id = 'sloboda-pilot' }) {
-    if (isPgMode()) {
-        if (id) {
-            const r = await dbRef.pool.query(
-                `SELECT id, email, name, membership_status, membership_admitted_at, settlement_id FROM users WHERE id = $1`,
-                [id]
-            );
-            if (r.rows[0]) return r.rows[0];
-        }
-        const r = await dbRef.pool.query(
-            `SELECT id, email, name, membership_status, membership_admitted_at, settlement_id FROM users WHERE LOWER(email) = LOWER($1)`,
-            [email]
-        );
-        return r.rows[0] || null;
-    }
+function upsertUserRecordMem({ id, email, name, status = 'active', membership_status = 'observer', settlement_id = DEFAULT_SETTLEMENT }) {
     if (id && mem.users.has(Number(id))) {
         return { ...mem.users.get(Number(id)) };
     }
@@ -130,6 +139,7 @@ async function upsertUserRecord({ id, email, name, membership_status = 'observer
         id: uid,
         email: (email || `user${uid}@sloboda.local`).toLowerCase(),
         name: name || `Участник #${uid}`,
+        status,
         membership_status,
         membership_admitted_at: membership_status === 'accepted' ? new Date().toISOString() : null,
         settlement_id,
@@ -138,38 +148,15 @@ async function upsertUserRecord({ id, email, name, membership_status = 'observer
     return { ...user };
 }
 
-async function getUserMembership(userId) {
-    if (isPgMode()) {
-        const r = await dbRef.pool.query(
-            `SELECT id, email, name, membership_status, membership_admitted_at, settlement_id FROM users WHERE id = $1`,
-            [userId]
-        );
-        return r.rows[0] || null;
-    }
-    const u = mem.users.get(Number(userId));
-    return u ? { ...u } : null;
-}
-
-async function setUserMembership(userId, status, settlementId = 'sloboda-pilot') {
+function setUserMembershipMem(userId, status, settlementId = DEFAULT_SETTLEMENT) {
     const admittedAt = status === 'accepted' ? new Date().toISOString() : null;
-    if (isPgMode()) {
-        const r = await dbRef.pool.query(
-            `UPDATE users
-             SET membership_status = $2,
-                 membership_admitted_at = CASE WHEN $2 = 'accepted' THEN COALESCE(membership_admitted_at, CURRENT_TIMESTAMP) ELSE membership_admitted_at END,
-                 settlement_id = COALESCE($3, settlement_id)
-             WHERE id = $1
-             RETURNING id, email, name, membership_status, membership_admitted_at, settlement_id`,
-            [userId, status, settlementId]
-        );
-        return r.rows[0] || null;
-    }
     let u = mem.users.get(Number(userId));
     if (!u) {
         u = {
             id: Number(userId),
             email: `user${userId}@sloboda.local`,
             name: `Участник #${userId}`,
+            status: 'active',
             membership_status: status,
             membership_admitted_at: admittedAt,
             settlement_id: settlementId,
@@ -183,12 +170,73 @@ async function setUserMembership(userId, status, settlementId = 'sloboda-pilot')
     return { ...u };
 }
 
+async function upsertUserRecord({ id, email, name, status = 'active', membership_status = 'observer', settlement_id = DEFAULT_SETTLEMENT }) {
+    if (isPgMode()) {
+        if (id) {
+            const r = await dbRef.pool.query(
+                `SELECT id, email, name, status, membership_status, membership_admitted_at, settlement_id FROM users WHERE id = $1`,
+                [id]
+            );
+            if (r.rows[0]) return r.rows[0];
+        }
+        const r = await dbRef.pool.query(
+            `SELECT id, email, name, status, membership_status, membership_admitted_at, settlement_id FROM users WHERE LOWER(email) = LOWER($1)`,
+            [email]
+        );
+        return r.rows[0] || null;
+    }
+    return upsertUserRecordMem({ id, email, name, status, membership_status, settlement_id });
+}
+
+async function getUserMembership(userId) {
+    if (isPgMode()) {
+        const r = await dbRef.pool.query(
+            `SELECT id, email, name, status, membership_status, membership_admitted_at, settlement_id FROM users WHERE id = $1`,
+            [userId]
+        );
+        return r.rows[0] || null;
+    }
+    const u = mem.users.get(Number(userId));
+    return u ? { ...u } : null;
+}
+
+async function setUserMembership(userId, status, settlementId = DEFAULT_SETTLEMENT) {
+    if (isPgMode()) {
+        const r = await dbRef.pool.query(
+            `UPDATE users
+             SET membership_status = $2,
+                 membership_admitted_at = CASE WHEN $2 = 'accepted' THEN COALESCE(membership_admitted_at, CURRENT_TIMESTAMP) ELSE membership_admitted_at END,
+                 settlement_id = COALESCE($3, settlement_id)
+             WHERE id = $1
+             RETURNING id, email, name, status, membership_status, membership_admitted_at, settlement_id`,
+            [userId, status, settlementId]
+        );
+        return r.rows[0] || null;
+    }
+    return setUserMembershipMem(userId, status, settlementId);
+}
+
 // ============================================
 // APPLICATIONS & PORTFOLIO
 // ============================================
 
+const ACTIVE_APP_STATUSES = ['pending', 'in_review', 'revision_requested', 'accepted'];
+const TERMINAL_APP_STATUSES = ['accepted', 'rejected'];
+const ALLOWED_APP_REVIEW_TRANSITIONS = {
+    pending: new Set(['in_review', 'revision_requested', 'accepted', 'rejected']),
+    in_review: new Set(['revision_requested', 'accepted', 'rejected']),
+    revision_requested: new Set(['in_review', 'rejected']),
+};
+
+function stripAppSensitive(row) {
+    if (!row) return null;
+    const copy = { ...row };
+    delete copy.claim_token_hash;
+    return copy;
+}
+
 async function createApplication(data) {
-    const settlementId = data.settlement_id || 'sloboda-pilot';
+    const settlementId = data.settlement_id || DEFAULT_SETTLEMENT;
     const claimToken = data.user_id ? null : crypto.randomBytes(24).toString('hex');
     const claimTokenHash = claimToken ? core.sha256Hex(claimToken) : null;
 
@@ -197,13 +245,23 @@ async function createApplication(data) {
         try {
             await client.query('BEGIN');
             if (data.user_id) {
+                const uRes = await client.query(
+                    `SELECT id, membership_status FROM users WHERE id = $1 FOR UPDATE`,
+                    [data.user_id]
+                );
+                if (!uRes.rows[0]) {
+                    const err = new Error('Пользователь не найден');
+                    err.status = 404;
+                    throw err;
+                }
                 const existing = await client.query(
                     `SELECT id FROM member_applications
-                     WHERE user_id = $1 AND settlement_id = $2 AND status IN ('pending', 'in_review', 'accepted')`,
+                     WHERE user_id = $1 AND settlement_id = $2 AND status IN ('pending', 'in_review', 'revision_requested', 'accepted')`,
                     [data.user_id, settlementId]
                 );
                 if (existing.rows.length > 0) {
                     const err = new Error('У вас уже есть активная или одобренная заявка в этом поселении');
+                    err.code = 'ACTIVE_APPLICATION_EXISTS';
                     err.status = 409;
                     throw err;
                 }
@@ -237,9 +295,15 @@ async function createApplication(data) {
                 );
             }
             await client.query('COMMIT');
-            return { application: appRow, portfolio: items, claim_token: claimToken };
+            return { application: stripAppSensitive(appRow), portfolio: items, claim_token: claimToken };
         } catch (err) {
             await client.query('ROLLBACK');
+            if (err && err.code === '23505') {
+                const conflict = new Error('У вас уже есть активная или одобренная заявка в этом поселении');
+                conflict.code = 'ACTIVE_APPLICATION_EXISTS';
+                conflict.status = 409;
+                throw conflict;
+            }
             throw err;
         } finally {
             client.release();
@@ -248,16 +312,17 @@ async function createApplication(data) {
 
     if (data.user_id) {
         const dup = mem.applications.find(
-            (a) => a.user_id === Number(data.user_id) && a.settlement_id === settlementId && ['pending', 'in_review', 'accepted'].includes(a.status)
+            (a) => a.user_id === Number(data.user_id) && a.settlement_id === settlementId && ACTIVE_APP_STATUSES.includes(a.status)
         );
         if (dup) {
             const err = new Error('У вас уже есть активная или одобренная заявка в этом поселении');
+            err.code = 'ACTIVE_APPLICATION_EXISTS';
             err.status = 409;
             throw err;
         }
-        const u = await upsertUserRecord({ id: data.user_id, email: data.email, name: data.full_name, settlement_id: settlementId });
+        const u = upsertUserRecordMem({ id: data.user_id, email: data.email, name: data.full_name, settlement_id: settlementId });
         if (u.membership_status === 'observer') {
-            await setUserMembership(u.id, 'applicant', settlementId);
+            setUserMembershipMem(u.id, 'applicant', settlementId);
         }
     }
 
@@ -301,7 +366,7 @@ async function createApplication(data) {
         mem.portfolio.push(pRow);
         items.push({ ...pRow });
     }
-    return { application: { ...appRow, claim_token_hash: undefined }, portfolio: items, claim_token: claimToken };
+    return { application: stripAppSensitive(appRow), portfolio: items, claim_token: claimToken };
 }
 
 async function claimGuestApplication(userId, claimToken) {
@@ -320,15 +385,49 @@ async function claimGuestApplication(userId, claimToken) {
                 err.status = 404;
                 throw err;
             }
+            if (TERMINAL_APP_STATUSES.includes(appRow.status)) {
+                const err = new Error(`Нельзя привязать заявку в терминальном статусе ${appRow.status}`);
+                err.status = 409;
+                throw err;
+            }
+            const uRes = await client.query(`SELECT id, membership_status FROM users WHERE id = $1 FOR UPDATE`, [userId]);
+            if (!uRes.rows[0]) {
+                const err = new Error('Пользователь не найден');
+                err.status = 404;
+                throw err;
+            }
+            const activeDup = await client.query(
+                `SELECT id FROM member_applications
+                 WHERE user_id = $1 AND settlement_id = $2 AND status IN ('pending', 'in_review', 'revision_requested', 'accepted')`,
+                [userId, appRow.settlement_id]
+            );
+            if (activeDup.rows.length > 0) {
+                const err = new Error('У вас уже есть активная или одобренная заявка в этом поселении');
+                err.code = 'ACTIVE_APPLICATION_EXISTS';
+                err.status = 409;
+                throw err;
+            }
             const upd = await client.query(
-                `UPDATE member_applications SET user_id = $1, claim_token_used_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *`,
+                `UPDATE member_applications
+                 SET user_id = $1, claim_token_used_at = CURRENT_TIMESTAMP, version = version + 1, updated_at = CURRENT_TIMESTAMP
+                 WHERE id = $2 RETURNING *`,
                 [userId, appRow.id]
             );
             await client.query(`UPDATE portfolio_items SET user_id = $1 WHERE application_id = $2`, [userId, appRow.id]);
+            await client.query(
+                `UPDATE users SET membership_status = 'applicant' WHERE id = $1 AND membership_status = 'observer'`,
+                [userId]
+            );
             await client.query('COMMIT');
-            return upd.rows[0];
+            return stripAppSensitive(upd.rows[0]);
         } catch (err) {
             await client.query('ROLLBACK');
+            if (err && err.code === '23505') {
+                const conflict = new Error('У вас уже есть активная или одобренная заявка в этом поселении');
+                conflict.code = 'ACTIVE_APPLICATION_EXISTS';
+                conflict.status = 409;
+                throw conflict;
+            }
             throw err;
         } finally {
             client.release();
@@ -341,49 +440,124 @@ async function claimGuestApplication(userId, claimToken) {
         err.status = 404;
         throw err;
     }
+    if (TERMINAL_APP_STATUSES.includes(appRow.status)) {
+        const err = new Error(`Нельзя привязать заявку в терминальном статусе ${appRow.status}`);
+        err.status = 409;
+        throw err;
+    }
+    const activeDup = mem.applications.find(
+        (a) => a.user_id === Number(userId) && a.settlement_id === appRow.settlement_id && ACTIVE_APP_STATUSES.includes(a.status)
+    );
+    if (activeDup) {
+        const err = new Error('У вас уже есть активная или одобренная заявка в этом поселении');
+        err.code = 'ACTIVE_APPLICATION_EXISTS';
+        err.status = 409;
+        throw err;
+    }
     appRow.user_id = Number(userId);
     appRow.claim_token_used_at = new Date().toISOString();
+    appRow.version += 1;
     appRow.updated_at = new Date().toISOString();
     mem.portfolio.filter((p) => p.application_id === appRow.id).forEach((p) => { p.user_id = Number(userId); });
-    return { ...appRow, claim_token_hash: undefined };
+    const u = mem.users.get(Number(userId));
+    if (u && u.membership_status === 'observer') {
+        u.membership_status = 'applicant';
+    }
+    return stripAppSensitive(appRow);
 }
 
-async function getMyApplication(userId) {
+async function getMyApplication(userId, settlementId) {
     if (isPgMode()) {
-        const appRes = await dbRef.pool.query(
-            `SELECT id, user_id, settlement_id, full_name, email, city, primary_domain, skills, motivation,
-                    trial_task_title, trial_task_url, status, version, review_note, reviewed_at, created_at, updated_at
-             FROM member_applications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
-            [userId]
-        );
-        const appRow = appRes.rows[0] || null;
+        const appRes = settlementId
+            ? await dbRef.pool.query(
+                `SELECT id, user_id, settlement_id, full_name, email, city, primary_domain, skills, motivation,
+                        trial_task_title, trial_task_url, status, version, review_note, reviewed_at, created_at, updated_at
+                 FROM member_applications
+                 WHERE user_id = $1 AND settlement_id = $2
+                 ORDER BY CASE WHEN status IN ('pending', 'in_review', 'revision_requested', 'accepted') THEN 0 ELSE 1 END,
+                          created_at DESC, id DESC
+                 LIMIT 1`,
+                [userId, settlementId]
+            )
+            : await dbRef.pool.query(
+                `SELECT id, user_id, settlement_id, full_name, email, city, primary_domain, skills, motivation,
+                        trial_task_title, trial_task_url, status, version, review_note, reviewed_at, created_at, updated_at
+                 FROM member_applications
+                 WHERE user_id = $1
+                 ORDER BY CASE WHEN status IN ('pending', 'in_review', 'revision_requested', 'accepted') THEN 0 ELSE 1 END,
+                          created_at DESC, id DESC
+                 LIMIT 1`,
+                [userId]
+            );
+        const appRow = stripAppSensitive(appRes.rows[0] || null);
         const portfolio = appRow
             ? (await dbRef.pool.query(`SELECT * FROM portfolio_items WHERE application_id = $1 ORDER BY created_at DESC`, [appRow.id])).rows
             : [];
         const membership = await getUserMembership(userId);
         return { application: appRow, portfolio, membership };
     }
-    const appRow = [...mem.applications].reverse().find((a) => a.user_id === Number(userId)) || null;
+    const matching = mem.applications
+        .filter((a) => a.user_id === Number(userId) && (!settlementId || a.settlement_id === settlementId))
+        .sort((a, b) => {
+            const aActive = ACTIVE_APP_STATUSES.includes(a.status) ? 0 : 1;
+            const bActive = ACTIVE_APP_STATUSES.includes(b.status) ? 0 : 1;
+            if (aActive !== bActive) return aActive - bActive;
+            const dt = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            if (dt !== 0) return dt;
+            return b.id - a.id;
+        });
+    const appRow = matching[0] || null;
     const portfolio = appRow ? mem.portfolio.filter((p) => p.application_id === appRow.id) : [];
     const membership = await getUserMembership(userId);
-    return { application: appRow ? { ...appRow, claim_token_hash: undefined } : null, portfolio, membership };
+    return { application: stripAppSensitive(appRow), portfolio, membership };
 }
 
 async function addPortfolioItem(userId, item) {
+    if (isPgMode()) {
+        const client = await dbRef.pool.connect();
+        try {
+            await client.query('BEGIN');
+            const appRes = await client.query(
+                `SELECT id, primary_domain FROM member_applications
+                 WHERE user_id = $1
+                 ORDER BY CASE WHEN status IN ('pending', 'in_review', 'revision_requested', 'accepted') THEN 0 ELSE 1 END,
+                          created_at DESC, id DESC
+                 LIMIT 1
+                 FOR UPDATE`,
+                [userId]
+            );
+            const appRow = appRes.rows[0];
+            if (!appRow) {
+                const err = new Error('Сначала подайте заявку участника');
+                err.status = 400;
+                throw err;
+            }
+            const r = await client.query(
+                `INSERT INTO portfolio_items (user_id, application_id, title, domain_code, summary, artifact_url)
+                 VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+                [userId, appRow.id, item.title, item.domain_code || appRow.primary_domain, item.summary || null, item.artifact_url || null]
+            );
+            const appUpd = await client.query(
+                `UPDATE member_applications SET version = version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING version`,
+                [appRow.id]
+            );
+            await client.query('COMMIT');
+            return { item: r.rows[0], application_version: Number(appUpd.rows[0].version) };
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+    }
+
     const my = await getMyApplication(userId);
     if (!my.application) {
         const err = new Error('Сначала подайте заявку участника');
         err.status = 400;
         throw err;
     }
-    if (isPgMode()) {
-        const r = await dbRef.pool.query(
-            `INSERT INTO portfolio_items (user_id, application_id, title, domain_code, summary, artifact_url)
-             VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-            [userId, my.application.id, item.title, item.domain_code || my.application.primary_domain, item.summary || null, item.artifact_url || null]
-        );
-        return r.rows[0];
-    }
+    const appRow = mem.applications.find((a) => a.id === my.application.id);
     const row = {
         id: mem.nextPortfolioId++,
         user_id: Number(userId),
@@ -396,7 +570,117 @@ async function addPortfolioItem(userId, item) {
         created_at: new Date().toISOString(),
     };
     mem.portfolio.push(row);
-    return { ...row };
+    let applicationVersion = my.application.version;
+    if (appRow) {
+        appRow.version += 1;
+        appRow.updated_at = new Date().toISOString();
+        applicationVersion = appRow.version;
+    }
+    return { item: { ...row }, application_version: applicationVersion };
+}
+
+async function resubmitApplication({
+    userId,
+    applicationId,
+    full_name,
+    city,
+    primary_domain,
+    skills,
+    motivation,
+    trial_task_title,
+    trial_task_url,
+    expectedVersion,
+}) {
+    if (expectedVersion !== undefined && expectedVersion !== null) {
+        if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
+            const err = new Error('expectedVersion must be a positive integer');
+            err.status = 400;
+            throw err;
+        }
+    }
+
+    if (isPgMode()) {
+        const client = await dbRef.pool.connect();
+        try {
+            await client.query('BEGIN');
+            const cur = await client.query(`SELECT * FROM member_applications WHERE id = $1 FOR UPDATE`, [applicationId]);
+            const appRow = cur.rows[0];
+            if (!appRow) {
+                const err = new Error('Заявка не найдена');
+                err.status = 404;
+                throw err;
+            }
+            if (Number(appRow.user_id) !== Number(userId) || appRow.status !== 'revision_requested') {
+                const err = new Error('Повторная подача разрешена только владельцу заявки в статусе revision_requested');
+                err.status = 409;
+                throw err;
+            }
+            if (expectedVersion !== undefined && expectedVersion !== null && Number(expectedVersion) !== Number(appRow.version)) {
+                const err = new Error('Конфликт версий заявки');
+                err.status = 409;
+                throw err;
+            }
+            const upd = await client.query(
+                `UPDATE member_applications
+                 SET full_name = $1,
+                     city = $2,
+                     primary_domain = $3,
+                     skills = $4,
+                     motivation = $5,
+                     trial_task_title = $6,
+                     trial_task_url = $7,
+                     status = 'pending',
+                     version = version + 1,
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE id = $8 RETURNING *`,
+                [
+                    full_name !== undefined ? full_name : appRow.full_name,
+                    city !== undefined ? city : appRow.city,
+                    primary_domain !== undefined ? primary_domain : appRow.primary_domain,
+                    skills !== undefined ? skills : appRow.skills,
+                    motivation !== undefined ? motivation : appRow.motivation,
+                    trial_task_title !== undefined ? trial_task_title : appRow.trial_task_title,
+                    trial_task_url !== undefined ? trial_task_url : appRow.trial_task_url,
+                    applicationId,
+                ]
+            );
+            await client.query('COMMIT');
+            return stripAppSensitive(upd.rows[0]);
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+    }
+
+    const appRow = mem.applications.find((a) => a.id === Number(applicationId));
+    if (!appRow) {
+        const err = new Error('Заявка не найдена');
+        err.status = 404;
+        throw err;
+    }
+    if (Number(appRow.user_id) !== Number(userId) || appRow.status !== 'revision_requested') {
+        const err = new Error('Повторная подача разрешена только владельцу заявки в статусе revision_requested');
+        err.status = 409;
+        throw err;
+    }
+    if (expectedVersion !== undefined && expectedVersion !== null && Number(expectedVersion) !== Number(appRow.version)) {
+        const err = new Error('Конфликт версий заявки');
+        err.status = 409;
+        throw err;
+    }
+    if (full_name !== undefined) appRow.full_name = full_name;
+    if (city !== undefined) appRow.city = city;
+    if (primary_domain !== undefined) appRow.primary_domain = primary_domain;
+    if (skills !== undefined) appRow.skills = skills;
+    if (motivation !== undefined) appRow.motivation = motivation;
+    if (trial_task_title !== undefined) appRow.trial_task_title = trial_task_title;
+    if (trial_task_url !== undefined) appRow.trial_task_url = trial_task_url;
+    appRow.status = 'pending';
+    appRow.version += 1;
+    appRow.updated_at = new Date().toISOString();
+    return stripAppSensitive(appRow);
 }
 
 async function listApplications(statusFilter) {
@@ -409,15 +693,13 @@ async function listApplications(statusFilter) {
             ? await dbRef.pool.query(`SELECT * FROM portfolio_items WHERE application_id = ANY($1)`, [ids])
             : { rows: [] };
         return r.rows.map((a) => ({
-            ...a,
-            claim_token_hash: undefined,
+            ...stripAppSensitive(a),
             portfolio: pRes.rows.filter((p) => p.application_id === a.id),
         }));
     }
     const rows = statusFilter ? mem.applications.filter((a) => a.status === statusFilter) : mem.applications;
     return [...rows].reverse().map((a) => ({
-        ...a,
-        claim_token_hash: undefined,
+        ...stripAppSensitive(a),
         portfolio: mem.portfolio.filter((p) => p.application_id === a.id),
     }));
 }
@@ -426,6 +708,11 @@ async function reviewApplication({ applicationId, status, reviewNote, expectedVe
     const valid = ['in_review', 'accepted', 'revision_requested', 'rejected'];
     if (!valid.includes(status)) {
         const err = new Error('Недопустимый статус рассмотрения');
+        err.status = 400;
+        throw err;
+    }
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
+        const err = new Error('expected_version must be a positive integer');
         err.status = 400;
         throw err;
     }
@@ -441,8 +728,19 @@ async function reviewApplication({ applicationId, status, reviewNote, expectedVe
                 err.status = 404;
                 throw err;
             }
-            if (expectedVersion !== undefined && Number(expectedVersion) !== Number(appRow.version)) {
+            if (expectedVersion !== Number(appRow.version)) {
                 const err = new Error('Конфликт версий: заявка уже была обновлена другим рецензентом');
+                err.status = 409;
+                throw err;
+            }
+            if (TERMINAL_APP_STATUSES.includes(appRow.status)) {
+                const err = new Error('Application is in terminal status');
+                err.status = 409;
+                throw err;
+            }
+            const allowedTargets = ALLOWED_APP_REVIEW_TRANSITIONS[appRow.status];
+            if (!allowedTargets || !allowedTargets.has(status)) {
+                const err = new Error(`Переход заявки ${appRow.status} -> ${status} запрещён`);
                 err.status = 409;
                 throw err;
             }
@@ -451,6 +749,34 @@ async function reviewApplication({ applicationId, status, reviewNote, expectedVe
                 err.status = 409;
                 throw err;
             }
+            if (status === 'accepted' && appRow.user_id) {
+                const uRes = await client.query(
+                    `SELECT id, status, membership_status, settlement_id FROM users WHERE id = $1 FOR UPDATE`,
+                    [appRow.user_id]
+                );
+                const userRow = uRes.rows[0];
+                if (!userRow) {
+                    const err = new Error('Пользователь не найден');
+                    err.status = 404;
+                    throw err;
+                }
+                if (userRow.membership_status === 'suspended' || (userRow.status && userRow.status !== 'active')) {
+                    const err = new Error('Cannot admit suspended user');
+                    err.status = 409;
+                    throw err;
+                }
+                await client.query(
+                    `UPDATE users
+                     SET membership_status = 'accepted',
+                         membership_admitted_at = COALESCE(membership_admitted_at, CURRENT_TIMESTAMP),
+                         settlement_id = CASE
+                             WHEN membership_status = 'accepted' AND settlement_id IS NOT NULL THEN settlement_id
+                             ELSE $2
+                         END
+                     WHERE id = $1`,
+                    [appRow.user_id, appRow.settlement_id]
+                );
+            }
             const upd = await client.query(
                 `UPDATE member_applications
                  SET status = $1, review_note = $2, reviewer_id = $3, reviewed_at = CURRENT_TIMESTAMP,
@@ -458,18 +784,8 @@ async function reviewApplication({ applicationId, status, reviewNote, expectedVe
                  WHERE id = $4 RETURNING *`,
                 [status, reviewNote || null, reviewerId || null, applicationId]
             );
-            if (status === 'accepted' && appRow.user_id) {
-                await client.query(
-                    `UPDATE users
-                     SET membership_status = 'accepted',
-                         membership_admitted_at = COALESCE(membership_admitted_at, CURRENT_TIMESTAMP),
-                         settlement_id = $2
-                     WHERE id = $1`,
-                    [appRow.user_id, appRow.settlement_id]
-                );
-            }
             await client.query('COMMIT');
-            return { ...upd.rows[0], claim_token_hash: undefined };
+            return stripAppSensitive(upd.rows[0]);
         } catch (err) {
             await client.query('ROLLBACK');
             throw err;
@@ -484,8 +800,19 @@ async function reviewApplication({ applicationId, status, reviewNote, expectedVe
         err.status = 404;
         throw err;
     }
-    if (expectedVersion !== undefined && Number(expectedVersion) !== Number(appRow.version)) {
+    if (expectedVersion !== Number(appRow.version)) {
         const err = new Error('Конфликт версий: заявка уже была обновлена другим рецензентом');
+        err.status = 409;
+        throw err;
+    }
+    if (TERMINAL_APP_STATUSES.includes(appRow.status)) {
+        const err = new Error('Application is in terminal status');
+        err.status = 409;
+        throw err;
+    }
+    const allowedTargets = ALLOWED_APP_REVIEW_TRANSITIONS[appRow.status];
+    if (!allowedTargets || !allowedTargets.has(status)) {
+        const err = new Error(`Переход заявки ${appRow.status} -> ${status} запрещён`);
         err.status = 409;
         throw err;
     }
@@ -494,6 +821,19 @@ async function reviewApplication({ applicationId, status, reviewNote, expectedVe
         err.status = 409;
         throw err;
     }
+    if (status === 'accepted' && appRow.user_id) {
+        const userRow = mem.users.get(Number(appRow.user_id));
+        if (userRow && (userRow.membership_status === 'suspended' || (userRow.status && userRow.status !== 'active'))) {
+            const err = new Error('Cannot admit suspended user');
+            err.status = 409;
+            throw err;
+        }
+        const nextSettlement = (userRow && userRow.membership_status === 'accepted' && userRow.settlement_id)
+            ? userRow.settlement_id
+            : appRow.settlement_id;
+        setUserMembershipMem(appRow.user_id, 'accepted', nextSettlement);
+    }
+
     appRow.status = status;
     appRow.review_note = reviewNote || null;
     appRow.reviewer_id = reviewerId || null;
@@ -501,10 +841,7 @@ async function reviewApplication({ applicationId, status, reviewNote, expectedVe
     appRow.version += 1;
     appRow.updated_at = new Date().toISOString();
 
-    if (status === 'accepted' && appRow.user_id) {
-        await setUserMembership(appRow.user_id, 'accepted', appRow.settlement_id);
-    }
-    return { ...appRow, claim_token_hash: undefined };
+    return stripAppSensitive(appRow);
 }
 
 // ============================================
@@ -529,10 +866,68 @@ async function createProposal(data, adminId) {
         throw err;
     }
 
-    const secretBallot = data.secret_ballot !== undefined
-        ? Boolean(data.secret_ballot)
-        : data.vote_type === 'council_election';
-    const engine = data.authoritative_engine || (secretBallot ? 'native_secret' : 'native_named');
+    const seatsCount = data.seats_count !== undefined && data.seats_count !== null ? data.seats_count : 1;
+    if (!Number.isInteger(seatsCount) || seatsCount !== 1) {
+        const err = new Error('seats_count must be integer 1');
+        err.status = 400;
+        throw err;
+    }
+
+    const quorumMembersPct = data.quorum_members_pct !== undefined && data.quorum_members_pct !== null ? data.quorum_members_pct : 50;
+    const quorumCapitalPct = data.quorum_capital_pct !== undefined && data.quorum_capital_pct !== null ? data.quorum_capital_pct : 50;
+    if (!Number.isInteger(quorumMembersPct) || quorumMembersPct < 1 || quorumMembersPct > 100) {
+        const err = new Error('quorum_members_pct must be an integer between 1 and 100');
+        err.status = 400;
+        throw err;
+    }
+    if (!Number.isInteger(quorumCapitalPct) || quorumCapitalPct < 1 || quorumCapitalPct > 100) {
+        const err = new Error('quorum_capital_pct must be an integer between 1 and 100');
+        err.status = 400;
+        throw err;
+    }
+
+    const abstainIndex = data.abstain_option_index ?? null;
+    if (abstainIndex !== null && (!Number.isInteger(abstainIndex) || abstainIndex < 0 || abstainIndex >= data.options.length)) {
+        const err = new Error('abstain_option_index must be null or a valid index within options');
+        err.status = 400;
+        throw err;
+    }
+
+    let closesAtIso = null;
+    if (data.closes_at !== undefined && data.closes_at !== null && data.closes_at !== '') {
+        const closesDate = new Date(data.closes_at);
+        if (Number.isNaN(closesDate.getTime()) || closesDate <= new Date()) {
+            const err = new Error('closes_at must be a valid future ISO date');
+            err.status = 400;
+            throw err;
+        }
+        closesAtIso = closesDate.toISOString();
+    }
+
+    let engine;
+    let secretBallot;
+    if (data.authoritative_engine !== undefined && data.authoritative_engine !== null) {
+        if (!['native_named', 'native_secret'].includes(data.authoritative_engine)) {
+            const err = new Error('External authoritative engines are not enabled for official protocol finalization; use native_named or native_secret and auxiliary export/reconcile-external');
+            err.status = 400;
+            throw err;
+        }
+        engine = data.authoritative_engine;
+        const expectedSecret = engine === 'native_secret';
+        if (data.secret_ballot !== undefined && data.secret_ballot !== null) {
+            if (Boolean(data.secret_ballot) !== expectedSecret) {
+                const err = new Error(`authoritative_engine "${engine}" conflicts with secret_ballot=${Boolean(data.secret_ballot)}`);
+                err.status = 400;
+                throw err;
+            }
+        }
+        secretBallot = expectedSecret;
+    } else {
+        secretBallot = data.secret_ballot !== undefined && data.secret_ballot !== null
+            ? Boolean(data.secret_ballot)
+            : data.vote_type === 'council_election';
+        engine = secretBallot ? 'native_secret' : 'native_named';
+    }
 
     if (isPgMode()) {
         const r = await dbRef.pool.query(
@@ -544,11 +939,11 @@ async function createProposal(data, adminId) {
              RETURNING *`,
             [
                 data.title, data.description || null, data.vote_type, data.scope_level || 'local',
-                data.settlement_id || 'sloboda-pilot', engine, secretBallot,
-                data.share_class || null, data.terms_version || 'v1', data.seats_count || 1,
-                JSON.stringify(data.options), data.abstain_option_index ?? null,
-                data.quorum_members_pct ?? 50, data.quorum_capital_pct ?? 50,
-                data.external_election_fingerprint || null, adminId || null, data.closes_at || null,
+                data.settlement_id || DEFAULT_SETTLEMENT, engine, secretBallot,
+                data.share_class || null, data.terms_version || 'v1', seatsCount,
+                JSON.stringify(data.options), abstainIndex,
+                quorumMembersPct, quorumCapitalPct,
+                data.external_election_fingerprint || null, adminId || null, closesAtIso,
             ]
         );
         return r.rows[0];
@@ -560,17 +955,17 @@ async function createProposal(data, adminId) {
         description: data.description || null,
         vote_type: data.vote_type,
         scope_level: data.scope_level || 'local',
-        settlement_id: data.settlement_id || 'sloboda-pilot',
+        settlement_id: data.settlement_id || DEFAULT_SETTLEMENT,
         authoritative_engine: engine,
         secret_ballot: secretBallot,
         share_class: data.share_class || null,
         terms_version: data.terms_version || 'v1',
-        seats_count: data.seats_count || 1,
+        seats_count: seatsCount,
         options: data.options,
-        abstain_option_index: data.abstain_option_index ?? null,
+        abstain_option_index: abstainIndex,
         status: 'draft',
-        quorum_members_pct: data.quorum_members_pct ?? 50,
-        quorum_capital_pct: data.quorum_capital_pct ?? 50,
+        quorum_members_pct: quorumMembersPct,
+        quorum_capital_pct: quorumCapitalPct,
         roster_hash: null,
         protocol_hash: null,
         protocol_json: null,
@@ -579,7 +974,7 @@ async function createProposal(data, adminId) {
         external_election_fingerprint: data.external_election_fingerprint || null,
         created_by: adminId || null,
         opened_at: null,
-        closes_at: data.closes_at || null,
+        closes_at: closesAtIso,
         closed_at: null,
         created_at: new Date().toISOString(),
     };
@@ -602,6 +997,11 @@ async function openProposal(proposalId) {
             if (prop.status !== 'draft') {
                 const err = new Error(`Нельзя открыть голосование в статусе ${prop.status}`);
                 err.status = 409;
+                throw err;
+            }
+            if (prop.closes_at && new Date(prop.closes_at) <= new Date()) {
+                const err = new Error('Cannot open proposal whose closes_at deadline is in the past');
+                err.status = 400;
                 throw err;
             }
 
@@ -695,6 +1095,11 @@ async function openProposal(proposalId) {
         err.status = 409;
         throw err;
     }
+    if (prop.closes_at && new Date(prop.closes_at) <= new Date()) {
+        const err = new Error('Cannot open proposal whose closes_at deadline is in the past');
+        err.status = 400;
+        throw err;
+    }
 
     // Aggregate verified voting share holdings per user (excludes observer_trace & non-verified modes)
     const holdingByUser = new Map();
@@ -770,18 +1175,20 @@ async function castGovernanceBallot({ proposalId, userId, chamber, optionIndex }
         throw err;
     }
 
-    // Live check: suspended accounts cannot vote even with an active JWT
-    const liveUser = await getUserMembership(userId);
-    if (liveUser && (liveUser.membership_status === 'suspended' || (liveUser.status && liveUser.status !== 'active'))) {
-        const err = new Error('Учётная запись приостановлена');
-        err.status = 403;
-        throw err;
-    }
-
     if (isPgMode()) {
         const client = await dbRef.pool.connect();
         try {
             await client.query('BEGIN');
+            const uRes = await client.query(
+                `SELECT id, status, membership_status FROM users WHERE id = $1 FOR SHARE`,
+                [userId]
+            );
+            const liveUser = uRes.rows[0];
+            if (!liveUser || liveUser.status !== 'active' || liveUser.membership_status === 'suspended') {
+                const err = new Error('Учётная запись неактивна или приостановлена');
+                err.status = 403;
+                throw err;
+            }
             const pRes = await client.query(`SELECT * FROM governance_proposals WHERE id = $1 FOR UPDATE`, [proposalId]);
             const prop = pRes.rows[0];
             if (!prop) { const err = new Error('Голосование не найдено'); err.status = 404; throw err; }
@@ -791,8 +1198,8 @@ async function castGovernanceBallot({ proposalId, userId, chamber, optionIndex }
                 throw err;
             }
             if (prop.status !== 'open') { const err = new Error('Голосование закрыто или ещё не открыто'); err.status = 409; throw err; }
-            if (prop.closes_at && new Date(prop.closes_at).getTime() < Date.now()) {
-                const err = new Error('Срок голосования истёк'); err.status = 409; throw err;
+            if (prop.closes_at && new Date(prop.closes_at) <= new Date()) {
+                const err = new Error('Proposal voting window has closed'); err.status = 409; throw err;
             }
             const opts = Array.isArray(prop.options) ? prop.options : [];
             const idx = Number(optionIndex);
@@ -858,6 +1265,13 @@ async function castGovernanceBallot({ proposalId, userId, chamber, optionIndex }
         }
     }
 
+    const liveUser = mem.users.get(Number(userId));
+    if (!liveUser || (liveUser.status || 'active') !== 'active' || liveUser.membership_status === 'suspended') {
+        const err = new Error('Учётная запись неактивна или приостановлена');
+        err.status = 403;
+        throw err;
+    }
+
     const prop = mem.proposals.find((p) => p.id === Number(proposalId));
     if (!prop) { const err = new Error('Голосование не найдено'); err.status = 404; throw err; }
     if (prop.authoritative_engine === 'loomio' || prop.authoritative_engine === 'belenios') {
@@ -866,8 +1280,8 @@ async function castGovernanceBallot({ proposalId, userId, chamber, optionIndex }
         throw err;
     }
     if (prop.status !== 'open') { const err = new Error('Голосование закрыто или ещё не открыто'); err.status = 409; throw err; }
-    if (prop.closes_at && new Date(prop.closes_at).getTime() < Date.now()) {
-        const err = new Error('Срок голосования истёк'); err.status = 409; throw err;
+    if (prop.closes_at && new Date(prop.closes_at) <= new Date()) {
+        const err = new Error('Proposal voting window has closed'); err.status = 409; throw err;
     }
     const idx = Number(optionIndex);
     if (!Number.isInteger(idx) || idx < 0 || idx >= prop.options.length) {
@@ -1013,7 +1427,16 @@ async function closeProposal(proposalId) {
 async function listProposals(userId) {
     if (isPgMode()) {
         const rows = (await dbRef.pool.query(`SELECT * FROM governance_proposals ORDER BY created_at DESC LIMIT 50`)).rows;
-        return rows.map((p) => sanitizeProposalForRead(p, null));
+        let snapByProposal = new Map();
+        if (userId && rows.length > 0) {
+            const propIds = rows.map((p) => p.id);
+            const snaps = (await dbRef.pool.query(
+                `SELECT * FROM governance_voter_snapshots WHERE user_id = $1 AND proposal_id = ANY($2)`,
+                [userId, propIds]
+            )).rows;
+            snapByProposal = new Map(snaps.map((s) => [Number(s.proposal_id), s]));
+        }
+        return rows.map((p) => sanitizeProposalForRead(p, snapByProposal.get(Number(p.id)) || null));
     }
     return [...mem.proposals].reverse().map((p) => {
         const mySnap = userId ? mem.snapshots.find((s) => s.proposal_id === p.id && s.user_id === Number(userId)) : null;
@@ -1181,8 +1604,76 @@ function serializeContribution(c) {
     };
 }
 
+function parseKopecks400(val, fieldName) {
+    try {
+        return core.toBigIntKopecks(val, fieldName);
+    } catch (err) {
+        err.status = 400;
+        throw err;
+    }
+}
+
+function validateIdempotencyKey(raw) {
+    if (typeof raw !== 'string' || raw.trim().length === 0 || raw.length > 128) {
+        const err = new Error('idempotency_key is required and must be a non-empty string up to 128 characters');
+        err.status = 400;
+        throw err;
+    }
+    return raw.trim();
+}
+
+function isPositiveInt(val) {
+    if (typeof val === 'number') return Number.isInteger(val) && val >= 1;
+    if (typeof val === 'string' && /^\d+$/.test(val.trim())) {
+        const n = Number(val.trim());
+        return Number.isInteger(n) && n >= 1;
+    }
+    return false;
+}
+
+function matchesContributionIdempotency(existing, fp, params) {
+    if (existing.request_fingerprint) {
+        return existing.request_fingerprint === fp;
+    }
+    return (
+        Number(existing.user_id || 0) === Number(params.user_id || 0)
+        && existing.settlement_id === params.settlement_id
+        && (existing.contributor_name || 'Участник') === params.contributor_name
+        && String(existing.received_kopecks) === params.received_kopecks
+        && existing.purpose === params.purpose
+        && (existing.share_class || null) === (params.share_class || null)
+        && (existing.terms_version || 'v1') === (params.terms_version || 'v1')
+        && existing.legal_right_type === params.legal_right_type
+        && existing.ledger_mode === params.ledger_mode
+        && (existing.payment_ref || null) === (params.payment_ref || null)
+        && (existing.note || null) === (params.note || null)
+    );
+}
+
+function matchesExpenseIdempotency(existing, existingAllocs, fp, params) {
+    if (existing.request_fingerprint) {
+        return existing.request_fingerprint === fp;
+    }
+    const basicMatch = (
+        existing.settlement_id === params.settlement_id
+        && existing.purpose === params.purpose
+        && Number(existing.milestone_id || 0) === Number(params.milestone_id || 0)
+        && existing.title === params.title
+        && existing.category === params.category
+        && String(existing.amount_kopecks) === params.amount_kopecks
+        && (existing.allocation_rule || 'fifo') === params.allocation_rule
+    );
+    if (!basicMatch) return false;
+    if (params.allocation_rule !== 'explicit') return true;
+    const normExisting = [...existingAllocs]
+        .sort((a, b) => Number(a.contribution_id) - Number(b.contribution_id))
+        .map((a) => ({ contribution_id: Number(a.contribution_id), amount_kopecks: String(a.amount_kopecks) }));
+    return core.canonicalJson(normExisting) === core.canonicalJson(params.explicit_allocations);
+}
+
 async function recordContribution(data, adminId) {
-    const amountBi = core.toBigIntKopecks(data.amount_kopecks, 'amount_kopecks');
+    const idempKey = validateIdempotencyKey(data.idempotency_key);
+    const amountBi = parseKopecks400(data.amount_kopecks, 'amount_kopecks');
     if (amountBi <= 0n) {
         const err = new Error('Сумма взноса должна быть положительной (в копейках)');
         err.status = 400;
@@ -1196,46 +1687,85 @@ async function recordContribution(data, adminId) {
         throw err;
     }
 
-    const idempKey = data.idempotency_key || null;
-    const settlementId = data.settlement_id || 'sloboda-pilot';
+    const validLedgerModes = ['verified_receipt', 'pledge', 'legacy_import'];
+    const ledgerMode = (data.ledger_mode === undefined || data.ledger_mode === null)
+        ? 'verified_receipt'
+        : data.ledger_mode;
+    if (!validLedgerModes.includes(ledgerMode)) {
+        const err = new Error('Недопустимый ledger_mode (verified_receipt | pledge | legacy_import)');
+        err.status = 400;
+        throw err;
+    }
+
+    const userId = (data.user_id !== undefined && data.user_id !== null && data.user_id !== '')
+        ? Number(data.user_id)
+        : null;
+    if (userId !== null && (!Number.isInteger(userId) || userId <= 0)) {
+        const err = new Error('user_id должен быть положительным целым числом');
+        err.status = 400;
+        throw err;
+    }
+
+    const settlementId = data.settlement_id || DEFAULT_SETTLEMENT;
     const purpose = data.purpose || 'general';
+    const contributorName = data.contributor_name || 'Участник';
+    const shareClass = data.share_class || null;
+    const termsVersion = data.terms_version || 'v1';
+    const paymentRef = data.payment_ref || null;
+    const note = data.note || null;
+
+    const fingerprintParams = {
+        user_id: userId,
+        settlement_id: settlementId,
+        contributor_name: contributorName,
+        received_kopecks: String(amountBi),
+        purpose,
+        share_class: shareClass,
+        terms_version: termsVersion,
+        legal_right_type: legalRightType,
+        ledger_mode: ledgerMode,
+        payment_ref: paymentRef,
+        note,
+    };
+    const requestFingerprint = core.sha256Hex(fingerprintParams);
 
     if (isPgMode()) {
         const client = await dbRef.pool.connect();
         try {
             await client.query('BEGIN');
-            if (idempKey) {
-                const dup = await client.query(`SELECT * FROM contributions WHERE idempotency_key = $1`, [idempKey]);
-                if (dup.rows[0]) {
-                    const existing = dup.rows[0];
-                    if (BigInt(existing.received_kopecks) !== amountBi || Number(existing.user_id || 0) !== Number(data.user_id || 0)) {
-                        const err = new Error('Idempotency key conflict with different payload');
-                        err.status = 409;
-                        throw err;
-                    }
-                    await client.query('COMMIT');
-                    return { contribution: serializeContribution(existing), idempotent_replay: true };
+            await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`contrib_idem:${idempKey}`]);
+
+            const dup = await client.query(`SELECT * FROM contributions WHERE idempotency_key = $1`, [idempKey]);
+            if (dup.rows[0]) {
+                const existing = dup.rows[0];
+                if (!matchesContributionIdempotency(existing, requestFingerprint, fingerprintParams)) {
+                    const err = new Error('Idempotency key already used with different parameters');
+                    err.status = 409;
+                    throw err;
                 }
+                await client.query('COMMIT');
+                return { contribution: serializeContribution(existing), idempotent_replay: true };
             }
+
             const r = await client.query(
                 `INSERT INTO contributions
                  (user_id, settlement_id, purpose, contributor_name, received_kopecks, available_kopecks,
                   reserved_kopecks, paid_kopecks, refunded_kopecks, share_class, terms_version,
-                  legal_right_type, status, ledger_mode, payment_ref, idempotency_key, note, verified_by)
-                 VALUES ($1,$2,$3,$4,$5,$5,0,0,0,$6,$7,$8,'unallocated',$9,$10,$11,$12,$13)
+                  legal_right_type, status, ledger_mode, payment_ref, idempotency_key, request_fingerprint, note, verified_by)
+                 VALUES ($1,$2,$3,$4,$5,$5,0,0,0,$6,$7,$8,'unallocated',$9,$10,$11,$12,$13,$14)
                  RETURNING *`,
                 [
-                    data.user_id || null, settlementId, purpose, data.contributor_name || 'Участник',
-                    amountBi.toString(), data.share_class || null, data.terms_version || 'v1',
-                    legalRightType, data.ledger_mode || 'verified_receipt', data.payment_ref || null,
-                    idempKey, data.note || null, adminId || null,
+                    userId, settlementId, purpose, contributorName,
+                    amountBi.toString(), shareClass, termsVersion,
+                    legalRightType, ledgerMode, paymentRef,
+                    idempKey, requestFingerprint, note, adminId || null,
                 ]
             );
             const row = r.rows[0];
             await client.query(
                 `INSERT INTO ledger_postings (posting_type, contribution_id, amount_kopecks, actor_admin_id, note)
                  VALUES ('receipt', $1, $2, $3, $4)`,
-                [row.id, amountBi.toString(), adminId || null, data.note || 'Поступление взноса']
+                [row.id, amountBi.toString(), adminId || null, note || 'Поступление взноса']
             );
             await client.query('COMMIT');
             return { contribution: serializeContribution(row), idempotent_replay: false };
@@ -1247,37 +1777,36 @@ async function recordContribution(data, adminId) {
         }
     }
 
-    if (idempKey) {
-        const existing = mem.contributions.find((c) => c.idempotency_key === idempKey);
-        if (existing) {
-            if (BigInt(existing.received_kopecks) !== amountBi || Number(existing.user_id || 0) !== Number(data.user_id || 0)) {
-                const err = new Error('Idempotency key conflict with different payload');
-                err.status = 409;
-                throw err;
-            }
-            return { contribution: serializeContribution(existing), idempotent_replay: true };
+    const existing = mem.contributions.find((c) => c.idempotency_key === idempKey);
+    if (existing) {
+        if (!matchesContributionIdempotency(existing, requestFingerprint, fingerprintParams)) {
+            const err = new Error('Idempotency key already used with different parameters');
+            err.status = 409;
+            throw err;
         }
+        return { contribution: serializeContribution(existing), idempotent_replay: true };
     }
 
     const row = {
         id: mem.nextContributionId++,
-        user_id: data.user_id ? Number(data.user_id) : null,
+        user_id: userId,
         settlement_id: settlementId,
         purpose,
-        contributor_name: data.contributor_name || 'Участник',
+        contributor_name: contributorName,
         received_kopecks: amountBi,
         available_kopecks: amountBi,
         reserved_kopecks: 0n,
         paid_kopecks: 0n,
         refunded_kopecks: 0n,
-        share_class: data.share_class || null,
-        terms_version: data.terms_version || 'v1',
+        share_class: shareClass,
+        terms_version: termsVersion,
         legal_right_type: legalRightType,
         status: 'unallocated',
-        ledger_mode: data.ledger_mode || 'verified_receipt',
-        payment_ref: data.payment_ref || null,
+        ledger_mode: ledgerMode,
+        payment_ref: paymentRef,
         idempotency_key: idempKey,
-        note: data.note || null,
+        request_fingerprint: requestFingerprint,
+        note,
         verified_by: adminId || null,
         created_at: new Date().toISOString(),
     };
@@ -1289,14 +1818,15 @@ async function recordContribution(data, adminId) {
         expense_id: null,
         amount_kopecks: amountBi,
         actor_admin_id: adminId || null,
-        note: data.note || 'Поступление взноса',
+        note: note || 'Поступление взноса',
         created_at: new Date().toISOString(),
     });
     return { contribution: serializeContribution(row), idempotent_replay: false };
 }
 
 async function createAndAllocateExpense(data, adminId) {
-    const amountBi = core.toBigIntKopecks(data.amount_kopecks, 'amount_kopecks');
+    const idempKey = validateIdempotencyKey(data.idempotency_key);
+    const amountBi = parseKopecks400(data.amount_kopecks, 'amount_kopecks');
     if (amountBi <= 0n) {
         const err = new Error('Сумма расхода должна быть положительной');
         err.status = 400;
@@ -1308,34 +1838,105 @@ async function createAndAllocateExpense(data, adminId) {
         err.status = 400;
         throw err;
     }
-    const initialStatus = data.mark_paid ? 'paid' : 'reserved';
-    const settlementId = data.settlement_id || 'sloboda-pilot';
+
+    let milestoneId = null;
+    if (data.milestone_id !== undefined && data.milestone_id !== null && data.milestone_id !== '') {
+        milestoneId = Number(data.milestone_id);
+        if (!Number.isInteger(milestoneId) || milestoneId <= 0) {
+            const err = new Error('milestone_id должен быть положительным целым числом');
+            err.status = 400;
+            throw err;
+        }
+    }
+
+    const explicitLines = data.explicit_allocations !== undefined ? data.explicit_allocations : data.allocations;
+    let normalizedExplicit = null;
+    if (rule === 'explicit') {
+        if (!Array.isArray(explicitLines) || explicitLines.length === 0) {
+            const err = new Error('Explicit allocation requires non-empty allocations array');
+            err.status = 400;
+            throw err;
+        }
+        const merged = new Map();
+        for (const line of explicitLines) {
+            const cid = Number(line.contribution_id);
+            const amt = parseKopecks400(line.amount_kopecks, 'line.amount_kopecks');
+            if (!Number.isInteger(cid) || cid <= 0 || amt <= 0n) {
+                const err = new Error('Each explicit allocation requires positive integer contribution_id and amount_kopecks');
+                err.status = 400;
+                throw err;
+            }
+            merged.set(cid, (merged.get(cid) || 0n) + amt);
+        }
+        normalizedExplicit = [...merged.keys()]
+            .sort((a, b) => a - b)
+            .map((cid) => ({ contribution_id: cid, amount_kopecks: merged.get(cid).toString() }));
+    }
+
+    const markPaid = Boolean(data.mark_paid);
+    const financialStatus = markPaid ? 'paid' : 'reserved';
+    const disputeStatus = 'none';
+    const initialStatus = financialStatus;
+    const settlementId = data.settlement_id || DEFAULT_SETTLEMENT;
     const purpose = data.purpose || 'general';
-    const idempKey = data.idempotency_key || null;
+    const category = data.category || 'equipment';
+    const assetName = data.asset_name || data.title;
+    const assetLocation = data.asset_location || null;
+    const receiptUrl = data.receipt_url || null;
+    const photoUrl = data.photo_url || null;
+
+    const fingerprintParams = {
+        settlement_id: settlementId,
+        purpose,
+        milestone_id: milestoneId,
+        title: data.title,
+        category,
+        amount_kopecks: String(amountBi),
+        asset_name: assetName,
+        asset_location: assetLocation,
+        receipt_url: receiptUrl,
+        photo_url: photoUrl,
+        allocation_rule: rule,
+        mark_paid: markPaid,
+        explicit_allocations: normalizedExplicit,
+    };
+    const requestFingerprint = core.sha256Hex(fingerprintParams);
 
     if (isPgMode()) {
         const client = await dbRef.pool.connect();
         try {
             await client.query('BEGIN');
-            if (idempKey) {
-                const dup = await client.query(`SELECT * FROM ledger_expenses WHERE idempotency_key = $1`, [idempKey]);
-                if (dup.rows[0]) {
-                    const ex = dup.rows[0];
-                    if (BigInt(ex.amount_kopecks) !== amountBi || ex.title !== data.title) {
-                        const err = new Error('Idempotency key conflict with different expense payload');
-                        err.status = 409;
-                        throw err;
-                    }
-                    const allocs = (await client.query(`SELECT * FROM expense_allocations WHERE expense_id = $1 ORDER BY contribution_id ASC`, [ex.id])).rows;
-                    await client.query('COMMIT');
-                    return { expense: serializeExpense(ex, allocs), idempotent_replay: true };
+            await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`expense_idem:${idempKey}`]);
+
+            const dup = await client.query(`SELECT * FROM ledger_expenses WHERE idempotency_key = $1`, [idempKey]);
+            if (dup.rows[0]) {
+                const ex = dup.rows[0];
+                const allocs = (await client.query(`SELECT * FROM expense_allocations WHERE expense_id = $1 ORDER BY contribution_id ASC`, [ex.id])).rows;
+                if (!matchesExpenseIdempotency(ex, allocs, requestFingerprint, fingerprintParams)) {
+                    const err = new Error('Idempotency key already used with different parameters');
+                    err.status = 409;
+                    throw err;
+                }
+                await client.query('COMMIT');
+                return { expense: serializeExpense(ex, allocs), idempotent_replay: true };
+            }
+
+            if (milestoneId !== null) {
+                const mRes = await client.query(
+                    `SELECT id, settlement_id FROM construction_milestones WHERE id = $1`,
+                    [milestoneId]
+                );
+                if (!mRes.rows[0] || mRes.rows[0].settlement_id !== settlementId) {
+                    const err = new Error('Milestone does not belong to settlement');
+                    err.status = 400;
+                    throw err;
                 }
             }
 
-            // Lock eligible contributions in stable id ASC order to prevent deadlocks & double-spend
+            // Lock eligible verified_receipt contributions in stable id ASC order to prevent deadlocks & double-spend
             const contribRows = (await client.query(
                 `SELECT * FROM contributions
-                 WHERE settlement_id = $1 AND purpose = $2 AND available_kopecks > 0
+                 WHERE settlement_id = $1 AND purpose = $2 AND ledger_mode = 'verified_receipt' AND available_kopecks > 0
                  ORDER BY id ASC FOR UPDATE`,
                 [settlementId, purpose]
             )).rows;
@@ -1348,7 +1949,7 @@ async function createAndAllocateExpense(data, adminId) {
                     plan = core.allocateFifoBigInt(amountBi, contribRows);
                 } else {
                     const byId = new Map(contribRows.map((c) => [Number(c.id), c]));
-                    plan = core.allocateExplicitBigInt(amountBi, data.allocations, byId);
+                    plan = core.allocateExplicitBigInt(amountBi, explicitLines, byId);
                 }
             } catch (allocErr) {
                 allocErr.status = allocErr.code === 'INSUFFICIENT_FUNDS' || allocErr.code === 'ALLOCATION_SUM_MISMATCH' ? 409 : 400;
@@ -1358,14 +1959,15 @@ async function createAndAllocateExpense(data, adminId) {
             const expRes = await client.query(
                 `INSERT INTO ledger_expenses
                  (settlement_id, purpose, title, category, amount_kopecks, milestone_id, asset_name,
-                  asset_location, receipt_url, photo_url, allocation_rule, status, idempotency_key, approved_by, paid_at)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+                  asset_location, receipt_url, photo_url, allocation_rule, status, financial_status,
+                  dispute_status, version, idempotency_key, request_fingerprint, approved_by, paid_at)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,1,$15,$16,$17,$18)
                  RETURNING *`,
                 [
-                    settlementId, purpose, data.title, data.category || 'equipment', amountBi.toString(),
-                    data.milestone_id || null, data.asset_name || data.title, data.asset_location || null,
-                    data.receipt_url || null, data.photo_url || null, rule, initialStatus, idempKey,
-                    adminId || null, initialStatus === 'paid' ? new Date().toISOString() : null,
+                    settlementId, purpose, data.title, category, amountBi.toString(),
+                    milestoneId, assetName, assetLocation, receiptUrl, photoUrl,
+                    rule, initialStatus, financialStatus, disputeStatus, idempKey, requestFingerprint,
+                    adminId || null, financialStatus === 'paid' ? new Date().toISOString() : null,
                 ]
             );
             const expense = expRes.rows[0];
@@ -1380,12 +1982,18 @@ async function createAndAllocateExpense(data, adminId) {
                 );
                 savedAllocs.push(ar.rows[0]);
 
-                if (initialStatus === 'paid') {
+                if (financialStatus === 'paid') {
                     await client.query(
                         `UPDATE contributions
                          SET available_kopecks = available_kopecks - $1,
                              paid_kopecks = paid_kopecks + $1,
-                             status = CASE WHEN available_kopecks - $1 = 0 AND reserved_kopecks = 0 THEN 'allocated' ELSE 'partially_allocated' END
+                             status = CASE
+                                 WHEN refunded_kopecks = received_kopecks THEN 'refunded'
+                                 WHEN paid_kopecks + $1 = received_kopecks THEN 'allocated'
+                                 WHEN reserved_kopecks > 0 AND paid_kopecks + $1 = 0 AND available_kopecks - $1 = 0 THEN 'reserved'
+                                 WHEN paid_kopecks + $1 > 0 OR reserved_kopecks > 0 OR refunded_kopecks > 0 THEN 'partially_allocated'
+                                 ELSE 'unallocated'
+                             END
                          WHERE id = $2`,
                         [item.amount_kopecks.toString(), item.contribution_id]
                     );
@@ -1399,7 +2007,13 @@ async function createAndAllocateExpense(data, adminId) {
                         `UPDATE contributions
                          SET available_kopecks = available_kopecks - $1,
                              reserved_kopecks = reserved_kopecks + $1,
-                             status = CASE WHEN available_kopecks - $1 = 0 AND paid_kopecks = 0 THEN 'reserved' ELSE 'partially_allocated' END
+                             status = CASE
+                                 WHEN refunded_kopecks = received_kopecks THEN 'refunded'
+                                 WHEN paid_kopecks = received_kopecks THEN 'allocated'
+                                 WHEN reserved_kopecks + $1 > 0 AND paid_kopecks = 0 AND available_kopecks - $1 = 0 THEN 'reserved'
+                                 WHEN paid_kopecks > 0 OR reserved_kopecks + $1 > 0 OR refunded_kopecks > 0 THEN 'partially_allocated'
+                                 ELSE 'unallocated'
+                             END
                          WHERE id = $2`,
                         [item.amount_kopecks.toString(), item.contribution_id]
                     );
@@ -1422,21 +2036,29 @@ async function createAndAllocateExpense(data, adminId) {
     }
 
     // In-memory parity path
-    if (idempKey) {
-        const existing = mem.expenses.find((e) => e.idempotency_key === idempKey);
-        if (existing) {
-            if (BigInt(existing.amount_kopecks) !== amountBi || existing.title !== data.title) {
-                const err = new Error('Idempotency key conflict with different expense payload');
-                err.status = 409;
-                throw err;
-            }
-            const allocs = mem.allocations.filter((a) => a.expense_id === existing.id);
-            return { expense: serializeExpense(existing, allocs), idempotent_replay: true };
+    const existing = mem.expenses.find((e) => e.idempotency_key === idempKey);
+    if (existing) {
+        const allocs = mem.allocations.filter((a) => a.expense_id === existing.id);
+        if (!matchesExpenseIdempotency(existing, allocs, requestFingerprint, fingerprintParams)) {
+            const err = new Error('Idempotency key already used with different parameters');
+            err.status = 409;
+            throw err;
+        }
+        return { expense: serializeExpense(existing, allocs), idempotent_replay: true };
+    }
+
+    if (milestoneId !== null) {
+        seedDefaultMilestonesMem();
+        const m = mem.milestones.find((x) => x.id === milestoneId);
+        if (!m || m.settlement_id !== settlementId) {
+            const err = new Error('Milestone does not belong to settlement');
+            err.status = 400;
+            throw err;
         }
     }
 
     const eligible = mem.contributions
-        .filter((c) => c.settlement_id === settlementId && c.purpose === purpose && c.available_kopecks > 0n)
+        .filter((c) => c.settlement_id === settlementId && c.purpose === purpose && c.ledger_mode === 'verified_receipt' && c.available_kopecks > 0n)
         .sort((a, b) => a.id - b.id);
 
     let plan;
@@ -1447,7 +2069,7 @@ async function createAndAllocateExpense(data, adminId) {
             plan = core.allocateFifoBigInt(amountBi, eligible);
         } else {
             const byId = new Map(eligible.map((c) => [c.id, c]));
-            plan = core.allocateExplicitBigInt(amountBi, data.allocations, byId);
+            plan = core.allocateExplicitBigInt(amountBi, explicitLines, byId);
         }
     } catch (allocErr) {
         allocErr.status = allocErr.code === 'INSUFFICIENT_FUNDS' || allocErr.code === 'ALLOCATION_SUM_MISMATCH' ? 409 : 400;
@@ -1459,18 +2081,22 @@ async function createAndAllocateExpense(data, adminId) {
         settlement_id: settlementId,
         purpose,
         title: data.title,
-        category: data.category || 'equipment',
+        category,
         amount_kopecks: amountBi,
-        milestone_id: data.milestone_id ? Number(data.milestone_id) : null,
-        asset_name: data.asset_name || data.title,
-        asset_location: data.asset_location || null,
-        receipt_url: data.receipt_url || null,
-        photo_url: data.photo_url || null,
+        milestone_id: milestoneId,
+        asset_name: assetName,
+        asset_location: assetLocation,
+        receipt_url: receiptUrl,
+        photo_url: photoUrl,
         allocation_rule: rule,
         status: initialStatus,
+        financial_status: financialStatus,
+        dispute_status: disputeStatus,
+        version: 1,
         idempotency_key: idempKey,
+        request_fingerprint: requestFingerprint,
         approved_by: adminId || null,
-        paid_at: initialStatus === 'paid' ? new Date().toISOString() : null,
+        paid_at: financialStatus === 'paid' ? new Date().toISOString() : null,
         created_at: new Date().toISOString(),
     };
     mem.expenses.push(expense);
@@ -1493,7 +2119,7 @@ async function createAndAllocateExpense(data, adminId) {
         savedAllocs.push(aRow);
 
         c.available_kopecks -= item.amount_kopecks;
-        if (initialStatus === 'paid') {
+        if (financialStatus === 'paid') {
             c.paid_kopecks += item.amount_kopecks;
         } else {
             c.reserved_kopecks += item.amount_kopecks;
@@ -1507,7 +2133,7 @@ async function createAndAllocateExpense(data, adminId) {
 
         mem.postings.push({
             id: mem.nextPostingId++,
-            posting_type: initialStatus === 'paid' ? 'pay' : 'reserve',
+            posting_type: financialStatus === 'paid' ? 'pay' : 'reserve',
             contribution_id: c.id,
             expense_id: expense.id,
             amount_kopecks: item.amount_kopecks,
@@ -1521,6 +2147,9 @@ async function createAndAllocateExpense(data, adminId) {
 }
 
 function serializeExpense(e, allocs = []) {
+    const financialStatus = e.financial_status || (e.status === 'disputed' ? 'reserved' : e.status);
+    const disputeStatus = e.dispute_status || (e.status === 'disputed' ? 'open' : 'none');
+    const syncedStatus = disputeStatus === 'open' ? 'disputed' : financialStatus;
     return {
         id: e.id,
         settlement_id: e.settlement_id,
@@ -1534,7 +2163,10 @@ function serializeExpense(e, allocs = []) {
         receipt_url: e.receipt_url,
         photo_url: e.photo_url,
         allocation_rule: e.allocation_rule,
-        status: e.status,
+        status: syncedStatus,
+        financial_status: financialStatus,
+        dispute_status: disputeStatus,
+        version: Number(e.version || 1),
         paid_at: e.paid_at,
         created_at: e.created_at,
         allocations: allocs.map((a) => ({
@@ -1548,8 +2180,137 @@ function serializeExpense(e, allocs = []) {
     };
 }
 
-async function transitionExpenseStatus(expenseId, newStatus, adminId) {
-    if (!['paid', 'disputed', 'cancelled'].includes(newStatus)) {
+function planExpenseTransition(ex, newStatus) {
+    const finStatus = ex.financial_status || (ex.status === 'disputed' ? 'reserved' : ex.status);
+    const dispStatus = ex.dispute_status || (ex.status === 'disputed' ? 'open' : 'none');
+    const curStatus = dispStatus === 'open' ? 'disputed' : finStatus;
+
+    if (newStatus === 'disputed') {
+        if (curStatus === 'disputed') {
+            const err = new Error('Expense is already in disputed status');
+            err.status = 409;
+            throw err;
+        }
+        return {
+            nextFinancialStatus: finStatus,
+            nextDisputeStatus: 'open',
+            nextStatus: 'disputed',
+            allocAction: 'none',
+            postingType: 'dispute',
+            postingNote: 'Расход переведён в спорный статус',
+            setPaidAt: false,
+        };
+    }
+
+    if (curStatus !== 'disputed') {
+        if (newStatus === 'paid' && finStatus === 'reserved' && dispStatus !== 'open') {
+            return {
+                nextFinancialStatus: 'paid',
+                nextDisputeStatus: dispStatus,
+                nextStatus: 'paid',
+                allocAction: 'pay',
+                postingType: null,
+                postingNote: null,
+                setPaidAt: true,
+            };
+        }
+        if (newStatus === 'cancelled' && finStatus === 'reserved' && dispStatus !== 'open') {
+            return {
+                nextFinancialStatus: 'cancelled',
+                nextDisputeStatus: dispStatus,
+                nextStatus: 'cancelled',
+                allocAction: 'release',
+                postingType: null,
+                postingNote: null,
+                setPaidAt: false,
+            };
+        }
+        const err = new Error(`Переход расхода ${curStatus} -> ${newStatus} запрещён`);
+        err.status = 409;
+        throw err;
+    }
+
+    // curStatus === 'disputed'
+    if (newStatus === 'paid') {
+        if (finStatus === 'reserved') {
+            return {
+                nextFinancialStatus: 'paid',
+                nextDisputeStatus: 'resolved',
+                nextStatus: 'paid',
+                allocAction: 'pay',
+                postingType: 'resolve',
+                postingNote: 'Спор разрешён в пользу оплаты расхода',
+                setPaidAt: true,
+            };
+        }
+        if (finStatus === 'paid') {
+            return {
+                nextFinancialStatus: 'paid',
+                nextDisputeStatus: 'resolved',
+                nextStatus: 'paid',
+                allocAction: 'none',
+                postingType: 'resolve',
+                postingNote: 'Спор по оплаченному расходу закрыт без повторного списания',
+                setPaidAt: false,
+            };
+        }
+        const err = new Error('Cannot mark a cancelled expense as paid via dispute resolution');
+        err.status = 409;
+        throw err;
+    }
+
+    if (newStatus === 'cancelled') {
+        if (finStatus === 'reserved') {
+            return {
+                nextFinancialStatus: 'cancelled',
+                nextDisputeStatus: 'resolved',
+                nextStatus: 'cancelled',
+                allocAction: 'release',
+                postingType: 'resolve',
+                postingNote: 'Спор разрешён отменой расхода и возвратом резерва',
+                setPaidAt: false,
+            };
+        }
+        if (finStatus === 'cancelled') {
+            return {
+                nextFinancialStatus: 'cancelled',
+                nextDisputeStatus: 'resolved',
+                nextStatus: 'cancelled',
+                allocAction: 'none',
+                postingType: 'resolve',
+                postingNote: 'Спор по отменённому расходу закрыт',
+                setPaidAt: false,
+            };
+        }
+        const err = new Error('Cannot cancel an already paid expense via dispute resolution');
+        err.status = 409;
+        throw err;
+    }
+
+    if (newStatus === 'reserved') {
+        if (finStatus === 'reserved') {
+            return {
+                nextFinancialStatus: 'reserved',
+                nextDisputeStatus: 'resolved',
+                nextStatus: 'reserved',
+                allocAction: 'none',
+                postingType: 'resolve',
+                postingNote: 'Спор снят, расход возвращён в статус резерва',
+                setPaidAt: false,
+            };
+        }
+        const err = new Error('Expense financial state is not reserved');
+        err.status = 409;
+        throw err;
+    }
+
+    const err = new Error(`Переход расхода ${curStatus} -> ${newStatus} запрещён`);
+    err.status = 409;
+    throw err;
+}
+
+async function transitionExpenseStatus(expenseId, newStatus, adminId, expectedVersion) {
+    if (!['reserved', 'paid', 'cancelled', 'disputed'].includes(newStatus)) {
         const err = new Error('Недопустимый статус расхода');
         err.status = 400;
         throw err;
@@ -1561,60 +2322,94 @@ async function transitionExpenseStatus(expenseId, newStatus, adminId) {
             await client.query('BEGIN');
             const ex = (await client.query(`SELECT * FROM ledger_expenses WHERE id = $1 FOR UPDATE`, [expenseId])).rows[0];
             if (!ex) { const err = new Error('Расход не найден'); err.status = 404; throw err; }
-            if (ex.status === newStatus) {
-                const allocs = (await client.query(`SELECT * FROM expense_allocations WHERE expense_id = $1`, [expenseId])).rows;
-                await client.query('COMMIT');
-                return serializeExpense(ex, allocs);
-            }
-            const allocs = (await client.query(`SELECT * FROM expense_allocations WHERE expense_id = $1 ORDER BY contribution_id ASC`, [expenseId])).rows;
 
-            if ((ex.status === 'reserved' || ex.status === 'disputed') && newStatus === 'paid') {
+            if (expectedVersion !== undefined && expectedVersion !== null) {
+                if (!isPositiveInt(expectedVersion) || Number(expectedVersion) !== Number(ex.version || 1)) {
+                    const err = new Error('Expense version conflict');
+                    err.status = 409;
+                    throw err;
+                }
+            }
+
+            const plan = planExpenseTransition(ex, newStatus);
+            const allocs = (await client.query(
+                `SELECT * FROM expense_allocations WHERE expense_id = $1 ORDER BY contribution_id ASC`,
+                [expenseId]
+            )).rows;
+
+            if (plan.allocAction === 'pay') {
                 for (const a of allocs) {
-                    await client.query(
+                    const updC = await client.query(
                         `UPDATE contributions
                          SET reserved_kopecks = reserved_kopecks - $1,
                              paid_kopecks = paid_kopecks + $1,
-                             status = CASE WHEN available_kopecks = 0 AND reserved_kopecks - $1 = 0 THEN 'allocated' ELSE 'partially_allocated' END
-                         WHERE id = $2`,
+                             status = CASE
+                                 WHEN refunded_kopecks = received_kopecks THEN 'refunded'
+                                 WHEN paid_kopecks + $1 = received_kopecks THEN 'allocated'
+                                 WHEN reserved_kopecks - $1 > 0 AND paid_kopecks + $1 = 0 AND available_kopecks = 0 THEN 'reserved'
+                                 WHEN paid_kopecks + $1 > 0 OR reserved_kopecks - $1 > 0 OR refunded_kopecks > 0 THEN 'partially_allocated'
+                                 ELSE 'unallocated'
+                             END
+                         WHERE id = $2 AND reserved_kopecks >= $1`,
                         [a.amount_kopecks, a.contribution_id]
                     );
+                    if (updC.rowCount !== 1) {
+                        const err = new Error(`Insufficient reserved_kopecks on contribution ${a.contribution_id}`);
+                        err.status = 409;
+                        throw err;
+                    }
                     await client.query(
                         `INSERT INTO ledger_postings (posting_type, contribution_id, expense_id, amount_kopecks, actor_admin_id, note)
                          VALUES ('pay', $1, $2, $3, $4, 'Подтверждение оплаты расхода')`,
                         [a.contribution_id, ex.id, a.amount_kopecks, adminId || null]
                     );
                 }
-            } else if ((ex.status === 'reserved' || ex.status === 'disputed') && newStatus === 'cancelled') {
+            } else if (plan.allocAction === 'release') {
                 for (const a of allocs) {
-                    await client.query(
+                    const updC = await client.query(
                         `UPDATE contributions
                          SET reserved_kopecks = reserved_kopecks - $1,
                              available_kopecks = available_kopecks + $1,
-                             status = CASE WHEN paid_kopecks = 0 AND reserved_kopecks - $1 = 0 THEN 'unallocated' ELSE 'partially_allocated' END
-                         WHERE id = $2`,
+                             status = CASE
+                                 WHEN refunded_kopecks = received_kopecks THEN 'refunded'
+                                 WHEN paid_kopecks = received_kopecks THEN 'allocated'
+                                 WHEN reserved_kopecks - $1 > 0 AND paid_kopecks = 0 AND available_kopecks + $1 = 0 THEN 'reserved'
+                                 WHEN paid_kopecks > 0 OR reserved_kopecks - $1 > 0 OR refunded_kopecks > 0 THEN 'partially_allocated'
+                                 ELSE 'unallocated'
+                             END
+                         WHERE id = $2 AND reserved_kopecks >= $1`,
                         [a.amount_kopecks, a.contribution_id]
                     );
+                    if (updC.rowCount !== 1) {
+                        const err = new Error(`Insufficient reserved_kopecks on contribution ${a.contribution_id}`);
+                        err.status = 409;
+                        throw err;
+                    }
                     await client.query(
                         `INSERT INTO ledger_postings (posting_type, contribution_id, expense_id, amount_kopecks, actor_admin_id, note)
                          VALUES ('release', $1, $2, $3, $4, 'Освобождение резерва при отмене расхода')`,
                         [a.contribution_id, ex.id, a.amount_kopecks, adminId || null]
                     );
                 }
-            } else if (newStatus === 'disputed') {
+            }
+
+            if (plan.postingType) {
                 await client.query(
                     `INSERT INTO ledger_postings (posting_type, expense_id, amount_kopecks, actor_admin_id, note)
-                     VALUES ('dispute', $1, $2, $3, 'Расход переведён в спорный статус')`,
-                    [ex.id, ex.amount_kopecks, adminId || null]
+                     VALUES ($1, $2, $3, $4, $5)`,
+                    [plan.postingType, ex.id, ex.amount_kopecks, adminId || null, plan.postingNote]
                 );
-            } else {
-                const err = new Error(`Переход расхода ${ex.status} -> ${newStatus} запрещён`);
-                err.status = 409;
-                throw err;
             }
 
             const upd = (await client.query(
-                `UPDATE ledger_expenses SET status = $1, paid_at = CASE WHEN $1 = 'paid' THEN CURRENT_TIMESTAMP ELSE paid_at END WHERE id = $2 RETURNING *`,
-                [newStatus, expenseId]
+                `UPDATE ledger_expenses
+                 SET status = $1,
+                     financial_status = $2,
+                     dispute_status = $3,
+                     version = version + 1,
+                     paid_at = CASE WHEN $4 THEN COALESCE(paid_at, CURRENT_TIMESTAMP) ELSE paid_at END
+                 WHERE id = $5 RETURNING *`,
+                [plan.nextStatus, plan.nextFinancialStatus, plan.nextDisputeStatus, plan.setPaidAt, expenseId]
             )).rows[0];
             await client.query('COMMIT');
             return serializeExpense(upd, allocs);
@@ -1628,12 +2423,27 @@ async function transitionExpenseStatus(expenseId, newStatus, adminId) {
 
     const ex = mem.expenses.find((e) => e.id === Number(expenseId));
     if (!ex) { const err = new Error('Расход не найден'); err.status = 404; throw err; }
-    const allocs = mem.allocations.filter((a) => a.expense_id === ex.id);
-    if (ex.status === newStatus) return serializeExpense(ex, allocs);
+    if (expectedVersion !== undefined && expectedVersion !== null) {
+        if (!isPositiveInt(expectedVersion) || Number(expectedVersion) !== Number(ex.version || 1)) {
+            const err = new Error('Expense version conflict');
+            err.status = 409;
+            throw err;
+        }
+    }
 
-    if ((ex.status === 'reserved' || ex.status === 'disputed') && newStatus === 'paid') {
+    const plan = planExpenseTransition(ex, newStatus);
+    const allocs = mem.allocations
+        .filter((a) => a.expense_id === ex.id)
+        .sort((a, b) => a.contribution_id - b.contribution_id);
+
+    if (plan.allocAction === 'pay') {
         for (const a of allocs) {
             const c = mem.contributions.find((x) => x.id === a.contribution_id);
+            if (!c || c.reserved_kopecks < a.amount_kopecks) {
+                const err = new Error(`Insufficient reserved_kopecks on contribution ${a.contribution_id}`);
+                err.status = 409;
+                throw err;
+            }
             c.reserved_kopecks -= a.amount_kopecks;
             c.paid_kopecks += a.amount_kopecks;
             c.status = computeContributionStatus(c);
@@ -1648,10 +2458,14 @@ async function transitionExpenseStatus(expenseId, newStatus, adminId) {
                 created_at: new Date().toISOString(),
             });
         }
-        ex.paid_at = new Date().toISOString();
-    } else if ((ex.status === 'reserved' || ex.status === 'disputed') && newStatus === 'cancelled') {
+    } else if (plan.allocAction === 'release') {
         for (const a of allocs) {
             const c = mem.contributions.find((x) => x.id === a.contribution_id);
+            if (!c || c.reserved_kopecks < a.amount_kopecks) {
+                const err = new Error(`Insufficient reserved_kopecks on contribution ${a.contribution_id}`);
+                err.status = 409;
+                throw err;
+            }
             c.reserved_kopecks -= a.amount_kopecks;
             c.available_kopecks += a.amount_kopecks;
             c.status = computeContributionStatus(c);
@@ -1666,25 +2480,96 @@ async function transitionExpenseStatus(expenseId, newStatus, adminId) {
                 created_at: new Date().toISOString(),
             });
         }
-    } else if (newStatus === 'disputed') {
+    }
+
+    if (plan.postingType) {
         mem.postings.push({
             id: mem.nextPostingId++,
-            posting_type: 'dispute',
+            posting_type: plan.postingType,
             contribution_id: null,
             expense_id: ex.id,
             amount_kopecks: ex.amount_kopecks,
             actor_admin_id: adminId || null,
-            note: 'Расход переведён в спорный статус',
+            note: plan.postingNote,
             created_at: new Date().toISOString(),
         });
-    } else {
-        const err = new Error(`Переход расхода ${ex.status} -> ${newStatus} запрещён`);
-        err.status = 409;
-        throw err;
     }
 
-    ex.status = newStatus;
+    ex.financial_status = plan.nextFinancialStatus;
+    ex.dispute_status = plan.nextDisputeStatus;
+    ex.status = plan.nextStatus;
+    ex.version = Number(ex.version || 1) + 1;
+    if (plan.setPaidAt && !ex.paid_at) {
+        ex.paid_at = new Date().toISOString();
+    }
     return serializeExpense(ex, allocs);
+}
+
+async function listAdminContributions({ settlement_id, limit = 50, offset = 0 } = {}) {
+    const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 200);
+    const safeOffset = Math.max(Number(offset) || 0, 0);
+    if (isPgMode()) {
+        const r = settlement_id
+            ? await dbRef.pool.query(
+                `SELECT * FROM contributions WHERE settlement_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2 OFFSET $3`,
+                [settlement_id, safeLimit, safeOffset]
+            )
+            : await dbRef.pool.query(
+                `SELECT * FROM contributions ORDER BY created_at DESC, id DESC LIMIT $1 OFFSET $2`,
+                [safeLimit, safeOffset]
+            );
+        return r.rows.map(serializeContribution);
+    }
+    const filtered = mem.contributions
+        .filter((c) => !settlement_id || c.settlement_id === settlement_id)
+        .sort((a, b) => {
+            const dt = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            return dt !== 0 ? dt : b.id - a.id;
+        })
+        .slice(safeOffset, safeOffset + safeLimit);
+    return filtered.map(serializeContribution);
+}
+
+async function listAdminExpenses({ settlement_id, status, limit = 50, offset = 0 } = {}) {
+    const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 200);
+    const safeOffset = Math.max(Number(offset) || 0, 0);
+    if (isPgMode()) {
+        const clauses = [];
+        const params = [];
+        if (settlement_id) {
+            params.push(settlement_id);
+            clauses.push(`settlement_id = $${params.length}`);
+        }
+        if (status) {
+            params.push(status);
+            clauses.push(`status = $${params.length}`);
+        }
+        const whereSql = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
+        params.push(safeLimit, safeOffset);
+        const rows = (await dbRef.pool.query(
+            `SELECT * FROM ledger_expenses ${whereSql} ORDER BY created_at DESC, id DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
+            params
+        )).rows;
+        const ids = rows.map((e) => e.id);
+        const allocs = ids.length
+            ? (await dbRef.pool.query(`SELECT * FROM expense_allocations WHERE expense_id = ANY($1) ORDER BY contribution_id ASC`, [ids])).rows
+            : [];
+        return rows.map((e) => serializeExpense(e, allocs.filter((a) => Number(a.expense_id) === Number(e.id))));
+    }
+
+    const filtered = mem.expenses
+        .filter((e) => (!settlement_id || e.settlement_id === settlement_id) && (!status || e.status === status))
+        .sort((a, b) => {
+            const dt = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            return dt !== 0 ? dt : b.id - a.id;
+        })
+        .slice(safeOffset, safeOffset + safeLimit);
+    return filtered.map((e) => {
+        const allocs = mem.allocations
+            .filter((a) => a.expense_id === e.id)
+            .sort((a, b) => a.contribution_id - b.contribution_id);
+        return serializeExpense(e, allocs);
+    });
 }
 
 async function getMyLedger(userId) {
@@ -1738,11 +2623,13 @@ function buildMyLedgerResponse(contribs, allocs) {
     let totalRefunded = 0n;
 
     const items = contribs.map((c) => {
-        totalReceived += BigInt(c.received_kopecks);
-        totalAvailable += BigInt(c.available_kopecks);
-        totalReserved += BigInt(c.reserved_kopecks);
-        totalPaid += BigInt(c.paid_kopecks);
-        totalRefunded += BigInt(c.refunded_kopecks);
+        if (c.ledger_mode === 'verified_receipt') {
+            totalReceived += BigInt(c.received_kopecks);
+            totalAvailable += BigInt(c.available_kopecks);
+            totalReserved += BigInt(c.reserved_kopecks);
+            totalPaid += BigInt(c.paid_kopecks);
+            totalRefunded += BigInt(c.refunded_kopecks);
+        }
 
         const linked = allocs
             .filter((a) => Number(a.contribution_id) === Number(c.id))
@@ -1782,7 +2669,7 @@ function buildMyLedgerResponse(contribs, allocs) {
     };
 }
 
-async function getPublicLedgerSummary(settlementId = 'sloboda-pilot') {
+async function getPublicLedgerSummary(settlementId = DEFAULT_SETTLEMENT) {
     if (isPgMode()) {
         const totalsRes = await dbRef.pool.query(
             `SELECT COALESCE(SUM(received_kopecks),0)::bigint AS received,
@@ -1791,14 +2678,14 @@ async function getPublicLedgerSummary(settlementId = 'sloboda-pilot') {
                     COALESCE(SUM(paid_kopecks),0)::bigint AS paid,
                     COALESCE(SUM(refunded_kopecks),0)::bigint AS refunded,
                     COUNT(*)::int AS contributions_count
-             FROM contributions WHERE settlement_id = $1`,
+             FROM contributions WHERE settlement_id = $1 AND ledger_mode = 'verified_receipt'`,
             [settlementId]
         );
         const t = totalsRes.rows[0];
         const milestones = await listConstructionMilestones(settlementId);
         // Public anonymized expenses (no contributor PII!)
         const recentExpenses = (await dbRef.pool.query(
-            `SELECT id, title, category, amount_kopecks, asset_name, asset_location, photo_url, status, paid_at, created_at
+            `SELECT id, title, category, amount_kopecks, asset_name, asset_location, photo_url, status, financial_status, dispute_status, paid_at, created_at
              FROM ledger_expenses WHERE settlement_id = $1 AND status IN ('reserved', 'paid', 'disputed')
              ORDER BY created_at DESC LIMIT 20`,
             [settlementId]
@@ -1811,6 +2698,8 @@ async function getPublicLedgerSummary(settlementId = 'sloboda-pilot') {
             asset_location: e.asset_location,
             photo_url: e.photo_url,
             status: e.status,
+            financial_status: e.financial_status,
+            dispute_status: e.dispute_status,
             paid_at: e.paid_at,
         }));
         return {
@@ -1828,7 +2717,7 @@ async function getPublicLedgerSummary(settlementId = 'sloboda-pilot') {
         };
     }
 
-    const filtered = mem.contributions.filter((c) => c.settlement_id === settlementId);
+    const filtered = mem.contributions.filter((c) => c.settlement_id === settlementId && c.ledger_mode === 'verified_receipt');
     let received = 0n, available = 0n, reserved = 0n, paid = 0n, refunded = 0n;
     for (const c of filtered) {
         received += c.received_kopecks;
@@ -1851,6 +2740,8 @@ async function getPublicLedgerSummary(settlementId = 'sloboda-pilot') {
             asset_location: e.asset_location,
             photo_url: e.photo_url,
             status: e.status,
+            financial_status: e.financial_status || (e.status === 'disputed' ? 'reserved' : e.status),
+            dispute_status: e.dispute_status || (e.status === 'disputed' ? 'open' : 'none'),
             paid_at: e.paid_at,
         }));
 
@@ -1870,6 +2761,7 @@ async function getPublicLedgerSummary(settlementId = 'sloboda-pilot') {
 }
 
 function serializeMilestone(m, spentKopecks) {
+    const spent = BigInt(spentKopecks ?? 0);
     return {
         id: m.id,
         settlement_id: m.settlement_id,
@@ -1880,24 +2772,24 @@ function serializeMilestone(m, spentKopecks) {
         planned_qty: Number(m.planned_qty),
         actual_qty: Number(m.actual_qty),
         budget: core.formatKopecks(m.budget_kopecks),
-        spent: core.formatKopecks(spentKopecks),
+        spent: core.formatKopecks(spent),
         status: m.status,
+        data_classification: (spent === 0n && Number(m.actual_qty || 0) === 0) ? 'plan_baseline' : 'recorded_progress',
         photo_url: m.photo_url || null,
         updated_at: m.updated_at,
     };
 }
 
-async function listConstructionMilestones(settlementId = 'sloboda-pilot') {
+async function listConstructionMilestones(settlementId = DEFAULT_SETTLEMENT) {
     if (isPgMode()) {
         const rows = (await dbRef.pool.query(
             `SELECT m.*,
                     COALESCE((
-                        SELECT SUM(lp.amount_kopecks)
-                        FROM ledger_postings lp
-                        JOIN ledger_expenses le ON le.id = lp.expense_id
+                        SELECT SUM(le.amount_kopecks)
+                        FROM ledger_expenses le
                         WHERE le.milestone_id = m.id
                           AND le.settlement_id = m.settlement_id
-                          AND lp.posting_type = 'pay'
+                          AND le.financial_status = 'paid'
                     ), 0)::bigint AS spent_kopecks
              FROM construction_milestones m
              WHERE m.settlement_id = $1
@@ -1911,22 +2803,38 @@ async function listConstructionMilestones(settlementId = 'sloboda-pilot') {
     return mem.milestones
         .filter((m) => m.settlement_id === settlementId)
         .map((m) => {
-            // Derived strictly from 'pay' ledger postings scoped to same settlement
-            const expenseIds = new Set(
-                mem.expenses
-                    .filter((e) => e.milestone_id === m.id && e.settlement_id === m.settlement_id)
-                    .map((e) => e.id)
-            );
-            const spent = mem.postings
-                .filter((p) => p.posting_type === 'pay' && expenseIds.has(p.expense_id))
-                .reduce((acc, p) => acc + BigInt(p.amount_kopecks), 0n);
+            const spent = mem.expenses
+                .filter((e) => e.milestone_id === m.id && e.settlement_id === m.settlement_id && e.financial_status === 'paid')
+                .reduce((acc, e) => acc + BigInt(e.amount_kopecks), 0n);
             return serializeMilestone(m, spent);
         });
 }
 
 async function upsertConstructionMilestone(data) {
-    const budgetBi = core.toBigIntKopecks(data.budget_kopecks ?? 0, 'budget_kopecks');
-    const settlementId = data.settlement_id || 'sloboda-pilot';
+    const validStatuses = ['planned', 'in_progress', 'completed', 'delayed'];
+    const status = (data.status === undefined || data.status === null) ? 'planned' : data.status;
+    if (!validStatuses.includes(status)) {
+        const err = new Error('Недопустимый статус этапа стройки (planned | in_progress | completed | delayed)');
+        err.status = 400;
+        throw err;
+    }
+
+    const plannedQty = data.planned_qty !== undefined && data.planned_qty !== null ? Number(data.planned_qty) : 0;
+    const actualQty = data.actual_qty !== undefined && data.actual_qty !== null ? Number(data.actual_qty) : 0;
+    if (!Number.isFinite(plannedQty) || plannedQty < 0 || !Number.isFinite(actualQty) || actualQty < 0) {
+        const err = new Error('planned_qty и actual_qty должны быть конечными неотрицательными числами');
+        err.status = 400;
+        throw err;
+    }
+
+    const budgetBi = parseKopecks400(data.budget_kopecks ?? 0, 'budget_kopecks');
+    if (budgetBi < 0n) {
+        const err = new Error('budget_kopecks должен быть неотрицательным');
+        err.status = 400;
+        throw err;
+    }
+
+    const settlementId = data.settlement_id || DEFAULT_SETTLEMENT;
     if (isPgMode()) {
         const r = await dbRef.pool.query(
             `INSERT INTO construction_milestones (settlement_id, code, title, category, unit, planned_qty, actual_qty, budget_kopecks, status, photo_url, updated_at)
@@ -1938,11 +2846,18 @@ async function upsertConstructionMilestone(data) {
              RETURNING *`,
             [
                 settlementId, data.code, data.title, data.category || 'infrastructure',
-                data.unit || 'шт.', data.planned_qty ?? 0, data.actual_qty ?? 0, budgetBi.toString(),
-                data.status || 'planned', data.photo_url || null,
+                data.unit || 'шт.', plannedQty, actualQty, budgetBi.toString(),
+                status, data.photo_url || null,
             ]
         );
-        return serializeMilestone(r.rows[0], 0n);
+        const row = r.rows[0];
+        const spentRes = await dbRef.pool.query(
+            `SELECT COALESCE(SUM(amount_kopecks), 0)::bigint AS spent_kopecks
+             FROM ledger_expenses
+             WHERE milestone_id = $1 AND settlement_id = $2 AND financial_status = 'paid'`,
+            [row.id, settlementId]
+        );
+        return serializeMilestone(row, spentRes.rows[0].spent_kopecks);
     }
 
     seedDefaultMilestonesMem();
@@ -1950,10 +2865,10 @@ async function upsertConstructionMilestone(data) {
     if (m) {
         Object.assign(m, {
             title: data.title ?? m.title,
-            planned_qty: data.planned_qty ?? m.planned_qty,
-            actual_qty: data.actual_qty ?? m.actual_qty,
-            budget_kopecks: budgetBi,
-            status: data.status ?? m.status,
+            planned_qty: data.planned_qty !== undefined ? plannedQty : m.planned_qty,
+            actual_qty: data.actual_qty !== undefined ? actualQty : m.actual_qty,
+            budget_kopecks: data.budget_kopecks !== undefined ? budgetBi : m.budget_kopecks,
+            status: data.status !== undefined ? status : m.status,
             photo_url: data.photo_url !== undefined ? data.photo_url : m.photo_url,
             updated_at: new Date().toISOString(),
         });
@@ -1965,16 +2880,19 @@ async function upsertConstructionMilestone(data) {
             title: data.title,
             category: data.category || 'infrastructure',
             unit: data.unit || 'шт.',
-            planned_qty: data.planned_qty ?? 0,
-            actual_qty: data.actual_qty ?? 0,
+            planned_qty: plannedQty,
+            actual_qty: actualQty,
             budget_kopecks: budgetBi,
-            status: data.status || 'planned',
+            status,
             photo_url: data.photo_url || null,
             updated_at: new Date().toISOString(),
         };
         mem.milestones.push(m);
     }
-    return serializeMilestone(m, 0n);
+    const spent = mem.expenses
+        .filter((e) => e.milestone_id === m.id && e.settlement_id === settlementId && e.financial_status === 'paid')
+        .reduce((acc, e) => acc + BigInt(e.amount_kopecks), 0n);
+    return serializeMilestone(m, spent);
 }
 
 module.exports = {
@@ -1987,6 +2905,7 @@ module.exports = {
     claimGuestApplication,
     getMyApplication,
     addPortfolioItem,
+    resubmitApplication,
     listApplications,
     reviewApplication,
     createProposal,
@@ -2001,6 +2920,8 @@ module.exports = {
     recordContribution,
     createAndAllocateExpense,
     transitionExpenseStatus,
+    listAdminContributions,
+    listAdminExpenses,
     getMyLedger,
     getPublicLedgerSummary,
     listConstructionMilestones,

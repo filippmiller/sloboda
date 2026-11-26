@@ -2,6 +2,11 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth, requireSuperAdmin } = require('../middleware/auth');
 const { requireUserAuth } = require('../middleware/userAuth');
+const { requireCsrfIfCookie } = require('../middleware/csrf');
+const { parsePositiveInt, parseNonNegativeInt } = require('../utils/validation');
+
+const LEGACY_ACCOUNTING_SCOPE = 'legacy_operational_transactions';
+const LEGACY_ACCOUNTING_SCOPE_NOTE = 'Operational transactions summary is separate from the verified_kopeck_ledger (/api/public/ledger/summary).';
 
 let db;
 
@@ -24,7 +29,17 @@ router.get('/admin/finance/summary', requireAuth, async (req, res) => {
     try {
         const summary = await db.getFinanceSummary();
         const breakdown = await db.getExpenseBreakdown();
-        res.json({ success: true, data: { ...summary, expenseBreakdown: breakdown } });
+        res.json({
+            success: true,
+            accounting_scope: LEGACY_ACCOUNTING_SCOPE,
+            accounting_scope_note: LEGACY_ACCOUNTING_SCOPE_NOTE,
+            data: {
+                ...summary,
+                expenseBreakdown: breakdown,
+                accounting_scope: LEGACY_ACCOUNTING_SCOPE,
+                accounting_scope_note: LEGACY_ACCOUNTING_SCOPE_NOTE,
+            },
+        });
     } catch (err) {
         console.error('Error fetching finance summary:', err);
         res.status(500).json({ success: false, error: 'Failed to fetch finance summary' });
@@ -34,14 +49,30 @@ router.get('/admin/finance/summary', requireAuth, async (req, res) => {
 // GET /api/admin/finance/transactions
 router.get('/admin/finance/transactions', requireAuth, async (req, res) => {
     try {
+        let limit = 50;
+        if (req.query.limit !== undefined && req.query.limit !== '') {
+            const parsedLimit = parsePositiveInt(req.query.limit);
+            if (!parsedLimit) {
+                return res.status(400).json({ success: false, error: 'Invalid limit parameter' });
+            }
+            limit = Math.min(200, parsedLimit);
+        }
+        let offset = 0;
+        if (req.query.offset !== undefined && req.query.offset !== '') {
+            const parsedOffset = parseNonNegativeInt(req.query.offset);
+            if (parsedOffset === null) {
+                return res.status(400).json({ success: false, error: 'Invalid offset parameter' });
+            }
+            offset = parsedOffset;
+        }
         const filters = {
             type: req.query.type || undefined,
             category: req.query.category || undefined,
             dateFrom: req.query.dateFrom || undefined,
             dateTo: req.query.dateTo || undefined,
             search: req.query.search || undefined,
-            limit: req.query.limit ? parseInt(req.query.limit) : 50,
-            offset: req.query.offset ? parseInt(req.query.offset) : 0
+            limit,
+            offset,
         };
         const result = await db.getTransactions(filters);
         res.json({ success: true, data: result.data, total: result.total });
@@ -52,7 +83,7 @@ router.get('/admin/finance/transactions', requireAuth, async (req, res) => {
 });
 
 // POST /api/admin/finance/transactions
-router.post('/admin/finance/transactions', requireAuth, requireSuperAdmin, async (req, res) => {
+router.post('/admin/finance/transactions', requireAuth, requireSuperAdmin, requireCsrfIfCookie, async (req, res) => {
     try {
         const { type, category, amount, description, counterparty, date } = req.body;
 
@@ -81,6 +112,7 @@ router.post('/admin/finance/transactions', requireAuth, requireSuperAdmin, async
             date
         }, req.admin.id);
 
+        invalidatePublicFinanceCache();
         res.json({ success: true, data: transaction });
     } catch (err) {
         console.error('Error creating transaction:', err);
@@ -89,9 +121,12 @@ router.post('/admin/finance/transactions', requireAuth, requireSuperAdmin, async
 });
 
 // PATCH /api/admin/finance/transactions/:id
-router.patch('/admin/finance/transactions/:id', requireAuth, requireSuperAdmin, async (req, res) => {
+router.patch('/admin/finance/transactions/:id', requireAuth, requireSuperAdmin, requireCsrfIfCookie, async (req, res) => {
     try {
-        const id = parseInt(req.params.id);
+        const id = parsePositiveInt(req.params.id);
+        if (!id) {
+            return res.status(400).json({ success: false, error: 'Invalid transaction ID' });
+        }
         const existing = await db.getTransactionById(id);
         if (!existing) {
             return res.status(404).json({ success: false, error: 'Transaction not found' });
@@ -107,6 +142,7 @@ router.patch('/admin/finance/transactions/:id', requireAuth, requireSuperAdmin, 
         if (req.body.is_verified !== undefined) data.is_verified = req.body.is_verified;
 
         const updated = await db.updateTransaction(id, data);
+        invalidatePublicFinanceCache();
         res.json({ success: true, data: updated });
     } catch (err) {
         console.error('Error updating transaction:', err);
@@ -115,15 +151,19 @@ router.patch('/admin/finance/transactions/:id', requireAuth, requireSuperAdmin, 
 });
 
 // DELETE /api/admin/finance/transactions/:id
-router.delete('/admin/finance/transactions/:id', requireAuth, requireSuperAdmin, async (req, res) => {
+router.delete('/admin/finance/transactions/:id', requireAuth, requireSuperAdmin, requireCsrfIfCookie, async (req, res) => {
     try {
-        const id = parseInt(req.params.id);
+        const id = parsePositiveInt(req.params.id);
+        if (!id) {
+            return res.status(400).json({ success: false, error: 'Invalid transaction ID' });
+        }
         const existing = await db.getTransactionById(id);
         if (!existing) {
             return res.status(404).json({ success: false, error: 'Transaction not found' });
         }
 
         await db.deleteTransaction(id);
+        invalidatePublicFinanceCache();
         res.json({ success: true });
     } catch (err) {
         console.error('Error deleting transaction:', err);
@@ -140,7 +180,17 @@ router.get('/user/finance/summary', requireUserAuth, async (req, res) => {
     try {
         const summary = await db.getFinanceSummary();
         const breakdown = await db.getExpenseBreakdown();
-        res.json({ success: true, data: { ...summary, expenseBreakdown: breakdown } });
+        res.json({
+            success: true,
+            accounting_scope: LEGACY_ACCOUNTING_SCOPE,
+            accounting_scope_note: LEGACY_ACCOUNTING_SCOPE_NOTE,
+            data: {
+                ...summary,
+                expenseBreakdown: breakdown,
+                accounting_scope: LEGACY_ACCOUNTING_SCOPE,
+                accounting_scope_note: LEGACY_ACCOUNTING_SCOPE_NOTE,
+            },
+        });
     } catch (err) {
         console.error('Error fetching finance summary:', err);
         res.status(500).json({ success: false, error: 'Failed to fetch finance summary' });
@@ -150,11 +200,27 @@ router.get('/user/finance/summary', requireUserAuth, async (req, res) => {
 // GET /api/user/finance/transactions
 router.get('/user/finance/transactions', requireUserAuth, async (req, res) => {
     try {
+        let limit = 50;
+        if (req.query.limit !== undefined && req.query.limit !== '') {
+            const parsedLimit = parsePositiveInt(req.query.limit);
+            if (!parsedLimit) {
+                return res.status(400).json({ success: false, error: 'Invalid limit parameter' });
+            }
+            limit = Math.min(200, parsedLimit);
+        }
+        let offset = 0;
+        if (req.query.offset !== undefined && req.query.offset !== '') {
+            const parsedOffset = parseNonNegativeInt(req.query.offset);
+            if (parsedOffset === null) {
+                return res.status(400).json({ success: false, error: 'Invalid offset parameter' });
+            }
+            offset = parsedOffset;
+        }
         const filters = {
             type: req.query.type || undefined,
             category: req.query.category || undefined,
-            limit: req.query.limit ? parseInt(req.query.limit) : 50,
-            offset: req.query.offset ? parseInt(req.query.offset) : 0
+            limit,
+            offset,
         };
         const result = await db.getPublicTransactions(filters);
         res.json({ success: true, data: result.data, total: result.total });

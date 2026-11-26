@@ -4,6 +4,7 @@ const { requireAuth } = require('../middleware/auth');
 const { requireUserAuth, optionalUserAuth } = require('../middleware/userAuth');
 const { requireCsrfIfCookie } = require('../middleware/csrf');
 const { sanitizePlain } = require('../utils/sanitizeHtml');
+const { parsePositiveInt, parseOptionalInt } = require('../utils/validation');
 const coreStore = require('../services/coreStore');
 
 // GET /api/governance/proposals — list governance proposals (secret tallies withheld until closed)
@@ -19,7 +20,10 @@ router.get('/governance/proposals', optionalUserAuth, async (req, res) => {
 // GET /api/governance/proposals/:id — proposal details + caller eligibility
 router.get('/governance/proposals/:id', optionalUserAuth, async (req, res) => {
     try {
-        const id = parseInt(req.params.id, 10);
+        const id = parsePositiveInt(req.params.id);
+        if (!id) {
+            return res.status(400).json({ success: false, error: 'Некорректный ID голосования' });
+        }
         const detail = await coreStore.getProposalDetail(id, req.user?.id || null);
         if (!detail) {
             return res.status(404).json({ success: false, error: 'Голосование не найдено' });
@@ -52,13 +56,11 @@ router.post('/governance/proposals', requireAuth, requireCsrfIfCookie, async (re
             secret_ballot: req.body.secret_ballot,
             share_class: req.body.share_class ? sanitizePlain(req.body.share_class, 32) : null,
             terms_version: sanitizePlain(req.body.terms_version || 'v1', 32) || 'v1',
-            seats_count: req.body.seats_count ? parseInt(req.body.seats_count, 10) : 1,
+            seats_count: parseOptionalInt(req.body.seats_count, 1),
             options,
-            abstain_option_index: req.body.abstain_option_index !== undefined && req.body.abstain_option_index !== null
-                ? parseInt(req.body.abstain_option_index, 10)
-                : null,
-            quorum_members_pct: req.body.quorum_members_pct !== undefined ? parseInt(req.body.quorum_members_pct, 10) : 50,
-            quorum_capital_pct: req.body.quorum_capital_pct !== undefined ? parseInt(req.body.quorum_capital_pct, 10) : 50,
+            abstain_option_index: parseOptionalInt(req.body.abstain_option_index, null),
+            quorum_members_pct: parseOptionalInt(req.body.quorum_members_pct, 50),
+            quorum_capital_pct: parseOptionalInt(req.body.quorum_capital_pct, 50),
             external_election_fingerprint: req.body.external_election_fingerprint
                 ? sanitizePlain(req.body.external_election_fingerprint, 128)
                 : null,
@@ -74,7 +76,10 @@ router.post('/governance/proposals', requireAuth, requireCsrfIfCookie, async (re
 // POST /api/governance/proposals/:id/open — freeze voter roll snapshot + roster_hash & open voting
 router.post('/governance/proposals/:id/open', requireAuth, requireCsrfIfCookie, async (req, res) => {
     try {
-        const id = parseInt(req.params.id, 10);
+        const id = parsePositiveInt(req.params.id);
+        if (!id) {
+            return res.status(400).json({ success: false, error: 'Некорректный ID голосования' });
+        }
         const result = await coreStore.openProposal(id);
         res.json({ success: true, ...result });
     } catch (err) {
@@ -85,9 +90,12 @@ router.post('/governance/proposals/:id/open', requireAuth, requireCsrfIfCookie, 
 // POST /api/governance/proposals/:id/vote — authenticated eligible voter casts ballot in allowed chamber
 router.post('/governance/proposals/:id/vote', requireUserAuth, requireCsrfIfCookie, async (req, res) => {
     try {
-        const id = parseInt(req.params.id, 10);
+        const id = parsePositiveInt(req.params.id);
+        if (!id) {
+            return res.status(400).json({ success: false, error: 'Некорректный ID голосования' });
+        }
         const chamber = req.body.chamber || 'member';
-        const optionIndex = parseInt(req.body.option_index, 10);
+        const optionIndex = parseOptionalInt(req.body.option_index, NaN);
         const result = await coreStore.castGovernanceBallot({
             proposalId: id,
             userId: req.user.id,
@@ -103,7 +111,10 @@ router.post('/governance/proposals/:id/vote', requireUserAuth, requireCsrfIfCook
 // POST /api/governance/proposals/:id/close — close voting, evaluate chambers & freeze SHA-256 protocol
 router.post('/governance/proposals/:id/close', requireAuth, requireCsrfIfCookie, async (req, res) => {
     try {
-        const id = parseInt(req.params.id, 10);
+        const id = parsePositiveInt(req.params.id);
+        if (!id) {
+            return res.status(400).json({ success: false, error: 'Некорректный ID голосования' });
+        }
         const result = await coreStore.closeProposal(id);
         res.json({ success: true, ...result });
     } catch (err) {
@@ -114,7 +125,10 @@ router.post('/governance/proposals/:id/close', requireAuth, requireCsrfIfCookie,
 // GET /api/governance/proposals/:id/export — export frozen voter roll + weights + roster_hash for Loomio/Belenios
 router.get('/governance/proposals/:id/export', requireAuth, async (req, res) => {
     try {
-        const id = parseInt(req.params.id, 10);
+        const id = parsePositiveInt(req.params.id);
+        if (!id) {
+            return res.status(400).json({ success: false, error: 'Некорректный ID голосования' });
+        }
         const data = await coreStore.exportProposalRoster(id);
         if (!data) {
             return res.status(404).json({ success: false, error: 'Голосование не найдено' });
@@ -128,7 +142,10 @@ router.get('/governance/proposals/:id/export', requireAuth, async (req, res) => 
 // POST /api/governance/proposals/:id/reconcile-external — verify Loomio/Belenios tally against frozen snapshot
 router.post('/governance/proposals/:id/reconcile-external', requireAuth, requireCsrfIfCookie, async (req, res) => {
     try {
-        const id = parseInt(req.params.id, 10);
+        const id = parsePositiveInt(req.params.id);
+        if (!id) {
+            return res.status(400).json({ success: false, error: 'Некорректный ID голосования' });
+        }
         if (Array.isArray(req.body.ballots) && req.body.ballots.length > 20000) {
             return res.status(413).json({ success: false, error: 'Слишком большой импорт бюллетеней (лимит 20 000)' });
         }

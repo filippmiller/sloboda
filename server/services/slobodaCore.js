@@ -342,6 +342,14 @@ function evaluateGovernanceOutcome(proposal, snapshots, ballots) {
     const options = Array.isArray(proposal.options) ? proposal.options : [];
     const optionsCount = options.length;
     const abstainIndex = proposal.abstain_option_index ?? null;
+    const outcomeMeta = {
+        majority_rule: 'strict_majority_of_non_abstain_cast_weight',
+        quorum_rule: 'turnout_including_abstain_pct_of_eligible',
+        mandate_auto_issued: false,
+        secrecy_boundary: proposal.secret_ballot
+            ? 'hidden_from_participants_not_operator_subject_to_aggregate_inference'
+            : 'named_public_protocol',
+    };
 
     const memberEligible = snapshots
         .filter((s) => s.can_vote_member)
@@ -366,6 +374,7 @@ function evaluateGovernanceOutcome(proposal, snapshots, ballots) {
             adopted: memberRes.passed,
             winning_option_index: memberRes.winning_option_index,
             reason: memberRes.reason,
+            ...outcomeMeta,
             chambers: { member: memberRes },
         };
     }
@@ -383,6 +392,7 @@ function evaluateGovernanceOutcome(proposal, snapshots, ballots) {
             adopted: capitalRes.passed,
             winning_option_index: capitalRes.winning_option_index,
             reason: capitalRes.reason,
+            ...outcomeMeta,
             chambers: { capital: capitalRes },
         };
     }
@@ -421,16 +431,23 @@ function evaluateGovernanceOutcome(proposal, snapshots, ballots) {
         adopted: sameWinner,
         winning_option_index: sameWinner ? memberRes.winning_option_index : null,
         reason,
+        ...outcomeMeta,
         chambers: { member: memberRes, capital: capitalRes },
     };
 }
 
 /**
  * Reconcile external Loomio or Belenios export against frozen Sloboda voter snapshots.
- * Throws { code: 'RECONCILIATION_FAILED', status: 409 } on ANY discrepancy.
+ * Throws { code: 'RECONCILIATION_FAILED', status: 409 } on ANY discrepancy,
+ * and status 400 on invalid proposal state or malformed request parameters.
  */
 function reconcileExternalTally(proposal, snapshots, payload) {
-    const engine = payload.engine || proposal.authoritative_engine;
+    const badRequest = (message) => {
+        const err = new Error(message);
+        err.code = 'INVALID_RECONCILIATION_REQUEST';
+        err.status = 400;
+        throw err;
+    };
     const fail = (message) => {
         const err = new Error(message);
         err.code = 'RECONCILIATION_FAILED';
@@ -438,15 +455,37 @@ function reconcileExternalTally(proposal, snapshots, payload) {
         throw err;
     };
 
-    if (payload.roster_hash && payload.roster_hash !== proposal.roster_hash) {
+    if (!proposal || proposal.status === 'draft' || !proposal.roster_hash) {
+        badRequest('Cannot reconcile a draft proposal or a proposal without a frozen roster_hash');
+    }
+    if (!payload || typeof payload !== 'object') {
+        badRequest('Reconciliation payload is required');
+    }
+    if (typeof payload.roster_hash !== 'string' || payload.roster_hash.trim() === '') {
+        badRequest('Non-empty roster_hash is required for external reconciliation');
+    }
+    if (payload.roster_hash !== proposal.roster_hash) {
         fail(`Roster hash mismatch: expected ${proposal.roster_hash}, got ${payload.roster_hash}`);
     }
+
+    const engine = payload.engine || proposal.authoritative_engine;
 
     if (engine === 'loomio') {
         if (!Array.isArray(payload.ballots)) {
             fail('Loomio reconciliation requires per-voter ballots array');
         }
         const chamber = payload.chamber || (proposal.vote_type === 'capital_vote' ? 'capital' : 'member');
+        if (proposal.vote_type === 'council_election' && chamber !== 'member') {
+            badRequest(`Chamber "${chamber}" does not match vote_type "council_election" (expected "member")`);
+        }
+        if (proposal.vote_type === 'capital_vote' && chamber !== 'capital') {
+            badRequest(`Chamber "${chamber}" does not match vote_type "capital_vote" (expected "capital")`);
+        }
+        if (proposal.vote_type === 'dual_consent' && !['member', 'capital'].includes(chamber)) {
+            badRequest(`Chamber "${chamber}" is invalid for vote_type "dual_consent" (expected "member" or "capital")`);
+        }
+        const partialCoverage = proposal.vote_type === 'dual_consent';
+
         const snapByUser = new Map(snapshots.map((s) => [Number(s.user_id), s]));
         const seenUsers = new Set();
         const verifiedBallots = [];
@@ -486,7 +525,12 @@ function reconcileExternalTally(proposal, snapshots, payload) {
 
         const recomputed = evaluateGovernanceOutcome(proposal, snapshots, verifiedBallots);
         return {
-            verified: true,
+            consistency_verified: true,
+            cryptographic_election_verified: false,
+            authoritative_protocol_updated: false,
+            verification_scope: 'arithmetic_and_roster_hash_only',
+            partial_coverage: partialCoverage,
+            chamber,
             engine: 'loomio',
             ballots_verified: verifiedBallots.length,
             recomputed,
@@ -494,14 +538,20 @@ function reconcileExternalTally(proposal, snapshots, payload) {
     }
 
     if (engine === 'belenios') {
+        const chamber = payload.chamber || 'member';
+        if (proposal.vote_type === 'capital_vote') {
+            badRequest('Belenios tally reconciliation is not valid for capital_vote (supports member chamber only)');
+        }
+        if (chamber !== 'member') {
+            badRequest(`Chamber "${chamber}" is invalid for Belenios reconciliation (expected "member")`);
+        }
+        const partialCoverage = proposal.vote_type === 'dual_consent';
+
         if (!payload.election_fingerprint) {
             fail('Belenios reconciliation requires election_fingerprint');
         }
         if (proposal.external_election_fingerprint && payload.election_fingerprint !== proposal.external_election_fingerprint) {
             fail('Belenios election_fingerprint does not match frozen proposal');
-        }
-        if (!payload.roster_hash || payload.roster_hash !== proposal.roster_hash) {
-            fail('Belenios reconciliation requires matching frozen roster_hash');
         }
         if (!Array.isArray(payload.option_counts) || payload.option_counts.length !== proposal.options.length) {
             fail('Belenios option_counts must match proposal options length');
@@ -524,7 +574,12 @@ function reconcileExternalTally(proposal, snapshots, payload) {
         });
         const recomputed = evaluateGovernanceOutcome(proposal, snapshots, syntheticBallots);
         return {
-            verified: true,
+            consistency_verified: true,
+            cryptographic_election_verified: false,
+            authoritative_protocol_updated: false,
+            verification_scope: 'arithmetic_and_roster_hash_only',
+            partial_coverage: partialCoverage,
+            chamber,
             engine: 'belenios',
             election_fingerprint: payload.election_fingerprint,
             total_ballots: totalBallots,
