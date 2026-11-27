@@ -7,6 +7,10 @@ BEGIN;
 
 SELECT pg_advisory_xact_lock(hashtext('sloboda_core_migration_r4'));
 
+-- Acquire ACCESS EXCLUSIVE upfront before UPDATE + ALTER TABLE to avoid lock-upgrade deadlocks
+-- with concurrent governance vote/close transactions.
+LOCK TABLE public.governance_proposals IN ACCESS EXCLUSIVE MODE;
+
 UPDATE public.governance_proposals
 SET
     legacy_r1_unsupported = TRUE,

@@ -727,7 +727,7 @@ export default function Applications() {
               serverApplication: freshApp,
               refreshFailed: false,
             })
-          } else {
+          } else if (baseVer >= latestAppVersionRef.current) {
             setRevisionConflict({
               serverVersion: baseVer,
               serverStatus: appStatusAtStart,
@@ -737,7 +737,7 @@ export default function Applications() {
             })
           }
         } catch {
-          if (activeAppIdRef.current !== appId) {
+          if (activeAppIdRef.current !== appId || baseVer < latestAppVersionRef.current) {
             return
           }
           setRevisionConflict({

@@ -56,20 +56,40 @@ async function getColumnSet(client, tableName) {
 
 async function inspectCoreSchemaState(client) {
     const allTrackedTables = [...CORE_R1_TABLES, 'sloboda_core_gates', 'schema_migrations'];
+    // Use pg_catalog.pg_class instead of information_schema.tables so tables without SELECT
+    // privilege on the connected role are still discovered (never misclassified as NOT_INSTALLED).
     const tblRes = await client.query(
-        `SELECT table_name
-         FROM information_schema.tables
-         WHERE table_schema = 'public'
-           AND table_type = 'BASE TABLE'
-           AND table_name = ANY($1::text[])`,
+        `SELECT c.relname AS table_name,
+                has_table_privilege(c.oid, 'SELECT') AS can_select
+         FROM pg_catalog.pg_class c
+         JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+         WHERE n.nspname = 'public'
+           AND c.relkind IN ('r', 'p')
+           AND c.relname = ANY($1::text[])`,
         [allTrackedTables]
     );
     const presentSet = new Set(tblRes.rows.map((r) => r.table_name));
+    const unreadableTables = tblRes.rows
+        .filter((r) => r.can_select !== true)
+        .map((r) => r.table_name)
+        .sort();
 
     const presentCoreTables = CORE_R1_TABLES.filter((t) => presentSet.has(t));
     const missingCoreTables = CORE_R1_TABLES.filter((t) => !presentSet.has(t));
     const hasGatesTable = presentSet.has('sloboda_core_gates');
     const hasSchemaMigrationsTable = presentSet.has('schema_migrations');
+
+    if (unreadableTables.length > 0) {
+        return {
+            schema_state: 'PARTIAL_OR_INCONSISTENT',
+            present_tables: hasGatesTable ? [...presentCoreTables, 'sloboda_core_gates'] : presentCoreTables,
+            missing_tables: missingCoreTables,
+            has_gates_table: hasGatesTable,
+            missing_columns: [],
+            applied_core_migrations: [],
+            reasons: [`insufficient_select_privilege:${unreadableTables.join(',')}`],
+        };
+    }
 
     let appliedCoreMigrations = [];
     if (hasSchemaMigrationsTable) {

@@ -106,11 +106,20 @@ async function stopServer(child) {
 
 async function snapshotCoreData(pool) {
     const tables = [
+        { name: 'member_applications', order: 'id' },
+        { name: 'portfolio_items', order: 'id' },
+        { name: 'governance_proposals', order: 'id' },
+        { name: 'governance_voter_snapshots', order: 'id' },
+        { name: 'governance_ballots', order: 'id' },
+        { name: 'governance_voter_receipts', order: 'id' },
+        { name: 'governance_secret_ballots', order: 'id' },
+        { name: 'council_delegations', order: 'id' },
         { name: 'contributions', order: 'id' },
+        { name: 'construction_milestones', order: 'id' },
         { name: 'ledger_expenses', order: 'id' },
         { name: 'expense_allocations', order: 'id' },
         { name: 'ledger_postings', order: 'id' },
-        { name: 'governance_proposals', order: 'id' },
+        { name: 'sloboda_core_gates', order: 'gate_key' },
     ];
     const counts = {};
     const digests = {};
@@ -235,6 +244,16 @@ try {
             (title, vote_type, settlement_id, authoritative_engine, secret_ballot, seats_count, options, status, created_by)
         VALUES ('Rehearsal Proposal', 'council_election', 'sloboda-pilot', 'native_secret', TRUE, 1, '["Yes","No"]'::jsonb, 'draft', $1)
     `, [adminId]);
+    const rehApp = (await pool.query(`
+        INSERT INTO public.member_applications
+            (full_name, email, city, primary_domain, skills, motivation, status, version)
+        VALUES ('Rehearsal Applicant', 'reh.applicant@sloboda.land', 'Казань', 'ENG', 'Solar', 'Build', 'pending', 1)
+        RETURNING id
+    `)).rows[0];
+    await pool.query(`
+        INSERT INTO public.portfolio_items (application_id, title, domain_code, summary)
+        VALUES ($1, 'Rehearsal Solar Array', 'ENG', '10kW')
+    `, [rehApp.id]);
 
     const beforeSnapshot = await snapshotCoreData(pool);
     assert.equal(beforeSnapshot.counts.contributions, 2);
