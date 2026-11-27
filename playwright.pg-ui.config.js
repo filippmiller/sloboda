@@ -1,6 +1,22 @@
 // @ts-check
 const { defineConfig, devices } = require('@playwright/test');
 
+// Fail closed before spawning webServer (which sets RESET_ADMIN_PASSWORD=true) if DATABASE_URL is not a disposable test/CI DB
+if (process.env.DATABASE_URL) {
+  if (process.env.ALLOW_DESTRUCTIVE_PG_VERIFY !== 'true') {
+    throw new Error('Refusing to start PG UI E2E webServer without ALLOW_DESTRUCTIVE_PG_VERIFY=true');
+  }
+  let dbName = '';
+  try {
+    dbName = new URL(process.env.DATABASE_URL).pathname.replace(/^\/+/, '');
+  } catch {
+    throw new Error('Invalid DATABASE_URL for PG UI E2E config');
+  }
+  if (!/(^|[_-])(test|ci|local|dev)($|[_-])/i.test(dbName)) {
+    throw new Error(`Refusing to start PG UI E2E webServer against non-disposable database "${dbName}"`);
+  }
+}
+
 /**
  * Built-React + PostgreSQL (or configurable) E2E Playwright configuration.
  * Serves the real compiled React SPA (DISABLE_CLIENT_BUILD=false) against server/index.js.

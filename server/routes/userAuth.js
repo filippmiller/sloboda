@@ -77,7 +77,11 @@ function sanitizeInternalRedirect(raw, fallback = '/dashboard') {
     }
     try {
         const parsed = new URL(trimmed, 'http://sloboda.local');
-        if (parsed.origin !== 'http://sloboda.local') {
+        if (
+            parsed.origin !== 'http://sloboda.local'
+            || !parsed.pathname.startsWith('/')
+            || parsed.pathname.startsWith('//')
+        ) {
             return fallback;
         }
         const rawPath = trimmed.split(/[?#]/)[0];

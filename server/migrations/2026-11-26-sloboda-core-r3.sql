@@ -335,8 +335,20 @@ BEGIN
                        AND %s
                  )',
                 mod_expr, act_expr, target_user_expr,
-                CASE WHEN 'target_comment_id' = ANY(ma_cols) THEN 'ma.target_comment_id' ELSE 'NULL::integer' END,
-                CASE WHEN 'target_thread_id' = ANY(ma_cols) THEN 'ma.target_thread_id' ELSE 'NULL::integer' END,
+                CASE
+                    WHEN 'target_comment_id' = ANY(ma_cols) AND to_regclass('public.forum_comments') IS NOT NULL
+                        THEN 'CASE WHEN EXISTS (SELECT 1 FROM forum_comments fc WHERE fc.id = ma.target_comment_id) THEN ma.target_comment_id ELSE NULL END'
+                    WHEN 'target_comment_id' = ANY(ma_cols)
+                        THEN 'ma.target_comment_id'
+                    ELSE 'NULL::integer'
+                END,
+                CASE
+                    WHEN 'target_thread_id' = ANY(ma_cols) AND to_regclass('public.forum_threads') IS NOT NULL
+                        THEN 'CASE WHEN EXISTS (SELECT 1 FROM forum_threads ft WHERE ft.id = ma.target_thread_id) THEN ma.target_thread_id ELSE NULL END'
+                    WHEN 'target_thread_id' = ANY(ma_cols)
+                        THEN 'ma.target_thread_id'
+                    ELSE 'NULL::integer'
+                END,
                 reason_expr, details_expr, created_expr,
                 mod_expr, act_expr, target_user_expr, reason_expr, details_expr, created_cmp_expr
             );
