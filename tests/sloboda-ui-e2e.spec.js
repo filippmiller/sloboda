@@ -1135,7 +1135,7 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
         await route.continue();
       });
 
-      await page.locator('input[placeholder*="Солнечная"], input[placeholder*="название"], input[placeholder*="СЭС"]').first().fill(`Delayed Portfolio ${suffix}`);
+      await page.locator('input[placeholder*="Название проекта"]').first().fill(`Delayed Portfolio ${suffix}`);
       await page.getByRole('button', { name: /Добавить работу|Добавить в портфолио/i }).click();
       await page.waitForTimeout(300);
 
@@ -1175,13 +1175,13 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
       await page.locator('textarea').first().fill(textY2);
       releasePatch409();
 
-      // Wait for conflict UI banner
-      await expect(page.getByText(/Конфликт версий|Версия заявки изменилась/i).first()).toBeVisible({ timeout: 10000 });
+      // Wait for persistent conflict UI banner
+      await expect(page.getByText(/Обнаружено изменение заявки на сервере/i).first()).toBeVisible({ timeout: 10000 });
 
-      // Immediate reload WITHOUT any additional typing -> Y2 MUST persist AND conflict banner MUST remain!
+      // Immediate reload WITHOUT any additional typing -> Y2 MUST persist AND persistent conflict banner MUST remain!
       await page.reload();
       await expect(page.locator('textarea').first()).toHaveValue(textY2, { timeout: 10000 });
-      await expect(page.getByText(/Конфликт версий|Версия заявки изменилась/i).first()).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText(/Обнаружено изменение заявки на сервере/i).first()).toBeVisible({ timeout: 10000 });
     } finally {
       await ctx.close();
     }

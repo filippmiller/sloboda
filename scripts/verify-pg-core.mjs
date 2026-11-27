@@ -33,25 +33,31 @@ const sqlRestoreWrites = fs.readFileSync(path.join(rootDir, 'server/migrations/2
 const pool = new Pool({ connectionString: DATABASE_URL });
 
 async function resetBaseSchema() {
-    await pool.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
-    await pool.query(`
-        CREATE TABLE users (
-            id SERIAL PRIMARY KEY,
-            email VARCHAR(255) UNIQUE NOT NULL,
-            name VARCHAR(200),
-            password_hash VARCHAR(255),
-            status VARCHAR(32) NOT NULL DEFAULT 'active',
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-        );
-        CREATE TABLE admins (
-            id SERIAL PRIMARY KEY,
-            email VARCHAR(255) UNIQUE NOT NULL,
-            name VARCHAR(200),
-            password_hash VARCHAR(255),
-            role VARCHAR(32) NOT NULL DEFAULT 'super_admin',
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-        );
-    `);
+    const client = await pool.connect();
+    try {
+        await assertConnectedDisposablePg(client, expectedDbName, guardLabel);
+        await client.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
+        await client.query(`
+            CREATE TABLE users (
+                id SERIAL PRIMARY KEY,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                name VARCHAR(200),
+                password_hash VARCHAR(255),
+                status VARCHAR(32) NOT NULL DEFAULT 'active',
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE admins (
+                id SERIAL PRIMARY KEY,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                name VARCHAR(200),
+                password_hash VARCHAR(255),
+                role VARCHAR(32) NOT NULL DEFAULT 'super_admin',
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+    } finally {
+        client.release();
+    }
 }
 
 function signUserToken(user, secret) {
@@ -1405,8 +1411,14 @@ async function run() {
         assert.equal(postRow.legacy_r1_disposition, preItem.legacy_r1_disposition, `Disposition mismatch for proposal ${preItem.id}`);
     }
 
-    // Verify already-applied R3 DB upgrades cleanly to R4
+    // Verify already-applied R3 DB (with legacy unsafe R3 constraint) upgrades cleanly to R4
     await pool.query("DELETE FROM public.schema_migrations WHERE version = '2026-11-26-sloboda-core-r4'");
+    await pool.query('ALTER TABLE public.governance_proposals DROP CONSTRAINT IF EXISTS chk_governance_proposals_abstain_index');
+    await pool.query(`
+        ALTER TABLE public.governance_proposals
+        ADD CONSTRAINT chk_governance_proposals_abstain_index
+        CHECK (legacy_r1_unsupported = TRUE OR abstain_option_index IS NULL OR (abstain_option_index >= 0 AND jsonb_typeof(options) = 'array' AND abstain_option_index < jsonb_array_length(options)))
+    `);
     const r3Cli = runPreflightCli();
     assert.equal(r3Cli.exitCode, 0);
     assert.equal(r3Cli.json.schema.schema_state, 'INSTALLED_R3');
@@ -1414,6 +1426,39 @@ async function run() {
     const r4Cli = runPreflightCli();
     assert.equal(r4Cli.exitCode, 0);
     assert.equal(r4Cli.json.schema.schema_state, 'INSTALLED_R4');
+
+    // Verify empty rollback removes R4 marker too, preflight reports NOT_INSTALLED, and reinstall reaches INSTALLED_R4
+    await resetBaseSchema();
+    await coreStore.ensureCoreSchema();
+    await pool.query('DELETE FROM public.construction_milestones');
+    await pool.query('DELETE FROM public.sloboda_core_gates');
+    await pool.query(sqlRollback);
+    const afterEmptyRollbackCli = runPreflightCli();
+    assert.equal(afterEmptyRollbackCli.exitCode, 0, 'Empty rollback must leave clean NOT_INSTALLED state');
+    assert.equal(afterEmptyRollbackCli.json.schema.schema_state, 'NOT_INSTALLED');
+    await coreStore.ensureCoreSchema();
+    const afterReinstallCli = runPreflightCli();
+    assert.equal(afterReinstallCli.exitCode, 0);
+    assert.equal(afterReinstallCli.json.schema.schema_state, 'INSTALLED_R4');
+
+    // Re-seed R1->R4 fixture for SLB-R3-01 contribution & expense replay tests
+    await resetBaseSchema();
+    const r4AdminId2 = (await pool.query("INSERT INTO admins (email, name, role) VALUES ('r4b@sloboda.land', 'R4B Admin', 'super_admin') RETURNING id")).rows[0].id;
+    await pool.query(sqlR1);
+    const r1LegContrib2 = (await pool.query(`
+        INSERT INTO contributions
+            (settlement_id, purpose, contributor_name, received_kopecks, available_kopecks, reserved_kopecks, paid_kopecks, refunded_kopecks, status, ledger_mode, idempotency_key, verified_by)
+        VALUES ('sloboda-pilot', 'r4-replay', 'R1 Contrib Donor', 120000, 120000, 0, 0, 0, 'unallocated', 'verified_receipt', 'r1 contrib 1', $1)
+        RETURNING *
+    `, [r4AdminId2])).rows[0];
+    await pool.query(
+        `INSERT INTO ledger_postings (posting_type, contribution_id, amount_kopecks, actor_admin_id, note) VALUES ('receipt', $1, 120000, $2, 'R1 receipt')`,
+        [r1LegContrib2.id, r4AdminId2]
+    );
+    await coreStore.ensureCoreSchema();
+    // Use r4AdminId2 & r1LegContrib2 for replay assertions below
+    const replayAdminId = r4AdminId2;
+    const replayContribRow = r1LegContrib2;
 
     // SLB-R3-01: Legacy R1 contribution replay, mismatch 409, concurrent replay, modern whitespace distinction, overlength anti-aliasing
     const replayPayload = {
@@ -1424,49 +1469,49 @@ async function run() {
         ledger_mode: 'verified_receipt',
         idempotency_key: 'r1   contrib   1',
     };
-    const r1Replay1 = await coreStore.recordContribution(replayPayload, r4AdminId);
+    const r1Replay1 = await coreStore.recordContribution(replayPayload, replayAdminId);
     assert.equal(r1Replay1.idempotent_replay, true);
-    assert.equal(r1Replay1.contribution.id, r1LegContrib.id);
+    assert.equal(r1Replay1.contribution.id, replayContribRow.id);
 
     // Concurrent replay (multi-space + single-space simultaneously)
     const [conc1, conc2] = await Promise.all([
-        coreStore.recordContribution(replayPayload, r4AdminId),
-        coreStore.recordContribution({ ...replayPayload, idempotency_key: 'r1 contrib 1' }, r4AdminId),
+        coreStore.recordContribution(replayPayload, replayAdminId),
+        coreStore.recordContribution({ ...replayPayload, idempotency_key: 'r1 contrib 1' }, replayAdminId),
     ]);
     assert.equal(conc1.idempotent_replay, true);
     assert.equal(conc2.idempotent_replay, true);
-    assert.equal(conc1.contribution.id, r1LegContrib.id);
-    assert.equal(conc2.contribution.id, r1LegContrib.id);
+    assert.equal(conc1.contribution.id, replayContribRow.id);
+    assert.equal(conc2.contribution.id, replayContribRow.id);
 
     // Mutated payload on legacy key -> 409, zero DB mutation
     await assert.rejects(
-        () => coreStore.recordContribution({ ...replayPayload, amount_kopecks: 999999 }, r4AdminId),
+        () => coreStore.recordContribution({ ...replayPayload, amount_kopecks: 999999 }, replayAdminId),
         (err) => err.status === 409
     );
 
     // Overlength whitespace key against legacy compact key -> replays legacy row
     const overlengthLegacyKey = `r1${' '.repeat(120)}contrib 1`;
     assert.ok(overlengthLegacyKey.length > 128);
-    const overLegRes = await coreStore.recordContribution({ ...replayPayload, idempotency_key: overlengthLegacyKey }, r4AdminId);
+    const overLegRes = await coreStore.recordContribution({ ...replayPayload, idempotency_key: overlengthLegacyKey }, replayAdminId);
     assert.equal(overLegRes.idempotent_replay, true);
-    assert.equal(overLegRes.contribution.id, r1LegContrib.id);
+    assert.equal(overLegRes.contribution.id, replayContribRow.id);
 
     // Verify counts & kopecks unchanged
     const cCheck = (await pool.query("SELECT COUNT(*)::int AS cnt, SUM(received_kopecks)::bigint::text AS rec, SUM(available_kopecks)::bigint::text AS avail FROM contributions WHERE purpose = 'r4-replay'")).rows[0];
     assert.equal(cCheck.cnt, 1);
     assert.equal(cCheck.rec, '120000');
     assert.equal(cCheck.avail, '120000');
-    const pCheck = (await pool.query("SELECT COUNT(*)::int AS cnt FROM ledger_postings WHERE contribution_id = $1 AND posting_type = 'receipt'", [r1LegContrib.id])).rows[0];
+    const pCheck = (await pool.query("SELECT COUNT(*)::int AS cnt FROM ledger_postings WHERE contribution_id = $1 AND posting_type = 'receipt'", [replayContribRow.id])).rows[0];
     assert.equal(pCheck.cnt, 1);
 
     // Modern keys: 'modern key' vs 'modern  key' remain distinct; overlength whitespace key MUST NOT alias modern compact key (400)
-    const modC1 = await coreStore.recordContribution({ ...replayPayload, amount_kopecks: 50000, idempotency_key: 'modern key' }, r4AdminId);
-    const modC2 = await coreStore.recordContribution({ ...replayPayload, amount_kopecks: 50000, idempotency_key: 'modern  key' }, r4AdminId);
+    const modC1 = await coreStore.recordContribution({ ...replayPayload, amount_kopecks: 50000, idempotency_key: 'modern key' }, replayAdminId);
+    const modC2 = await coreStore.recordContribution({ ...replayPayload, amount_kopecks: 50000, idempotency_key: 'modern  key' }, replayAdminId);
     assert.equal(modC1.idempotent_replay, false);
     assert.equal(modC2.idempotent_replay, false);
     assert.notEqual(modC1.contribution.id, modC2.contribution.id);
     await assert.rejects(
-        () => coreStore.recordContribution({ ...replayPayload, amount_kopecks: 50000, idempotency_key: `modern${' '.repeat(125)}key` }, r4AdminId),
+        () => coreStore.recordContribution({ ...replayPayload, amount_kopecks: 50000, idempotency_key: `modern${' '.repeat(125)}key` }, replayAdminId),
         (err) => err.status === 400,
         'Overlength whitespace key MUST reject 400 instead of aliasing a modern compact contribution key'
     );
@@ -1480,7 +1525,7 @@ async function run() {
         amount_kopecks: 20000,
         mark_paid: false,
         idempotency_key: 'mod exp',
-    }, r4AdminId);
+    }, replayAdminId);
     const modE2 = await coreStore.createAndAllocateExpense({
         settlement_id: 'sloboda-pilot',
         purpose: 'r4-replay',
@@ -1489,7 +1534,7 @@ async function run() {
         amount_kopecks: 20000,
         mark_paid: false,
         idempotency_key: 'mod  exp',
-    }, r4AdminId);
+    }, replayAdminId);
     assert.equal(modE1.idempotent_replay, false);
     assert.equal(modE2.idempotent_replay, false);
     assert.notEqual(modE1.expense.id, modE2.expense.id);
@@ -1504,7 +1549,7 @@ async function run() {
             amount_kopecks: 20000,
             mark_paid: false,
             idempotency_key: `mod${' '.repeat(125)}exp`,
-        }, r4AdminId),
+        }, replayAdminId),
         (err) => err.status === 400,
         'Overlength whitespace key MUST reject 400 instead of aliasing a modern compact expense key'
     );

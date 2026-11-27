@@ -245,6 +245,7 @@ export default function Applications() {
   })
   const revisionEditSeqRef = useRef(0)
   const activeAppIdRef = useRef<number | null>(null)
+  const latestAppVersionRef = useRef<number>(0)
   const requestGenRef = useRef(0)
 
   const applyRevisionFieldsState = useCallback((fields: RevisionDraftFields) => {
@@ -258,15 +259,25 @@ export default function Applications() {
     setRevTrialTaskUrl(fields.revTrialTaskUrl)
   }, [])
 
-  const applyApplicationMonotonic = useCallback((nextApp: MemberApplication | null) => {
-    activeAppIdRef.current = nextApp ? nextApp.id : null
+  const applyApplicationMonotonic = useCallback((nextApp: MemberApplication | null): boolean => {
+    if (!nextApp) {
+      activeAppIdRef.current = null
+      latestAppVersionRef.current = 0
+      setApplication(null)
+      return true
+    }
+    if (activeAppIdRef.current === nextApp.id && nextApp.version < latestAppVersionRef.current) {
+      return false
+    }
+    activeAppIdRef.current = nextApp.id
+    latestAppVersionRef.current = nextApp.version
     setApplication((prev) => {
-      if (!nextApp) return null
       if (prev && prev.id === nextApp.id && nextApp.version < prev.version) {
         return prev
       }
       return nextApp
     })
+    return true
   }, [])
 
   const syncRevisionFields = useCallback(
@@ -327,6 +338,7 @@ export default function Applications() {
       if (gen !== requestGenRef.current) return
       const app = res.data.application ?? null
       activeAppIdRef.current = app ? app.id : null
+      latestAppVersionRef.current = app ? app.version : 0
       setApplication(app)
       setPortfolio(res.data.portfolio ?? [])
       setMembership(res.data.membership ?? null)
@@ -703,7 +715,9 @@ export default function Applications() {
           }
           const freshApp = freshRes.data.application ?? null
           if (freshApp && freshApp.id === appId) {
-            applyApplicationMonotonic(freshApp)
+            if (!applyApplicationMonotonic(freshApp)) {
+              return
+            }
             setPortfolio(freshRes.data.portfolio ?? [])
             setMembership(freshRes.data.membership ?? null)
             const latestDraft = readRevisionDraft(draftKey)
@@ -826,7 +840,9 @@ export default function Applications() {
             const freshApp = freshRes.data.application ?? null
             const postRefreshDraft = readRevisionDraft(revKey)
             if (freshApp && freshApp.id === appId) {
-              applyApplicationMonotonic(freshApp)
+              if (!applyApplicationMonotonic(freshApp)) {
+                return
+              }
               setPortfolio(freshRes.data.portfolio ?? [])
               setMembership(freshRes.data.membership ?? null)
               if (postRefreshDraft) {

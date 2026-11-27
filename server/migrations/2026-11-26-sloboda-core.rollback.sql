@@ -61,6 +61,6 @@ ALTER TABLE users DROP COLUMN IF EXISTS membership_status;
 ALTER TABLE users DROP COLUMN IF EXISTS membership_admitted_at;
 ALTER TABLE users DROP COLUMN IF EXISTS settlement_id;
 
-DELETE FROM schema_migrations WHERE version IN ('2026-11-26-sloboda-core', '2026-11-26-sloboda-core-r2', '2026-11-26-sloboda-core-r3');
+DELETE FROM schema_migrations WHERE version IN ('2026-11-26-sloboda-core', '2026-11-26-sloboda-core-r2', '2026-11-26-sloboda-core-r3', '2026-11-26-sloboda-core-r4');
 
 COMMIT;

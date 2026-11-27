@@ -29,6 +29,8 @@ const CORE_MIGRATION_VERSIONS = [
 ];
 
 const R2_REQUIRED_COLUMNS = [
+    { table: 'contributions', column: 'request_fingerprint' },
+    { table: 'ledger_expenses', column: 'request_fingerprint' },
     { table: 'ledger_expenses', column: 'financial_status' },
     { table: 'ledger_expenses', column: 'dispute_status' },
     { table: 'governance_proposals', column: 'legacy_r1_unsupported' },
@@ -79,6 +81,9 @@ async function inspectCoreSchemaState(client) {
     const hasM3 = migSet.has('2026-11-26-sloboda-core-r3');
     const hasM4 = migSet.has('2026-11-26-sloboda-core-r4');
 
+    const contribCols = presentSet.has('contributions')
+        ? await getColumnSet(client, 'contributions')
+        : new Set();
     const expenseCols = presentSet.has('ledger_expenses')
         ? await getColumnSet(client, 'ledger_expenses')
         : new Set();
@@ -86,15 +91,35 @@ async function inspectCoreSchemaState(client) {
         ? await getColumnSet(client, 'governance_proposals')
         : new Set();
 
+    const colMap = {
+        contributions: contribCols,
+        ledger_expenses: expenseCols,
+        governance_proposals: proposalCols,
+    };
     const missingR2Columns = [];
     for (const reqCol of R2_REQUIRED_COLUMNS) {
-        const cols = reqCol.table === 'ledger_expenses' ? expenseCols : proposalCols;
+        const cols = colMap[reqCol.table] || new Set();
         if (!cols.has(reqCol.column)) {
             missingR2Columns.push(`${reqCol.table}.${reqCol.column}`);
         }
     }
     const hasAllR2Columns = missingR2Columns.length === 0;
     const hasAnyR2Columns = missingR2Columns.length < R2_REQUIRED_COLUMNS.length;
+
+    let hasSafeR4AbstainConstraint = false;
+    if (presentSet.has('governance_proposals')) {
+        const conRes = await client.query(
+            `SELECT pg_get_constraintdef(c.oid) AS def
+             FROM pg_constraint c
+             JOIN pg_class t ON t.oid = c.conrelid
+             JOIN pg_namespace n ON n.oid = t.relnamespace
+             WHERE n.nspname = 'public'
+               AND t.relname = 'governance_proposals'
+               AND c.conname = 'chk_governance_proposals_abstain_index'`
+        );
+        const def = conRes.rows[0]?.def || '';
+        hasSafeR4AbstainConstraint = /\bCASE\b/i.test(def) && /jsonb_array_length/i.test(def);
+    }
 
     const reasons = [];
     let schemaState = 'PARTIAL_OR_INCONSISTENT';
@@ -118,6 +143,7 @@ async function inspectCoreSchemaState(client) {
     } else if (hasM1 && hasM2 && hasM3 && hasM4) {
         if (!hasGatesTable) reasons.push('missing_sloboda_core_gates_on_r4');
         if (!hasAllR2Columns) reasons.push(`missing_r2_columns:${missingR2Columns.join(',')}`);
+        if (!hasSafeR4AbstainConstraint) reasons.push('missing_r4_safe_abstain_constraint');
         if (reasons.length === 0) schemaState = 'INSTALLED_R4';
     } else {
         reasons.push(`inconsistent_core_migration_markers:${appliedCoreMigrations.join(',') || 'none'}`);
