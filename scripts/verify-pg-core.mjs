@@ -1432,7 +1432,7 @@ async function run() {
     assert.equal(r4Cli.json.schema.schema_state, 'INSTALLED_R4');
 
     // Verify malformed options are safely serialized as [] on read path
-    const readProps = await coreStore.listProposals('sloboda-pilot', null);
+    const readProps = await coreStore.listProposals(null);
     for (const rp of readProps) {
         assert.ok(Array.isArray(rp.options), `Proposal ${rp.id} options must be serialized as array`);
     }
