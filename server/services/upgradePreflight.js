@@ -125,7 +125,7 @@ async function inspectCoreSchemaState(client) {
             row?.convalidated === true
             && !/\bNOT\s+VALID\b/i.test(def)
             && /abstain_option_index\s*<\s*CASE\s+WHEN\b/i.test(def)
-            && /jsonb_typeof\(options\)\s*=\s*'array'(?:::text)?\s+THEN\s+jsonb_array_length\(options\)\s+ELSE\s+0\s+END/i.test(def)
+            && /jsonb_typeof\(options\)\s*=\s*'array'(?:::text)?\)*\s+THEN\s+jsonb_array_length\(options\)\s+ELSE\s+0\s+END/i.test(def)
         );
     }
 
