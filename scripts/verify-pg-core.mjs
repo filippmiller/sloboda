@@ -1555,6 +1555,41 @@ async function run() {
     );
     assert.equal((await pool.query('SELECT COUNT(*)::int AS cnt FROM expense_allocations')).rows[0].cnt, allocsBeforeOverExp);
     assert.equal((await pool.query('SELECT COUNT(*)::int AS cnt FROM ledger_postings')).rows[0].cnt, postingsBeforeOverExp);
+
+    // Overlength whitespace key replay against a legacy NULL-fingerprint expense -> replays cleanly without duplicating allocations/postings
+    const legExpRow = (await pool.query(`
+        INSERT INTO ledger_expenses
+            (settlement_id, purpose, title, category, amount_kopecks, allocation_rule, status, financial_status, dispute_status, version, idempotency_key, approved_by)
+        VALUES ('sloboda-pilot', 'r4-replay', 'Legacy R1 Expense', 'equipment', 15000, 'fifo', 'reserved', 'reserved', 'none', 1, 'r1 exp 1', $1)
+        RETURNING *
+    `, [replayAdminId])).rows[0];
+    await pool.query(
+        `INSERT INTO expense_allocations (expense_id, contribution_id, amount_kopecks, allocation_rule, financing_share_label, legal_right_type)
+         VALUES ($1, $2, 15000, 'fifo', '100%', 'observer_trace')`,
+        [legExpRow.id, replayContribRow.id]
+    );
+    await pool.query(
+        `INSERT INTO ledger_postings (posting_type, contribution_id, expense_id, amount_kopecks, actor_admin_id, note)
+         VALUES ('reserve', $1, $2, 15000, $3, 'Legacy R1 Expense')`,
+        [replayContribRow.id, legExpRow.id, replayAdminId]
+    );
+    const allocsBeforeLegOverExp = (await pool.query('SELECT COUNT(*)::int AS cnt FROM expense_allocations')).rows[0].cnt;
+    const postingsBeforeLegOverExp = (await pool.query('SELECT COUNT(*)::int AS cnt FROM ledger_postings')).rows[0].cnt;
+    const legOverExpKey = `r1${' '.repeat(125)}exp 1`;
+    assert.ok(legOverExpKey.length > 128);
+    const legOverExpRes = await coreStore.createAndAllocateExpense({
+        settlement_id: 'sloboda-pilot',
+        purpose: 'r4-replay',
+        title: 'Legacy R1 Expense',
+        category: 'equipment',
+        amount_kopecks: 15000,
+        mark_paid: false,
+        idempotency_key: legOverExpKey,
+    }, replayAdminId);
+    assert.equal(legOverExpRes.idempotent_replay, true);
+    assert.equal(legOverExpRes.expense.id, legExpRow.id);
+    assert.equal((await pool.query('SELECT COUNT(*)::int AS cnt FROM expense_allocations')).rows[0].cnt, allocsBeforeLegOverExp);
+    assert.equal((await pool.query('SELECT COUNT(*)::int AS cnt FROM ledger_postings')).rows[0].cnt, postingsBeforeLegOverExp);
     console.log('PASS [R4] SLB-R3-01, SLB-R3-03, SLB-R3-04 all invariants verified');
 
     // =========================================================================

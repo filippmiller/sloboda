@@ -1014,24 +1014,30 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
     try {
       // Login targeting /applications -> DashboardLayout redirects unonboarded user to /onboarding?redirect=%2Fapplications
       await pagePw.goto('/login?redirect=%2Fapplications');
-      await pagePw.locator('input[type="email"]').fill(emailPw);
-      await pagePw.locator('input[type="password"]').fill(passwordPw);
-      await pagePw.locator('button[type="submit"]').click();
+      await loginUserViaUi(pagePw, emailPw, passwordPw);
       await pagePw.waitForURL(/\/onboarding\?redirect=%2Fapplications/, { timeout: 15000 });
+      // Wait for OnboardingLayout checkAuth() to finish and render onboarding controls before expiring session
+      const skipBtn = pagePw.getByRole('button', { name: 'Пропустить пока' });
+      await expect(skipBtn).toBeVisible({ timeout: 15000 });
 
       // Expire session (clear cookies) before protected onboarding action -> 401 redirects to /login?redirect=%2Fonboarding%3Fredirect%3D%252Fapplications
       await ctxPw.clearCookies();
-      await pagePw.getByRole('button', { name: /Пропустить|Skip/i }).click();
+      const onb401Promise = pagePw.waitForResponse(
+        (resp) => resp.url().includes('/api/user/onboarding/complete') && resp.request().method() === 'POST'
+      );
+      await skipBtn.click();
+      const onb401Resp = await onb401Promise;
+      expect(onb401Resp.status()).toBe(401);
+
       await pagePw.waitForURL(/\/login\?redirect=/, { timeout: 15000 });
       expect(pagePw.url()).toContain('onboarding');
 
       // Re-login with password -> must return to /onboarding?redirect=%2Fapplications, then completing onboarding lands on /applications
-      await pagePw.locator('input[type="email"]').fill(emailPw);
-      await pagePw.locator('input[type="password"]').fill(passwordPw);
-      await pagePw.locator('button[type="submit"]').click();
+      await loginUserViaUi(pagePw, emailPw, passwordPw);
       await pagePw.waitForURL(/\/onboarding\?redirect=%2Fapplications/, { timeout: 15000 });
+      await expect(pagePw.getByRole('button', { name: 'Пропустить пока' })).toBeVisible({ timeout: 15000 });
 
-      await pagePw.getByRole('button', { name: /Пропустить|Skip/i }).click();
+      await pagePw.getByRole('button', { name: 'Пропустить пока' }).click();
       await pagePw.waitForURL(/\/applications$/, { timeout: 15000 });
     } finally {
       await ctxPw.close();
@@ -1060,7 +1066,8 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
     try {
       await pageMl.goto(mlNestedBody.debugMagicLink);
       await pageMl.waitForURL(/\/onboarding\?redirect=%2Fapplications/, { timeout: 15000 });
-      await pageMl.getByRole('button', { name: /Пропустить|Skip/i }).click();
+      await expect(pageMl.getByRole('button', { name: 'Пропустить пока' })).toBeVisible({ timeout: 15000 });
+      await pageMl.getByRole('button', { name: 'Пропустить пока' }).click();
       await pageMl.waitForURL(/\/applications$/, { timeout: 15000 });
     } finally {
       await ctxMl.close();
@@ -1122,11 +1129,14 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
       // 7A: Delayed portfolio POST — start with X, type Y while POST is in flight, release response, reload immediately without typing
       await skillsInput.fill(`Draft X before portfolio ${suffix}`);
       let releasePortfolio;
+      let notifyPortfolioArrived;
+      const portfolioArrived = new Promise((resolve) => { notifyPortfolioArrived = resolve; });
       const portfolioInFlight = new Promise((resolve) => { releasePortfolio = resolve; });
       let portfolioIntercepted = false;
       await page.route('**/api/applications/my/portfolio', async (route) => {
         if (route.request().method() === 'POST' && !portfolioIntercepted) {
           portfolioIntercepted = true;
+          notifyPortfolioArrived();
           const resp = await route.fetch();
           await portfolioInFlight;
           await route.fulfill({ response: resp });
@@ -1137,7 +1147,7 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
 
       await page.locator('input[placeholder*="Название проекта"]').first().fill(`Delayed Portfolio ${suffix}`);
       await page.getByRole('button', { name: /Добавить работу|Добавить в портфолио/i }).click();
-      await page.waitForTimeout(300);
+      await portfolioArrived;
 
       // Type Y while portfolio POST is still pending!
       const textY1 = `Newer Y1 typed during portfolio POST ${suffix}`;
@@ -1151,11 +1161,14 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
 
       // 7B: Delayed PATCH 409 — bump version on server, delay PATCH 409, type Y2 while in flight, release 409, reload immediately without typing
       let releasePatch409;
+      let notifyPatch409Arrived;
+      const patch409Arrived = new Promise((resolve) => { notifyPatch409Arrived = resolve; });
       const patch409InFlight = new Promise((resolve) => { releasePatch409 = resolve; });
       let patchIntercepted = false;
       await page.route('**/api/applications/my', async (route) => {
         if (route.request().method() === 'PATCH' && !patchIntercepted) {
           patchIntercepted = true;
+          notifyPatch409Arrived();
           // Advance server version so PATCH returns genuine 409
           await pool.query('UPDATE member_applications SET version = version + 1 WHERE id = $1', [appRow.id]);
           const resp = await route.fetch();
@@ -1168,7 +1181,7 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
       });
 
       await page.getByRole('button', { name: /Отправить доработанную заявку|Отправить на повторное/i }).click();
-      await page.waitForTimeout(300);
+      await patch409Arrived;
 
       // Type Y2 while PATCH 409 is still pending!
       const textY2 = `Newer Y2 typed during PATCH 409 ${suffix}`;
@@ -1182,6 +1195,35 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
       await page.reload();
       await expect(page.locator('textarea').first()).toHaveValue(textY2, { timeout: 10000 });
       await expect(page.getByText(/Обнаружено изменение заявки на сервере/i).first()).toBeVisible({ timeout: 10000 });
+
+      // 7C: Resolve conflict keeping draft, then delayed PATCH 200 — type Y3 while PATCH 200 is in flight, release 200, reload -> Y3 preserved
+      await page.getByRole('button', { name: /Оставить мои правки/i }).click();
+      let releasePatch200;
+      let notifyPatch200Arrived;
+      const patch200Arrived = new Promise((resolve) => { notifyPatch200Arrived = resolve; });
+      const patch200InFlight = new Promise((resolve) => { releasePatch200 = resolve; });
+      let patch200Intercepted = false;
+      await page.route('**/api/applications/my', async (route) => {
+        if (route.request().method() === 'PATCH' && !patch200Intercepted) {
+          patch200Intercepted = true;
+          notifyPatch200Arrived();
+          const resp = await route.fetch();
+          expect(resp.status()).toBe(200);
+          await patch200InFlight;
+          await route.fulfill({ response: resp });
+          return;
+        }
+        await route.continue();
+      });
+
+      await page.getByRole('button', { name: /Отправить доработанную заявку|Отправить на повторное/i }).click();
+      await patch200Arrived;
+      const textY3 = `Newer Y3 typed during PATCH 200 ${suffix}`;
+      await page.locator('textarea').first().fill(textY3);
+      releasePatch200();
+      await expect(page.getByText(/Обнаружено изменение заявки на сервере/i).first()).toBeVisible({ timeout: 10000 });
+      await page.reload();
+      await expect(page.locator('textarea').first()).toHaveValue(textY3, { timeout: 10000 });
     } finally {
       await ctx.close();
     }

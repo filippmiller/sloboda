@@ -33,6 +33,7 @@ const R2_REQUIRED_COLUMNS = [
     { table: 'ledger_expenses', column: 'request_fingerprint' },
     { table: 'ledger_expenses', column: 'financial_status' },
     { table: 'ledger_expenses', column: 'dispute_status' },
+    { table: 'ledger_expenses', column: 'version' },
     { table: 'governance_proposals', column: 'legacy_r1_unsupported' },
     { table: 'governance_proposals', column: 'legacy_r1_disposition' },
 ];
@@ -109,7 +110,8 @@ async function inspectCoreSchemaState(client) {
     let hasSafeR4AbstainConstraint = false;
     if (presentSet.has('governance_proposals')) {
         const conRes = await client.query(
-            `SELECT pg_get_constraintdef(c.oid) AS def
+            `SELECT c.convalidated AS convalidated,
+                    pg_get_constraintdef(c.oid) AS def
              FROM pg_constraint c
              JOIN pg_class t ON t.oid = c.conrelid
              JOIN pg_namespace n ON n.oid = t.relnamespace
@@ -117,8 +119,14 @@ async function inspectCoreSchemaState(client) {
                AND t.relname = 'governance_proposals'
                AND c.conname = 'chk_governance_proposals_abstain_index'`
         );
-        const def = conRes.rows[0]?.def || '';
-        hasSafeR4AbstainConstraint = /\bCASE\b/i.test(def) && /jsonb_array_length/i.test(def);
+        const row = conRes.rows[0];
+        const def = String(row?.def || '').replace(/\s+/g, ' ');
+        hasSafeR4AbstainConstraint = (
+            row?.convalidated === true
+            && !/\bNOT\s+VALID\b/i.test(def)
+            && /abstain_option_index\s*<\s*CASE\s+WHEN\b/i.test(def)
+            && /jsonb_typeof\(options\)\s*=\s*'array'(?:::text)?\s+THEN\s+jsonb_array_length\(options\)\s+ELSE\s+0\s+END/i.test(def)
+        );
     }
 
     const reasons = [];

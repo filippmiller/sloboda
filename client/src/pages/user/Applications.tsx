@@ -337,9 +337,7 @@ export default function Applications() {
       const res = await api.get<MyApplicationResponse>('/applications/my')
       if (gen !== requestGenRef.current) return
       const app = res.data.application ?? null
-      activeAppIdRef.current = app ? app.id : null
-      latestAppVersionRef.current = app ? app.version : 0
-      setApplication(app)
+      if (!applyApplicationMonotonic(app)) return
       setPortfolio(res.data.portfolio ?? [])
       setMembership(res.data.membership ?? null)
       setError(null)
@@ -422,7 +420,7 @@ export default function Applications() {
         setLoading(false)
       }
     }
-  }, [applyRevisionFieldsState, authUser?.email, authUser?.id, authUser?.name, syncRevisionFields])
+  }, [applyApplicationMonotonic, applyRevisionFieldsState, authUser?.email, authUser?.id, authUser?.name, syncRevisionFields])
 
   useEffect(() => {
     loadMyApplication()
@@ -640,7 +638,6 @@ export default function Applications() {
     const appStatusAtStart = application.status
     const userIdAtStart = effectiveUserId
     const editSeqAtStart = revisionEditSeqRef.current
-    const genAtStart = requestGenRef.current
 
     setSubmittingRevision(true)
     try {
@@ -658,11 +655,13 @@ export default function Applications() {
           trial_task_url: currentFields.revTrialTaskUrl.trim(),
         },
       )
-      if (activeAppIdRef.current !== appId || genAtStart !== requestGenRef.current) {
+      if (activeAppIdRef.current !== appId) {
         return
       }
       const updatedApp = res.data.application
-      applyApplicationMonotonic(updatedApp)
+      if (!applyApplicationMonotonic(updatedApp)) {
+        return
+      }
       const draftKey = getRevisionDraftKey(userIdAtStart, appId)
       if (revisionEditSeqRef.current === editSeqAtStart) {
         removeRevisionDraft(draftKey)
@@ -689,7 +688,7 @@ export default function Applications() {
         toast.warning('Заявка отправлена, но ваши более новые правки сохранены в черновике')
       }
     } catch (err: unknown) {
-      if (activeAppIdRef.current !== appId || genAtStart !== requestGenRef.current) {
+      if (activeAppIdRef.current !== appId) {
         return
       }
       if (axios.isAxiosError(err) && err.response?.status === 409) {
@@ -710,7 +709,7 @@ export default function Applications() {
         )
         try {
           const freshRes = await api.get<MyApplicationResponse>('/applications/my')
-          if (activeAppIdRef.current !== appId || genAtStart !== requestGenRef.current) {
+          if (activeAppIdRef.current !== appId) {
             return
           }
           const freshApp = freshRes.data.application ?? null
@@ -738,7 +737,7 @@ export default function Applications() {
             })
           }
         } catch {
-          if (activeAppIdRef.current !== appId || genAtStart !== requestGenRef.current) {
+          if (activeAppIdRef.current !== appId) {
             return
           }
           setRevisionConflict({
@@ -768,7 +767,6 @@ export default function Applications() {
     const prevVersion = application?.version
     const appStatusAtStart = application?.status
     const userIdAtStart = effectiveUserId
-    const genAtStart = requestGenRef.current
     setSubmittingPortfolio(true)
     try {
       const res = await api.post<{
@@ -785,7 +783,6 @@ export default function Applications() {
       if (
         appId !== null &&
         (activeAppIdRef.current !== appId ||
-          genAtStart !== requestGenRef.current ||
           (typeof itemAppId === 'number' && itemAppId !== appId))
       ) {
         return
@@ -801,8 +798,10 @@ export default function Applications() {
         if (
           typeof prevVersion === 'number' &&
           nextVersion === prevVersion + 1 &&
+          nextVersion >= latestAppVersionRef.current &&
           (!latestDraft || latestDraft.baseVersion === prevVersion)
         ) {
+          latestAppVersionRef.current = Math.max(latestAppVersionRef.current, nextVersion)
           setApplication((prev) =>
             prev && prev.id === appId
               ? { ...prev, version: Math.max(prev.version, nextVersion) }
@@ -818,11 +817,13 @@ export default function Applications() {
           }
         } else if (
           typeof prevVersion === 'number' &&
-          (nextVersion > prevVersion + 1 || (latestDraft && latestDraft.baseVersion !== prevVersion))
+          (nextVersion > prevVersion + 1 ||
+            nextVersion < latestAppVersionRef.current ||
+            (latestDraft && latestDraft.baseVersion !== prevVersion))
         ) {
           // Do NOT publish nextVersion onto application before refreshing & reconciling concurrent changes
           detectedConcurrentChange = Boolean(latestDraft)
-          if (latestDraft) {
+          if (latestDraft && nextVersion >= latestAppVersionRef.current) {
             setRevisionConflict({
               serverVersion: nextVersion,
               serverStatus: appStatusAtStart,
@@ -834,7 +835,7 @@ export default function Applications() {
           }
           try {
             const freshRes = await api.get<MyApplicationResponse>('/applications/my')
-            if (activeAppIdRef.current !== appId || genAtStart !== requestGenRef.current) {
+            if (activeAppIdRef.current !== appId) {
               return
             }
             const freshApp = freshRes.data.application ?? null
@@ -857,7 +858,7 @@ export default function Applications() {
               } else {
                 syncRevisionFields(freshApp)
               }
-            } else if (postRefreshDraft) {
+            } else if (postRefreshDraft && nextVersion >= latestAppVersionRef.current) {
               setRevisionConflict({
                 serverVersion: nextVersion,
                 serverStatus: appStatusAtStart,
@@ -868,11 +869,11 @@ export default function Applications() {
               setRevisionDraftVisible(true)
             }
           } catch {
-            if (activeAppIdRef.current !== appId || genAtStart !== requestGenRef.current) {
+            if (activeAppIdRef.current !== appId) {
               return
             }
             const postRefreshDraft = readRevisionDraft(revKey)
-            if (postRefreshDraft) {
+            if (postRefreshDraft && nextVersion >= latestAppVersionRef.current) {
               setRevisionConflict({
                 serverVersion: nextVersion,
                 serverStatus: appStatusAtStart,

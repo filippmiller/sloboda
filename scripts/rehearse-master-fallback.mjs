@@ -294,20 +294,50 @@ try {
     const pubLedgerJson = await pubLedgerRes.json();
     assert.equal(pubLedgerJson.totals.received.kopecks_str, '150000', 'Candidate public ledger must report verified_receipt only');
 
-    // Perform real candidate writes to prove SQL write fence was actually lifted
-    const postRestoreContrib = await coreStore.recordContribution({
-        settlement_id: 'sloboda-pilot',
-        purpose: 'general',
-        contributor_name: 'Post-Restore Donor',
-        amount_kopecks: 25000,
-        ledger_mode: 'verified_receipt',
-        idempotency_key: 'reh-post-restore-1',
-    }, adminId);
-    assert.equal(postRestoreContrib.idempotent_replay, false);
+    // Perform real candidate writes via the candidate server's authenticated HTTP endpoints
+    // to prove the SQL write fence was lifted end-to-end (HTTP -> route -> coreStore -> PG)
+    const jwt = require('jsonwebtoken');
+    const { JWT_SECRET } = require('../server/utils/tokens');
+    const adminJwt = jwt.sign(
+        { id: adminId, email: 'rehearsal.admin@sloboda.land', role: 'super_admin' },
+        JWT_SECRET,
+        { expiresIn: '1h' }
+    );
 
-    const paidExp = await coreStore.transitionExpenseStatus(reservedExp.expense.id, 'paid', adminId, 1);
-    assert.equal(paidExp.status, 'paid');
-    assert.equal(paidExp.financial_status, 'paid');
+    const httpContribRes = await fetch(`http://127.0.0.1:${candPort}/api/admin/ledger/contributions`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${adminJwt}`,
+        },
+        body: JSON.stringify({
+            settlement_id: 'sloboda-pilot',
+            purpose: 'general',
+            contributor_name: 'Post-Restore HTTP Donor',
+            amount_kopecks: 25000,
+            ledger_mode: 'verified_receipt',
+            idempotency_key: 'reh-post-restore-http-1',
+        }),
+    });
+    assert.equal(httpContribRes.status, 201, `Post-restore HTTP contribution write must succeed with 201 (got ${httpContribRes.status})`);
+    const httpContribJson = await httpContribRes.json();
+    assert.equal(httpContribJson.idempotent_replay, false);
+
+    const httpPayRes = await fetch(`http://127.0.0.1:${candPort}/api/admin/ledger/expenses/${reservedExp.expense.id}/status`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${adminJwt}`,
+        },
+        body: JSON.stringify({
+            status: 'paid',
+            expected_version: 1,
+        }),
+    });
+    assert.equal(httpPayRes.status, 200, `Post-restore HTTP expense transition must succeed with 200 (got ${httpPayRes.status})`);
+    const httpPayJson = await httpPayRes.json();
+    assert.equal(httpPayJson.expense.status, 'paid');
+    assert.equal(httpPayJson.expense.financial_status, 'paid');
 
     const postWriteSnapshot = await snapshotCoreData(pool);
     assert.equal(postWriteSnapshot.counts.contributions, 3);
