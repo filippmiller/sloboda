@@ -1,9 +1,39 @@
 /**
  * Sloboda Core Upgrade Preflight & DB-Wide Financial Reconciliation
- * Runs read-only integrity checks across contributions, expense_allocations,
- * ledger_expenses, ledger_postings, construction_milestones, and governance_proposals.
- * Works on both R1 (pre-upgrade) and R2/R3 schemas.
+ * Runs read-only schema classification and integrity checks across all Sloboda Core
+ * tables in schema `public`. Works on clean exact-master (NOT_INSTALLED), partial/inconsistent
+ * schemas (PARTIAL_OR_INCONSISTENT, fail-closed), and coherent R1/R2/R3/R4 schemas.
  */
+
+const CORE_R1_TABLES = [
+    'member_applications',
+    'portfolio_items',
+    'governance_proposals',
+    'governance_voter_snapshots',
+    'governance_ballots',
+    'governance_voter_receipts',
+    'governance_secret_ballots',
+    'council_delegations',
+    'contributions',
+    'construction_milestones',
+    'ledger_expenses',
+    'expense_allocations',
+    'ledger_postings',
+];
+
+const CORE_MIGRATION_VERSIONS = [
+    '2026-11-26-sloboda-core',
+    '2026-11-26-sloboda-core-r2',
+    '2026-11-26-sloboda-core-r3',
+    '2026-11-26-sloboda-core-r4',
+];
+
+const R2_REQUIRED_COLUMNS = [
+    { table: 'ledger_expenses', column: 'financial_status' },
+    { table: 'ledger_expenses', column: 'dispute_status' },
+    { table: 'governance_proposals', column: 'legacy_r1_unsupported' },
+    { table: 'governance_proposals', column: 'legacy_r1_disposition' },
+];
 
 async function getColumnSet(client, tableName) {
     const res = await client.query(
@@ -13,6 +43,95 @@ async function getColumnSet(client, tableName) {
         [tableName]
     );
     return new Set(res.rows.map((r) => r.column_name));
+}
+
+async function inspectCoreSchemaState(client) {
+    const allTrackedTables = [...CORE_R1_TABLES, 'sloboda_core_gates', 'schema_migrations'];
+    const tblRes = await client.query(
+        `SELECT table_name
+         FROM information_schema.tables
+         WHERE table_schema = 'public'
+           AND table_type = 'BASE TABLE'
+           AND table_name = ANY($1::text[])`,
+        [allTrackedTables]
+    );
+    const presentSet = new Set(tblRes.rows.map((r) => r.table_name));
+
+    const presentCoreTables = CORE_R1_TABLES.filter((t) => presentSet.has(t));
+    const missingCoreTables = CORE_R1_TABLES.filter((t) => !presentSet.has(t));
+    const hasGatesTable = presentSet.has('sloboda_core_gates');
+    const hasSchemaMigrationsTable = presentSet.has('schema_migrations');
+
+    let appliedCoreMigrations = [];
+    if (hasSchemaMigrationsTable) {
+        const migRes = await client.query(
+            `SELECT version
+             FROM public.schema_migrations
+             WHERE version = ANY($1::text[])
+             ORDER BY version ASC`,
+            [CORE_MIGRATION_VERSIONS]
+        );
+        appliedCoreMigrations = migRes.rows.map((r) => r.version);
+    }
+    const migSet = new Set(appliedCoreMigrations);
+    const hasM1 = migSet.has('2026-11-26-sloboda-core');
+    const hasM2 = migSet.has('2026-11-26-sloboda-core-r2');
+    const hasM3 = migSet.has('2026-11-26-sloboda-core-r3');
+    const hasM4 = migSet.has('2026-11-26-sloboda-core-r4');
+
+    const expenseCols = presentSet.has('ledger_expenses')
+        ? await getColumnSet(client, 'ledger_expenses')
+        : new Set();
+    const proposalCols = presentSet.has('governance_proposals')
+        ? await getColumnSet(client, 'governance_proposals')
+        : new Set();
+
+    const missingR2Columns = [];
+    for (const reqCol of R2_REQUIRED_COLUMNS) {
+        const cols = reqCol.table === 'ledger_expenses' ? expenseCols : proposalCols;
+        if (!cols.has(reqCol.column)) {
+            missingR2Columns.push(`${reqCol.table}.${reqCol.column}`);
+        }
+    }
+    const hasAllR2Columns = missingR2Columns.length === 0;
+    const hasAnyR2Columns = missingR2Columns.length < R2_REQUIRED_COLUMNS.length;
+
+    const reasons = [];
+    let schemaState = 'PARTIAL_OR_INCONSISTENT';
+
+    if (presentCoreTables.length === 0 && !hasGatesTable && appliedCoreMigrations.length === 0) {
+        schemaState = 'NOT_INSTALLED';
+    } else if (missingCoreTables.length > 0) {
+        reasons.push(`missing_core_tables:${missingCoreTables.join(',')}`);
+    } else if (hasM1 && !hasM2 && !hasM3 && !hasM4) {
+        if (hasGatesTable) reasons.push('unexpected_sloboda_core_gates_on_r1');
+        if (hasAnyR2Columns) reasons.push('unexpected_r2_columns_on_r1');
+        if (reasons.length === 0) schemaState = 'INSTALLED_R1';
+    } else if (hasM1 && hasM2 && !hasM3 && !hasM4) {
+        if (hasGatesTable) reasons.push('unexpected_sloboda_core_gates_on_r2');
+        if (!hasAllR2Columns) reasons.push(`missing_r2_columns:${missingR2Columns.join(',')}`);
+        if (reasons.length === 0) schemaState = 'INSTALLED_R2';
+    } else if (hasM1 && hasM2 && hasM3 && !hasM4) {
+        if (!hasGatesTable) reasons.push('missing_sloboda_core_gates_on_r3');
+        if (!hasAllR2Columns) reasons.push(`missing_r2_columns:${missingR2Columns.join(',')}`);
+        if (reasons.length === 0) schemaState = 'INSTALLED_R3';
+    } else if (hasM1 && hasM2 && hasM3 && hasM4) {
+        if (!hasGatesTable) reasons.push('missing_sloboda_core_gates_on_r4');
+        if (!hasAllR2Columns) reasons.push(`missing_r2_columns:${missingR2Columns.join(',')}`);
+        if (reasons.length === 0) schemaState = 'INSTALLED_R4';
+    } else {
+        reasons.push(`inconsistent_core_migration_markers:${appliedCoreMigrations.join(',') || 'none'}`);
+    }
+
+    return {
+        schema_state: schemaState,
+        present_tables: hasGatesTable ? [...presentCoreTables, 'sloboda_core_gates'] : presentCoreTables,
+        missing_tables: missingCoreTables,
+        has_gates_table: hasGatesTable,
+        missing_columns: missingR2Columns,
+        applied_core_migrations: appliedCoreMigrations,
+        reasons,
+    };
 }
 
 async function runFinancialIntegrityCheck(client) {
@@ -29,17 +148,17 @@ async function runFinancialIntegrityCheck(client) {
             WHEN le.status = 'paid' THEN 'paid'
             WHEN le.status = 'cancelled' THEN 'cancelled'
             WHEN le.status = 'reserved' THEN 'reserved'
-            WHEN EXISTS (SELECT 1 FROM ledger_postings lp WHERE lp.expense_id = le.id AND lp.posting_type = 'pay') THEN 'paid'
-            WHEN EXISTS (SELECT 1 FROM ledger_postings lp WHERE lp.expense_id = le.id AND lp.posting_type = 'release') THEN 'cancelled'
+            WHEN EXISTS (SELECT 1 FROM public.ledger_postings lp WHERE lp.expense_id = le.id AND lp.posting_type = 'pay') THEN 'paid'
+            WHEN EXISTS (SELECT 1 FROM public.ledger_postings lp WHERE lp.expense_id = le.id AND lp.posting_type = 'release') THEN 'cancelled'
             ELSE 'reserved'
            END`;
 
     const statsRes = await client.query(`
         SELECT
-            (SELECT COUNT(*)::int FROM contributions) AS contributions_count,
-            (SELECT COUNT(*)::int FROM ledger_expenses) AS expenses_count,
-            (SELECT COUNT(*)::int FROM expense_allocations) AS allocations_count,
-            (SELECT COUNT(*)::int FROM ledger_postings) AS postings_count
+            (SELECT COUNT(*)::int FROM public.contributions) AS contributions_count,
+            (SELECT COUNT(*)::int FROM public.ledger_expenses) AS expenses_count,
+            (SELECT COUNT(*)::int FROM public.expense_allocations) AS allocations_count,
+            (SELECT COUNT(*)::int FROM public.ledger_postings) AS postings_count
     `);
     const stats = statsRes.rows[0] || {
         contributions_count: 0,
@@ -53,7 +172,7 @@ async function runFinancialIntegrityCheck(client) {
         SELECT id, settlement_id, ledger_mode,
                received_kopecks::text, available_kopecks::text,
                reserved_kopecks::text, paid_kopecks::text, refunded_kopecks::text
-        FROM contributions
+        FROM public.contributions
         WHERE received_kopecks <= 0
            OR available_kopecks < 0
            OR reserved_kopecks < 0
@@ -105,15 +224,15 @@ async function runFinancialIntegrityCheck(client) {
     const reservedDiff = await client.query(`
         WITH resv_alloc AS (
             SELECT ea.contribution_id, COALESCE(SUM(ea.amount_kopecks), 0)::bigint AS alloc_sum
-            FROM expense_allocations ea
-            JOIN ledger_expenses le ON le.id = ea.expense_id
+            FROM public.expense_allocations ea
+            JOIN public.ledger_expenses le ON le.id = ea.expense_id
             WHERE (${effFinExpr}) = 'reserved'
             GROUP BY ea.contribution_id
         )
         SELECT c.id AS contribution_id,
                c.reserved_kopecks::text AS contribution_reserved_kopecks,
                COALESCE(ra.alloc_sum, 0)::text AS allocated_reserved_kopecks
-        FROM contributions c
+        FROM public.contributions c
         LEFT JOIN resv_alloc ra ON ra.contribution_id = c.id
         WHERE c.reserved_kopecks <> COALESCE(ra.alloc_sum, 0)
         ORDER BY c.id ASC
@@ -131,15 +250,15 @@ async function runFinancialIntegrityCheck(client) {
     const paidDiff = await client.query(`
         WITH paid_alloc AS (
             SELECT ea.contribution_id, COALESCE(SUM(ea.amount_kopecks), 0)::bigint AS alloc_sum
-            FROM expense_allocations ea
-            JOIN ledger_expenses le ON le.id = ea.expense_id
+            FROM public.expense_allocations ea
+            JOIN public.ledger_expenses le ON le.id = ea.expense_id
             WHERE (${effFinExpr}) = 'paid'
             GROUP BY ea.contribution_id
         )
         SELECT c.id AS contribution_id,
                c.paid_kopecks::text AS contribution_paid_kopecks,
                COALESCE(pa.alloc_sum, 0)::text AS allocated_paid_kopecks
-        FROM contributions c
+        FROM public.contributions c
         LEFT JOIN paid_alloc pa ON pa.contribution_id = c.id
         WHERE c.paid_kopecks <> COALESCE(pa.alloc_sum, 0)
         ORDER BY c.id ASC
@@ -156,7 +275,7 @@ async function runFinancialIntegrityCheck(client) {
     // 4. Per (expense_id, contribution_id): at most 1 pay posting and at most 1 release posting
     const dupPostings = await client.query(`
         SELECT expense_id, contribution_id, posting_type, COUNT(*)::int AS cnt
-        FROM ledger_postings
+        FROM public.ledger_postings
         WHERE posting_type IN ('pay', 'release')
           AND expense_id IS NOT NULL
           AND contribution_id IS NOT NULL
@@ -179,7 +298,7 @@ async function runFinancialIntegrityCheck(client) {
         SELECT expense_id,
                COUNT(*) FILTER (WHERE posting_type = 'pay')::int AS pay_count,
                COUNT(*) FILTER (WHERE posting_type = 'release')::int AS release_count
-        FROM ledger_postings
+        FROM public.ledger_postings
         WHERE expense_id IS NOT NULL
           AND posting_type IN ('pay', 'release')
         GROUP BY expense_id
@@ -202,8 +321,8 @@ async function runFinancialIntegrityCheck(client) {
                (${effFinExpr}) AS effective_financial_status,
                le.amount_kopecks::text AS expense_amount_kopecks,
                COALESCE(SUM(ea.amount_kopecks), 0)::text AS allocations_sum_kopecks
-        FROM ledger_expenses le
-        LEFT JOIN expense_allocations ea ON ea.expense_id = le.id
+        FROM public.ledger_expenses le
+        LEFT JOIN public.expense_allocations ea ON ea.expense_id = le.id
         WHERE (${effFinExpr}) IN ('reserved', 'paid')
         GROUP BY le.id, (${effFinExpr}), le.amount_kopecks
         HAVING COALESCE(SUM(ea.amount_kopecks), 0) <> le.amount_kopecks
@@ -225,9 +344,9 @@ async function runFinancialIntegrityCheck(client) {
                ea.contribution_id,
                ea.amount_kopecks::text AS alloc_amount_kopecks,
                COALESCE(SUM(lp.amount_kopecks), 0)::text AS pay_posting_amount_kopecks
-        FROM expense_allocations ea
-        JOIN ledger_expenses le ON le.id = ea.expense_id
-        LEFT JOIN ledger_postings lp
+        FROM public.expense_allocations ea
+        JOIN public.ledger_expenses le ON le.id = ea.expense_id
+        LEFT JOIN public.ledger_postings lp
           ON lp.expense_id = ea.expense_id
          AND lp.contribution_id = ea.contribution_id
          AND lp.posting_type = 'pay'
@@ -256,7 +375,7 @@ async function runFinancialIntegrityCheck(client) {
             SELECT expense_id,
                    BOOL_OR(posting_type = 'pay') AS has_pay,
                    BOOL_OR(posting_type = 'release') AS has_release
-            FROM ledger_postings
+            FROM public.ledger_postings
             WHERE expense_id IS NOT NULL AND posting_type IN ('pay', 'release')
             GROUP BY expense_id
         )
@@ -264,7 +383,7 @@ async function runFinancialIntegrityCheck(client) {
                ${statusCols},
                COALESCE(pf.has_pay, FALSE) AS has_pay,
                COALESCE(pf.has_release, FALSE) AS has_release
-        FROM ledger_expenses le
+        FROM public.ledger_expenses le
         LEFT JOIN posting_flags pf ON pf.expense_id = le.id
         WHERE (
             (COALESCE(pf.has_pay, FALSE) AND NOT COALESCE(pf.has_release, FALSE) AND (${effFinExpr}) <> 'paid')
@@ -294,8 +413,8 @@ async function runFinancialIntegrityCheck(client) {
     const crossMilestone = await client.query(`
         SELECT le.id AS expense_id, le.settlement_id AS expense_settlement_id,
                le.milestone_id, cm.settlement_id AS milestone_settlement_id
-        FROM ledger_expenses le
-        LEFT JOIN construction_milestones cm ON cm.id = le.milestone_id
+        FROM public.ledger_expenses le
+        LEFT JOIN public.construction_milestones cm ON cm.id = le.milestone_id
         WHERE le.milestone_id IS NOT NULL
           AND (cm.id IS NULL OR cm.settlement_id IS DISTINCT FROM le.settlement_id)
         ORDER BY le.id ASC
@@ -317,8 +436,8 @@ async function runFinancialIntegrityCheck(client) {
                ea.contribution_id,
                ea.amount_kopecks::text AS amount_kopecks,
                c.ledger_mode
-        FROM expense_allocations ea
-        JOIN contributions c ON c.id = ea.contribution_id
+        FROM public.expense_allocations ea
+        JOIN public.contributions c ON c.id = ea.contribution_id
         WHERE c.ledger_mode IS DISTINCT FROM 'verified_receipt'
         ORDER BY ea.expense_id ASC, ea.contribution_id ASC
     `);
@@ -340,13 +459,13 @@ async function runFinancialIntegrityCheck(client) {
                p.expense_id,
                p.contribution_id,
                p.amount_kopecks::text AS amount_kopecks
-        FROM ledger_postings p
+        FROM public.ledger_postings p
         WHERE p.posting_type IN ('reserve', 'pay', 'release')
           AND (
               p.expense_id IS NULL
               OR p.contribution_id IS NULL
               OR NOT EXISTS (
-                  SELECT 1 FROM expense_allocations ea
+                  SELECT 1 FROM public.expense_allocations ea
                   WHERE ea.expense_id = p.expense_id
                     AND ea.contribution_id = p.contribution_id
               )
@@ -371,9 +490,9 @@ async function runFinancialIntegrityCheck(client) {
                ea.amount_kopecks::text AS alloc_amount_kopecks,
                COALESCE(SUM(lp.amount_kopecks), 0)::text AS release_posting_amount_kopecks,
                COUNT(lp.id)::int AS release_posting_count
-        FROM expense_allocations ea
-        JOIN ledger_expenses le ON le.id = ea.expense_id
-        LEFT JOIN ledger_postings lp
+        FROM public.expense_allocations ea
+        JOIN public.ledger_expenses le ON le.id = ea.expense_id
+        LEFT JOIN public.ledger_postings lp
           ON lp.expense_id = ea.expense_id
          AND lp.contribution_id = ea.contribution_id
          AND lp.posting_type = 'release'
@@ -412,6 +531,17 @@ async function runGovernancePreflight(client) {
     const cols = await getColumnSet(client, 'governance_proposals');
     const hasLegacyCols = cols.has('legacy_r1_unsupported') && cols.has('legacy_r1_disposition');
 
+    const badAbstainExpr = `(
+        abstain_option_index IS NOT NULL
+        AND (
+            abstain_option_index < 0
+            OR abstain_option_index >= CASE
+                WHEN options IS NOT NULL AND jsonb_typeof(options) = 'array' THEN jsonb_array_length(options)
+                ELSE 0
+            END
+        )
+    )`;
+
     const unsupportedFilter = `
         ${hasLegacyCols ? 'legacy_r1_unsupported = TRUE OR ' : ''}
         seats_count IS DISTINCT FROM 1
@@ -421,7 +551,7 @@ async function runGovernancePreflight(client) {
         )
         OR quorum_members_pct IS NULL OR quorum_members_pct < 1 OR quorum_members_pct > 100
         OR quorum_capital_pct IS NULL OR quorum_capital_pct < 1 OR quorum_capital_pct > 100
-        OR (abstain_option_index IS NOT NULL AND abstain_option_index < 0)
+        OR ${badAbstainExpr}
     `;
 
     const dispositionExpr = hasLegacyCols
@@ -434,10 +564,37 @@ async function runGovernancePreflight(client) {
                status,
                ${dispositionExpr} AS legacy_r1_disposition,
                COUNT(*)::int AS count
-        FROM governance_proposals
+        FROM public.governance_proposals
         WHERE ${unsupportedFilter}
         GROUP BY authoritative_engine, seats_count, status, ${dispositionExpr}
         ORDER BY authoritative_engine, seats_count, status
+    `);
+
+    const detailRes = await client.query(`
+        SELECT id,
+               title,
+               status,
+               authoritative_engine,
+               secret_ballot,
+               seats_count,
+               quorum_members_pct,
+               quorum_capital_pct,
+               abstain_option_index,
+               jsonb_typeof(options) AS options_type,
+               CASE WHEN options IS NOT NULL AND jsonb_typeof(options) = 'array' THEN jsonb_array_length(options) ELSE NULL END AS options_length,
+               ${hasLegacyCols ? 'legacy_r1_unsupported' : 'FALSE'} AS already_marked_legacy_r1_unsupported,
+               ${dispositionExpr} AS legacy_r1_disposition,
+               (seats_count IS DISTINCT FROM 1) AS bad_seats,
+               (NOT (
+                   (authoritative_engine = 'native_secret' AND secret_ballot = TRUE)
+                   OR (authoritative_engine = 'native_named' AND secret_ballot = FALSE)
+               )) AS bad_engine,
+               (quorum_members_pct IS NULL OR quorum_members_pct < 1 OR quorum_members_pct > 100) AS bad_quorum_members,
+               (quorum_capital_pct IS NULL OR quorum_capital_pct < 1 OR quorum_capital_pct > 100) AS bad_quorum_capital,
+               ${badAbstainExpr} AS bad_abstain
+        FROM public.governance_proposals
+        WHERE ${unsupportedFilter}
+        ORDER BY id ASC
     `);
 
     const inventory = res.rows.map((r) => ({
@@ -447,19 +604,107 @@ async function runGovernancePreflight(client) {
         legacy_r1_disposition: r.legacy_r1_disposition,
         count: Number(r.count),
     }));
+
+    const unsupportedProposals = detailRes.rows.map((r) => {
+        const reasons = [];
+        if (r.already_marked_legacy_r1_unsupported) reasons.push('already_marked_legacy_r1_unsupported');
+        if (r.bad_seats) reasons.push('seats_count_not_one');
+        if (r.bad_engine) reasons.push('engine_secret_ballot_mismatch');
+        if (r.bad_quorum_members) reasons.push('invalid_quorum_members_pct');
+        if (r.bad_quorum_capital) reasons.push('invalid_quorum_capital_pct');
+        if (r.bad_abstain) reasons.push('invalid_abstain_option_index');
+        return {
+            id: Number(r.id),
+            title: r.title,
+            status: r.status,
+            authoritative_engine: r.authoritative_engine,
+            seats_count: Number(r.seats_count),
+            abstain_option_index: r.abstain_option_index === null ? null : Number(r.abstain_option_index),
+            options_type: r.options_type,
+            options_length: r.options_length === null ? null : Number(r.options_length),
+            legacy_r1_disposition: r.legacy_r1_disposition,
+            reasons,
+        };
+    });
+
     const legacyUnsupportedCount = inventory.reduce((sum, r) => sum + r.count, 0);
 
     return {
         ok: true,
         legacy_unsupported_count: legacyUnsupportedCount,
         inventory,
+        unsupported_proposals: unsupportedProposals,
     };
 }
 
 async function runFullPreflight(client) {
+    const checkedAt = new Date().toISOString();
+    const schema = await inspectCoreSchemaState(client);
+
+    if (schema.schema_state === 'NOT_INSTALLED') {
+        return {
+            schema,
+            financial: {
+                ok: true,
+                skipped_reason: 'core_schema_not_installed',
+                discrepancies: [],
+                stats: {
+                    contributions_count: 0,
+                    expenses_count: 0,
+                    allocations_count: 0,
+                    postings_count: 0,
+                },
+                checked_at: checkedAt,
+            },
+            governance: {
+                ok: true,
+                skipped_reason: 'core_schema_not_installed',
+                legacy_unsupported_count: 0,
+                inventory: [],
+                unsupported_proposals: [],
+            },
+            checked_at: checkedAt,
+        };
+    }
+
+    if (schema.schema_state === 'PARTIAL_OR_INCONSISTENT') {
+        return {
+            schema,
+            financial: {
+                ok: false,
+                discrepancies: [
+                    {
+                        type: 'PARTIAL_CORE_SCHEMA',
+                        schema_state: schema.schema_state,
+                        present_tables: schema.present_tables,
+                        missing_tables: schema.missing_tables,
+                        missing_columns: schema.missing_columns,
+                        applied_core_migrations: schema.applied_core_migrations,
+                        reasons: schema.reasons,
+                    },
+                ],
+                stats: {
+                    contributions_count: 0,
+                    expenses_count: 0,
+                    allocations_count: 0,
+                    postings_count: 0,
+                },
+                checked_at: checkedAt,
+            },
+            governance: {
+                ok: false,
+                legacy_unsupported_count: 0,
+                inventory: [],
+                unsupported_proposals: [],
+            },
+            checked_at: checkedAt,
+        };
+    }
+
     const financial = await runFinancialIntegrityCheck(client);
     const governance = await runGovernancePreflight(client);
     return {
+        schema,
         financial,
         governance,
         checked_at: financial.checked_at,
@@ -471,7 +716,7 @@ async function persistLedgerGate(client, report) {
     const isBlocked = !(financial && financial.ok === true);
     const payload = report && report.financial ? report : { financial };
     await client.query(
-        `INSERT INTO sloboda_core_gates (gate_key, is_blocked, report_json, checked_at)
+        `INSERT INTO public.sloboda_core_gates (gate_key, is_blocked, report_json, checked_at)
          VALUES ('ledger_integrity', $1, $2::jsonb, NOW())
          ON CONFLICT (gate_key) DO UPDATE SET
              is_blocked = EXCLUDED.is_blocked,
@@ -487,6 +732,9 @@ async function persistLedgerGate(client, report) {
 }
 
 module.exports = {
+    CORE_R1_TABLES,
+    CORE_MIGRATION_VERSIONS,
+    inspectCoreSchemaState,
     runFinancialIntegrityCheck,
     runGovernancePreflight,
     runFullPreflight,

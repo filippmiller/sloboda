@@ -61,19 +61,50 @@ setInterval(() => {
     }
 }, LOGIN_WINDOW_MS).unref();
 
-function sanitizeInternalRedirect(raw, fallback = '/dashboard') {
-    if (typeof raw !== 'string') return fallback;
+function hasControlChars(str) {
+    for (let i = 0; i < str.length; i += 1) {
+        const code = str.charCodeAt(i);
+        if (code <= 0x1f || code === 0x7f) return true;
+    }
+    return false;
+}
+
+const MAX_REDIRECT_NEST_DEPTH = 2;
+
+function parseSafeInternalRedirect(raw, depth = 0) {
+    if (typeof raw !== 'string') return null;
     const trimmed = raw.trim();
     if (
         !trimmed
         || !trimmed.startsWith('/')
         || trimmed.startsWith('//')
         || trimmed.includes('\\')
-        || /[\r\n\0]/.test(trimmed)
+        || /%00/i.test(trimmed)
+        || hasControlChars(trimmed)
         || /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)
-        || /%2f|%5c|%00/i.test(trimmed)
     ) {
-        return fallback;
+        return null;
+    }
+    const rawPath = trimmed.split(/[?#]/)[0];
+    if (/%2f|%5c/i.test(rawPath)) {
+        return null;
+    }
+    let decodedRawPath;
+    try {
+        decodedRawPath = decodeURIComponent(rawPath);
+    } catch {
+        return null;
+    }
+    if (
+        !decodedRawPath.startsWith('/')
+        || decodedRawPath.startsWith('//')
+        || decodedRawPath.includes('\\')
+        || hasControlChars(decodedRawPath)
+        || rawPath.split('/').some((seg) => seg === '..')
+        || decodedRawPath.split('/').some((seg) => seg === '..')
+        || /^\/api(\/|$)/i.test(decodedRawPath)
+    ) {
+        return null;
     }
     try {
         const parsed = new URL(trimmed, 'http://sloboda.local');
@@ -82,34 +113,48 @@ function sanitizeInternalRedirect(raw, fallback = '/dashboard') {
             || !parsed.pathname.startsWith('/')
             || parsed.pathname.startsWith('//')
         ) {
-            return fallback;
+            return null;
         }
-        const rawPath = trimmed.split(/[?#]/)[0];
-        if (rawPath.split('/').some((seg) => seg === '..')) {
-            return fallback;
-        }
-        let decodedPath = parsed.pathname;
+        let decodedCanonicalPath;
         try {
-            decodedPath = decodeURIComponent(parsed.pathname);
+            decodedCanonicalPath = decodeURIComponent(parsed.pathname);
         } catch {
-            return fallback;
+            return null;
         }
         const normalizedLower = parsed.pathname.toLowerCase();
-        const decodedLower = decodedPath.toLowerCase();
+        const decodedLower = decodedCanonicalPath.toLowerCase();
         if (
             normalizedLower === '/api'
             || normalizedLower.startsWith('/api/')
             || decodedLower === '/api'
             || decodedLower.startsWith('/api/')
-            || decodedPath.includes('\\')
-            || decodedPath.split('/').some((seg) => seg === '..')
+            || decodedCanonicalPath.startsWith('//')
+            || decodedCanonicalPath.includes('\\')
+            || hasControlChars(decodedCanonicalPath)
+            || decodedCanonicalPath.split('/').some((seg) => seg === '..')
         ) {
-            return fallback;
+            return null;
+        }
+        const nestedRedirects = parsed.searchParams.getAll('redirect');
+        if (nestedRedirects.length > 1) {
+            return null;
+        }
+        if (nestedRedirects.length === 1) {
+            if (depth >= MAX_REDIRECT_NEST_DEPTH) {
+                return null;
+            }
+            if (parseSafeInternalRedirect(nestedRedirects[0], depth + 1) === null) {
+                return null;
+            }
         }
         return `${parsed.pathname}${parsed.search}${parsed.hash}`;
     } catch {
-        return fallback;
+        return null;
     }
+}
+
+function sanitizeInternalRedirect(raw, fallback = '/dashboard') {
+    return parseSafeInternalRedirect(raw, 0) ?? fallback;
 }
 
 function getPublicAppOrigin(req) {

@@ -1,22 +1,15 @@
 // @ts-check
 const { defineConfig, devices } = require('@playwright/test');
 
+const { assertSafeDisposablePgConfig } = require('./server/utils/pgTestGuard');
+
 // Fail closed before spawning webServer (which sets RESET_ADMIN_PASSWORD=true) if DATABASE_URL is not a disposable test/CI DB
 if (process.env.DATABASE_URL) {
-  if (process.env.ALLOW_DESTRUCTIVE_PG_VERIFY !== 'true') {
-    throw new Error('Refusing to start PG UI E2E webServer without ALLOW_DESTRUCTIVE_PG_VERIFY=true');
-  }
-  const { parse: parsePgConnectionString } = require('pg-connection-string');
-  const parsedPg = parsePgConnectionString(process.env.DATABASE_URL);
-  const dbName = typeof parsedPg.database === 'string' ? parsedPg.database : '';
-  if (
-    !dbName ||
-    Buffer.byteLength(dbName, 'utf8') > 63 ||
-    dbName.includes('/') ||
-    !/(^|[_-])(test|ci|local|dev)($|[_-])/i.test(dbName)
-  ) {
-    throw new Error(`Refusing to start PG UI E2E webServer against non-disposable database "${dbName}"`);
-  }
+  assertSafeDisposablePgConfig(
+    process.env.DATABASE_URL,
+    process.env,
+    'Playwright PG UI E2E webServer startup (playwright.pg-ui.config.js)'
+  );
 }
 
 /**
@@ -45,9 +38,9 @@ module.exports = defineConfig({
     },
   ],
   webServer: {
-    command: 'node server/index.js',
+    command: 'node scripts/start-pg-ui-server.mjs',
     url: 'http://localhost:3201/api/health',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: process.env.DATABASE_URL ? false : !process.env.CI,
     timeout: 45000,
     env: {
       NODE_ENV: 'test',
@@ -55,6 +48,8 @@ module.exports = defineConfig({
       DISABLE_CLIENT_BUILD: 'false',
       TEST_NO_DB: process.env.DATABASE_URL ? 'false' : 'true',
       DATABASE_URL: process.env.DATABASE_URL || '',
+      ALLOW_DESTRUCTIVE_PG_VERIFY: process.env.ALLOW_DESTRUCTIVE_PG_VERIFY || '',
+      ALLOW_REMOTE_DISPOSABLE_PG_VERIFY: process.env.ALLOW_REMOTE_DISPOSABLE_PG_VERIFY || '',
       ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'admin@sloboda.land',
       ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || 'testpassword123',
       RESET_ADMIN_PASSWORD: 'true',

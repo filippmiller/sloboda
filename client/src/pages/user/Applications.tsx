@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type FormEvent } from 'react'
+import { useState, useEffect, useCallback, useRef, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import axios from 'axios'
 import {
@@ -234,42 +234,68 @@ export default function Applications() {
   const [newItemUrl, setNewItemUrl] = useState('')
   const [submittingPortfolio, setSubmittingPortfolio] = useState(false)
 
-  const syncRevisionFields = useCallback((app: MemberApplication | null) => {
-    if (!app) return
-    setRevFullName(app.full_name || '')
-    setRevCity(app.city || '')
-    setRevPrimaryDomain(app.primary_domain || 'GEN')
-    setRevSkills(app.skills || '')
-    setRevMotivation(app.motivation || '')
-    setRevTrialTaskTitle(app.trial_task_title || '')
-    setRevTrialTaskUrl(app.trial_task_url || '')
+  const revisionFieldsRef = useRef<RevisionDraftFields>({
+    revFullName: '',
+    revCity: '',
+    revPrimaryDomain: 'GEN',
+    revSkills: '',
+    revMotivation: '',
+    revTrialTaskTitle: '',
+    revTrialTaskUrl: '',
+  })
+  const revisionEditSeqRef = useRef(0)
+  const activeAppIdRef = useRef<number | null>(null)
+  const requestGenRef = useRef(0)
+
+  const applyRevisionFieldsState = useCallback((fields: RevisionDraftFields) => {
+    revisionFieldsRef.current = fields
+    setRevFullName(fields.revFullName)
+    setRevCity(fields.revCity)
+    setRevPrimaryDomain(fields.revPrimaryDomain || 'GEN')
+    setRevSkills(fields.revSkills)
+    setRevMotivation(fields.revMotivation)
+    setRevTrialTaskTitle(fields.revTrialTaskTitle)
+    setRevTrialTaskUrl(fields.revTrialTaskUrl)
   }, [])
+
+  const applyApplicationMonotonic = useCallback((nextApp: MemberApplication | null) => {
+    activeAppIdRef.current = nextApp ? nextApp.id : null
+    setApplication((prev) => {
+      if (!nextApp) return null
+      if (prev && prev.id === nextApp.id && nextApp.version < prev.version) {
+        return prev
+      }
+      return nextApp
+    })
+  }, [])
+
+  const syncRevisionFields = useCallback(
+    (app: MemberApplication | null) => {
+      if (!app) return
+      applyRevisionFieldsState({
+        revFullName: app.full_name || '',
+        revCity: app.city || '',
+        revPrimaryDomain: app.primary_domain || 'GEN',
+        revSkills: app.skills || '',
+        revMotivation: app.motivation || '',
+        revTrialTaskTitle: app.trial_task_title || '',
+        revTrialTaskUrl: app.trial_task_url || '',
+      })
+    },
+    [applyRevisionFieldsState],
+  )
 
   const effectiveUserId = membership?.id ?? authUser?.id ?? application?.user_id
 
-  const getRevisionFieldsSnapshot = useCallback(
-    (): RevisionDraftFields => ({
-      revFullName,
-      revCity,
-      revPrimaryDomain,
-      revSkills,
-      revMotivation,
-      revTrialTaskTitle,
-      revTrialTaskUrl,
-    }),
-    [
-      revFullName,
-      revCity,
-      revPrimaryDomain,
-      revSkills,
-      revMotivation,
-      revTrialTaskTitle,
-      revTrialTaskUrl,
-    ],
-  )
-
   const updateRevisionField = useCallback(
     <K extends keyof RevisionDraftFields>(field: K, value: RevisionDraftFields[K]) => {
+      revisionEditSeqRef.current += 1
+      const nextFields: RevisionDraftFields = {
+        ...revisionFieldsRef.current,
+        [field]: value,
+      }
+      revisionFieldsRef.current = nextFields
+
       if (field === 'revFullName') setRevFullName(value)
       else if (field === 'revCity') setRevCity(value)
       else if (field === 'revPrimaryDomain') setRevPrimaryDomain(value)
@@ -280,10 +306,6 @@ export default function Applications() {
 
       if (application && application.status === 'revision_requested') {
         const key = getRevisionDraftKey(effectiveUserId, application.id)
-        const nextFields: RevisionDraftFields = {
-          ...getRevisionFieldsSnapshot(),
-          [field]: value,
-        }
         writeRevisionDraft(key, {
           applicationId: application.id,
           baseVersion: revisionConflict?.draftBaseVersion ?? application.version,
@@ -293,14 +315,18 @@ export default function Applications() {
         setRevisionDraftVisible(true)
       }
     },
-    [application, effectiveUserId, getRevisionFieldsSnapshot, revisionConflict?.draftBaseVersion],
+    [application, effectiveUserId, revisionConflict?.draftBaseVersion],
   )
 
   const loadMyApplication = useCallback(async () => {
+    const gen = ++requestGenRef.current
+    const editSeqAtStart = revisionEditSeqRef.current
     setLoadFailed(false)
     try {
       const res = await api.get<MyApplicationResponse>('/applications/my')
+      if (gen !== requestGenRef.current) return
       const app = res.data.application ?? null
+      activeAppIdRef.current = app ? app.id : null
       setApplication(app)
       setPortfolio(res.data.portfolio ?? [])
       setMembership(res.data.membership ?? null)
@@ -313,13 +339,17 @@ export default function Applications() {
         const savedRevDraft = readRevisionDraft(revKey)
 
         if (savedRevDraft) {
-          setRevFullName(savedRevDraft.revFullName)
-          setRevCity(savedRevDraft.revCity)
-          setRevPrimaryDomain(savedRevDraft.revPrimaryDomain || 'GEN')
-          setRevSkills(savedRevDraft.revSkills)
-          setRevMotivation(savedRevDraft.revMotivation)
-          setRevTrialTaskTitle(savedRevDraft.revTrialTaskTitle)
-          setRevTrialTaskUrl(savedRevDraft.revTrialTaskUrl)
+          if (revisionEditSeqRef.current === editSeqAtStart) {
+            applyRevisionFieldsState({
+              revFullName: savedRevDraft.revFullName,
+              revCity: savedRevDraft.revCity,
+              revPrimaryDomain: savedRevDraft.revPrimaryDomain || 'GEN',
+              revSkills: savedRevDraft.revSkills,
+              revMotivation: savedRevDraft.revMotivation,
+              revTrialTaskTitle: savedRevDraft.revTrialTaskTitle,
+              revTrialTaskUrl: savedRevDraft.revTrialTaskUrl,
+            })
+          }
           setRevisionDraftVisible(true)
 
           if (
@@ -335,7 +365,7 @@ export default function Applications() {
           } else {
             setRevisionConflict(null)
           }
-        } else {
+        } else if (revisionEditSeqRef.current === editSeqAtStart) {
           syncRevisionFields(app)
           setRevisionConflict(null)
           setRevisionDraftVisible(false)
@@ -372,12 +402,15 @@ export default function Applications() {
       }
       setDraftReady(true)
     } catch (err: unknown) {
+      if (gen !== requestGenRef.current) return
       setLoadFailed(true)
       setError(extractApiError(err, 'Не удалось загрузить данные заявки'))
     } finally {
-      setLoading(false)
+      if (gen === requestGenRef.current) {
+        setLoading(false)
+      }
     }
-  }, [authUser?.email, authUser?.id, authUser?.name, syncRevisionFields])
+  }, [applyRevisionFieldsState, authUser?.email, authUser?.id, authUser?.name, syncRevisionFields])
 
   useEffect(() => {
     loadMyApplication()
@@ -525,7 +558,7 @@ export default function Applications() {
         }
       }
 
-      setApplication(res.data.application)
+      applyApplicationMonotonic(res.data.application)
       setPortfolio(res.data.portfolio ?? [])
       syncRevisionFields(res.data.application)
       setNewItemDomain(res.data.application.primary_domain || 'GEN')
@@ -553,7 +586,7 @@ export default function Applications() {
     writeRevisionDraft(key, {
       applicationId: targetApp.id,
       baseVersion: targetApp.version,
-      ...getRevisionFieldsSnapshot(),
+      ...revisionFieldsRef.current,
       updatedAt: new Date().toISOString(),
     })
     setRevisionConflict(null)
@@ -584,40 +617,76 @@ export default function Applications() {
   const handleResubmitRevision = async (e: FormEvent) => {
     e.preventDefault()
     if (!application || revisionConflict) return
-    if (revFullName.trim().length < 2) {
+    const currentFields = revisionFieldsRef.current
+    if (currentFields.revFullName.trim().length < 2) {
       toast.error('Имя должно содержать от 2 символов')
       return
     }
+
+    const appId = application.id
+    const baseVer = application.version
+    const appStatusAtStart = application.status
+    const userIdAtStart = effectiveUserId
+    const editSeqAtStart = revisionEditSeqRef.current
+    const genAtStart = requestGenRef.current
 
     setSubmittingRevision(true)
     try {
       const res = await api.patch<{ success: boolean; application: MemberApplication }>(
         '/applications/my',
         {
-          application_id: application.id,
-          expected_version: application.version,
-          full_name: revFullName.trim(),
-          city: revCity.trim(),
-          primary_domain: revPrimaryDomain,
-          skills: revSkills.trim(),
-          motivation: revMotivation.trim(),
-          trial_task_title: revTrialTaskTitle.trim(),
-          trial_task_url: revTrialTaskUrl.trim(),
+          application_id: appId,
+          expected_version: baseVer,
+          full_name: currentFields.revFullName.trim(),
+          city: currentFields.revCity.trim(),
+          primary_domain: currentFields.revPrimaryDomain,
+          skills: currentFields.revSkills.trim(),
+          motivation: currentFields.revMotivation.trim(),
+          trial_task_title: currentFields.revTrialTaskTitle.trim(),
+          trial_task_url: currentFields.revTrialTaskUrl.trim(),
         },
       )
-      removeRevisionDraft(getRevisionDraftKey(effectiveUserId, application.id))
-      setRevisionConflict(null)
-      setRevisionDraftVisible(false)
-      setApplication(res.data.application)
-      syncRevisionFields(res.data.application)
-      toast.success('Доработанная заявка отправлена на повторное рассмотрение')
-    } catch (err: unknown) {
-      if (axios.isAxiosError(err) && err.response?.status === 409) {
-        const draftKey = getRevisionDraftKey(effectiveUserId, application.id)
+      if (activeAppIdRef.current !== appId || genAtStart !== requestGenRef.current) {
+        return
+      }
+      const updatedApp = res.data.application
+      applyApplicationMonotonic(updatedApp)
+      const draftKey = getRevisionDraftKey(userIdAtStart, appId)
+      if (revisionEditSeqRef.current === editSeqAtStart) {
+        removeRevisionDraft(draftKey)
+        setRevisionConflict(null)
+        setRevisionDraftVisible(false)
+        syncRevisionFields(updatedApp)
+        toast.success('Доработанная заявка отправлена на повторное рассмотрение')
+      } else {
+        // User typed newer edits while PATCH was in flight: preserve newer edits in durable draft
         writeRevisionDraft(draftKey, {
-          applicationId: application.id,
-          baseVersion: application.version,
-          ...getRevisionFieldsSnapshot(),
+          applicationId: appId,
+          baseVersion: baseVer,
+          ...revisionFieldsRef.current,
+          updatedAt: new Date().toISOString(),
+        })
+        setRevisionDraftVisible(true)
+        setRevisionConflict({
+          serverVersion: updatedApp.version,
+          serverStatus: updatedApp.status,
+          draftBaseVersion: baseVer,
+          serverApplication: updatedApp,
+          refreshFailed: false,
+        })
+        toast.warning('Заявка отправлена, но ваши более новые правки сохранены в черновике')
+      }
+    } catch (err: unknown) {
+      if (activeAppIdRef.current !== appId || genAtStart !== requestGenRef.current) {
+        return
+      }
+      if (axios.isAxiosError(err) && err.response?.status === 409) {
+        const draftKey = getRevisionDraftKey(userIdAtStart, appId)
+        const existingDraft = readRevisionDraft(draftKey)
+        writeRevisionDraft(draftKey, {
+          applicationId: appId,
+          baseVersion: existingDraft?.baseVersion ?? baseVer,
+          ...revisionFieldsRef.current,
           updatedAt: new Date().toISOString(),
         })
         setRevisionDraftVisible(true)
@@ -629,32 +698,39 @@ export default function Applications() {
         )
         try {
           const freshRes = await api.get<MyApplicationResponse>('/applications/my')
+          if (activeAppIdRef.current !== appId || genAtStart !== requestGenRef.current) {
+            return
+          }
           const freshApp = freshRes.data.application ?? null
-          if (freshApp) {
-            setApplication(freshApp)
+          if (freshApp && freshApp.id === appId) {
+            applyApplicationMonotonic(freshApp)
             setPortfolio(freshRes.data.portfolio ?? [])
             setMembership(freshRes.data.membership ?? null)
+            const latestDraft = readRevisionDraft(draftKey)
             setRevisionConflict({
               serverVersion: freshApp.version,
               serverStatus: freshApp.status,
-              draftBaseVersion: application.version,
+              draftBaseVersion: latestDraft?.baseVersion ?? baseVer,
               serverApplication: freshApp,
               refreshFailed: false,
             })
           } else {
             setRevisionConflict({
-              serverVersion: application.version,
-              serverStatus: application.status,
-              draftBaseVersion: application.version,
+              serverVersion: baseVer,
+              serverStatus: appStatusAtStart,
+              draftBaseVersion: baseVer,
               serverApplication: null,
               refreshFailed: true,
             })
           }
         } catch {
+          if (activeAppIdRef.current !== appId || genAtStart !== requestGenRef.current) {
+            return
+          }
           setRevisionConflict({
-            serverVersion: application.version,
-            serverStatus: application.status,
-            draftBaseVersion: application.version,
+            serverVersion: baseVer,
+            serverStatus: appStatusAtStart,
+            draftBaseVersion: baseVer,
             serverApplication: null,
             refreshFailed: true,
           })
@@ -674,7 +750,11 @@ export default function Applications() {
       return
     }
 
+    const appId = application?.id ?? null
     const prevVersion = application?.version
+    const appStatusAtStart = application?.status
+    const userIdAtStart = effectiveUserId
+    const genAtStart = requestGenRef.current
     setSubmittingPortfolio(true)
     try {
       const res = await api.post<{
@@ -687,39 +767,52 @@ export default function Applications() {
         summary: newItemSummary.trim(),
         artifact_url: newItemUrl.trim(),
       })
+      const itemAppId = res.data.item?.application_id ?? appId
+      if (
+        appId !== null &&
+        (activeAppIdRef.current !== appId ||
+          genAtStart !== requestGenRef.current ||
+          (typeof itemAppId === 'number' && itemAppId !== appId))
+      ) {
+        return
+      }
       setPortfolio((prev) => [res.data.item, ...prev])
       const nextVersion =
         res.data.application_version ?? (typeof prevVersion === 'number' ? prevVersion + 1 : 1)
 
       let detectedConcurrentChange = false
-      if (application) {
-        const revKey = getRevisionDraftKey(effectiveUserId, application.id)
-        const existingDraft = readRevisionDraft(revKey)
+      if (appId !== null && appStatusAtStart) {
+        const revKey = getRevisionDraftKey(userIdAtStart, appId)
+        const latestDraft = readRevisionDraft(revKey)
         if (
           typeof prevVersion === 'number' &&
           nextVersion === prevVersion + 1 &&
-          (!existingDraft || existingDraft.baseVersion === prevVersion)
+          (!latestDraft || latestDraft.baseVersion === prevVersion)
         ) {
-          setApplication((prev) => (prev ? { ...prev, version: nextVersion } : prev))
-          if (existingDraft) {
+          setApplication((prev) =>
+            prev && prev.id === appId
+              ? { ...prev, version: Math.max(prev.version, nextVersion) }
+              : prev,
+          )
+          if (latestDraft) {
             writeRevisionDraft(revKey, {
-              ...existingDraft,
+              ...latestDraft,
+              ...revisionFieldsRef.current,
               baseVersion: nextVersion,
-              ...getRevisionFieldsSnapshot(),
               updatedAt: new Date().toISOString(),
             })
           }
         } else if (
           typeof prevVersion === 'number' &&
-          (nextVersion > prevVersion + 1 || (existingDraft && existingDraft.baseVersion !== prevVersion))
+          (nextVersion > prevVersion + 1 || (latestDraft && latestDraft.baseVersion !== prevVersion))
         ) {
           // Do NOT publish nextVersion onto application before refreshing & reconciling concurrent changes
-          detectedConcurrentChange = Boolean(existingDraft)
-          if (existingDraft) {
+          detectedConcurrentChange = Boolean(latestDraft)
+          if (latestDraft) {
             setRevisionConflict({
               serverVersion: nextVersion,
-              serverStatus: application.status,
-              draftBaseVersion: existingDraft.baseVersion,
+              serverStatus: appStatusAtStart,
+              draftBaseVersion: latestDraft.baseVersion,
               serverApplication: null,
               refreshFailed: true,
             })
@@ -727,16 +820,20 @@ export default function Applications() {
           }
           try {
             const freshRes = await api.get<MyApplicationResponse>('/applications/my')
+            if (activeAppIdRef.current !== appId || genAtStart !== requestGenRef.current) {
+              return
+            }
             const freshApp = freshRes.data.application ?? null
-            if (freshApp) {
-              setApplication(freshApp)
+            const postRefreshDraft = readRevisionDraft(revKey)
+            if (freshApp && freshApp.id === appId) {
+              applyApplicationMonotonic(freshApp)
               setPortfolio(freshRes.data.portfolio ?? [])
               setMembership(freshRes.data.membership ?? null)
-              if (existingDraft) {
+              if (postRefreshDraft) {
                 setRevisionConflict({
                   serverVersion: freshApp.version,
                   serverStatus: freshApp.status,
-                  draftBaseVersion: existingDraft.baseVersion,
+                  draftBaseVersion: postRefreshDraft.baseVersion,
                   serverApplication: freshApp,
                   refreshFailed: false,
                 })
@@ -744,22 +841,26 @@ export default function Applications() {
               } else {
                 syncRevisionFields(freshApp)
               }
-            } else if (existingDraft) {
+            } else if (postRefreshDraft) {
               setRevisionConflict({
                 serverVersion: nextVersion,
-                serverStatus: application.status,
-                draftBaseVersion: existingDraft.baseVersion,
+                serverStatus: appStatusAtStart,
+                draftBaseVersion: postRefreshDraft.baseVersion,
                 serverApplication: null,
                 refreshFailed: true,
               })
               setRevisionDraftVisible(true)
             }
           } catch {
-            if (existingDraft) {
+            if (activeAppIdRef.current !== appId || genAtStart !== requestGenRef.current) {
+              return
+            }
+            const postRefreshDraft = readRevisionDraft(revKey)
+            if (postRefreshDraft) {
               setRevisionConflict({
                 serverVersion: nextVersion,
-                serverStatus: application.status,
-                draftBaseVersion: existingDraft.baseVersion,
+                serverStatus: appStatusAtStart,
+                draftBaseVersion: postRefreshDraft.baseVersion,
                 serverApplication: null,
                 refreshFailed: true,
               })

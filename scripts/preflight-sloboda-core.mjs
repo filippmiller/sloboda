@@ -25,7 +25,7 @@ const pool = new Pool({
 let client;
 try {
     client = await pool.connect();
-    await client.query('BEGIN TRANSACTION READ ONLY');
+    await client.query('BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
     const report = await runFullPreflight(client);
     await client.query('COMMIT');
     console.log(JSON.stringify(report, null, 2));

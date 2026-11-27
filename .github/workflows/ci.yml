@@ -42,12 +42,15 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Print exact commit and tree provenance
         run: |
           echo "GITHUB_SHA=${GITHUB_SHA}"
           echo "HEAD=$(git rev-parse HEAD)"
           echo "TREE=$(git rev-parse HEAD^{tree})"
+          echo "BASE_MASTER=$(git rev-parse --verify aec59ccdc97f76d5b024333f02dfb0a4ce47175a^{commit})"
           echo "POSTGRES_VERSION=$(psql "$DATABASE_URL" -tAc 'SELECT version()' || true)"
 
       - name: Setup Node.js 24
@@ -82,18 +85,18 @@ jobs:
           ALLOW_DESTRUCTIVE_PG_VERIFY: 'true'
         run: node scripts/verify-pg-core.mjs
 
+      - name: Actual-Master Fallback Runtime Rehearsal (SLB-R3-E01)
+        env:
+          ALLOW_DESTRUCTIVE_PG_VERIFY: 'true'
+        run: node scripts/rehearse-master-fallback.mjs
+
       - name: Install Playwright Chromium
         run: npx playwright install chromium
 
       - name: Reset PostgreSQL 17 DB for Built-React UI E2E
-        run: |
-          node -e "
-            const { Pool } = require('pg');
-            const p = new Pool({ connectionString: process.env.DATABASE_URL });
-            p.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;')
-              .then(() => p.end())
-              .catch((e) => { console.error(e); process.exit(1); });
-          "
+        env:
+          ALLOW_DESTRUCTIVE_PG_VERIFY: 'true'
+        run: node scripts/reset-disposable-pg.mjs
 
       - name: Playwright Legacy + Acceptance Suite
         run: npx playwright test

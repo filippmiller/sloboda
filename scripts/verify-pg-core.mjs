@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
@@ -15,16 +16,11 @@ const { Pool } = require('pg');
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
+const { assertSafeDisposablePgConfig, assertConnectedDisposablePg } = require('../server/utils/pgTestGuard');
 
 const DATABASE_URL = process.env.DATABASE_URL;
-if (!DATABASE_URL) {
-    console.error('FATAL: DATABASE_URL is required for scripts/verify-pg-core.mjs');
-    process.exit(1);
-}
-if (process.env.ALLOW_DESTRUCTIVE_PG_VERIFY !== 'true') {
-    console.error('FATAL: Refusing to drop public schema without ALLOW_DESTRUCTIVE_PG_VERIFY=true (use a disposable test database only).');
-    process.exit(1);
-}
+const guardLabel = 'standalone PG verifier (scripts/verify-pg-core.mjs)';
+const { dbName: expectedDbName } = assertSafeDisposablePgConfig(DATABASE_URL, process.env, guardLabel);
 process.env.TEST_NO_DB = 'false';
 
 const rootDir = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), '..');
@@ -96,6 +92,25 @@ async function run() {
     coreStore.setDb(db);
 
     // =========================================================================
+    // [0/8] SLB-R3-02: Verify connected disposable DB & guard negative controls
+    // =========================================================================
+    await assertConnectedDisposablePg(pool, expectedDbName, guardLabel);
+    assert.throws(() => assertSafeDisposablePgConfig('', { ALLOW_DESTRUCTIVE_PG_VERIFY: 'true' }), /DATABASE_URL is required/);
+    assert.throws(() => assertSafeDisposablePgConfig('postgres://u:p@localhost:5432/sloboda_test', {}), /ALLOW_DESTRUCTIVE_PG_VERIFY/);
+    assert.throws(() => assertSafeDisposablePgConfig('postgres://u:p@localhost:5432/sloboda_prod', { ALLOW_DESTRUCTIVE_PG_VERIFY: 'true' }), /non-disposable/);
+    assert.throws(() => assertSafeDisposablePgConfig('postgres://u:p@localhost:5432/sloboda', { ALLOW_DESTRUCTIVE_PG_VERIFY: 'true' }), /non-disposable/);
+    assert.throws(() => assertSafeDisposablePgConfig(`postgres://u:p@localhost:5432/${'a'.repeat(60)}_test`, { ALLOW_DESTRUCTIVE_PG_VERIFY: 'true' }), /63-byte/);
+    assert.throws(() => assertSafeDisposablePgConfig('postgres://u:p@prod.example.com:5432/sloboda_test', { ALLOW_DESTRUCTIVE_PG_VERIFY: 'true' }), /non-local host/);
+    assert.throws(() => assertSafeDisposablePgConfig('postgres://u:p@localhost:5432,127.0.0.1:5432/sloboda_test', { ALLOW_DESTRUCTIVE_PG_VERIFY: 'true' }), /multi-host|invalid/i);
+    assert.throws(() => assertSafeDisposablePgConfig('postgres://u:p@/sloboda_test?host=localhost,127.0.0.1', { ALLOW_DESTRUCTIVE_PG_VERIFY: 'true' }), /multi-host/i);
+    assert.throws(() => assertSafeDisposablePgConfig('postgres:///sloboda_test', { ALLOW_DESTRUCTIVE_PG_VERIFY: 'true' }), /explicit host/);
+    await assert.rejects(
+        () => assertConnectedDisposablePg({ query: async () => ({ rows: [{ db_name: 'other_test' }] }) }, 'sloboda_test', 'unit'),
+        /does not match configured/
+    );
+    console.log('PASS [0/8] SLB-R3-02 shared disposable PG target guard verified (config + current_database())');
+
+    // =========================================================================
     // [1/8] Clean Startup, Concurrent & Repeat Idempotency, Non-Pilot Seed, Teardown
     // =========================================================================
     console.log('=== [1/8] Clean Startup, Concurrent Startup, Repeat Idempotency & Empty Rollback Teardown ===');
@@ -111,7 +126,7 @@ async function run() {
     const migs = await pool.query('SELECT version FROM schema_migrations ORDER BY version');
     assert.deepEqual(
         migs.rows.map((r) => r.version),
-        ['2026-11-26-sloboda-core', '2026-11-26-sloboda-core-r2', '2026-11-26-sloboda-core-r3']
+        ['2026-11-26-sloboda-core', '2026-11-26-sloboda-core-r2', '2026-11-26-sloboda-core-r3', '2026-11-26-sloboda-core-r4']
     );
 
     const preflightFresh = await coreStore.getLedgerPreflightReport();
@@ -1287,6 +1302,215 @@ async function run() {
         'Accepted application must be terminal'
     );
     console.log('PASS [7/8] Expense matrix, membership suspension, concurrent app/claim race, portfolio version bump & terminal accepted');
+
+    // =========================================================================
+    // [R4] SLB-R3-01, SLB-R3-03, SLB-R3-04: Pre-DDL Preflight, Governance Parity, R3->R4 & Legacy Contribution/Expense Replay
+    // =========================================================================
+    console.log('=== [R4] SLB-R3-01 / SLB-R3-03 / SLB-R3-04 Verification ===');
+
+    function runPreflightCli() {
+        try {
+            const stdout = execFileSync(process.execPath, [path.join(rootDir, 'scripts/preflight-sloboda-core.mjs')], {
+                cwd: rootDir,
+                env: { ...process.env, DATABASE_URL },
+                encoding: 'utf8',
+            });
+            return { exitCode: 0, json: JSON.parse(stdout) };
+        } catch (err) {
+            return {
+                exitCode: err.status ?? 1,
+                json: err.stdout ? JSON.parse(err.stdout.toString()) : null,
+            };
+        }
+    }
+
+    // SLB-R3-03 (a): Clean base schema -> NOT_INSTALLED, exit 0, zero DB mutations
+    await resetBaseSchema();
+    const tablesBeforeClean = (await pool.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name")).rows.map((r) => r.table_name);
+    const cleanCli = runPreflightCli();
+    assert.equal(cleanCli.exitCode, 0, 'Pre-DDL preflight on clean base schema must exit 0');
+    assert.equal(cleanCli.json.schema.schema_state, 'NOT_INSTALLED');
+    assert.equal(cleanCli.json.financial.ok, true);
+    assert.equal(cleanCli.json.financial.skipped_reason, 'core_schema_not_installed');
+    const tablesAfterClean = (await pool.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name")).rows.map((r) => r.table_name);
+    assert.deepEqual(tablesAfterClean, tablesBeforeClean, 'Pre-DDL preflight must not mutate DB');
+
+    // SLB-R3-03 (b): Partial schema (only contributions table) -> PARTIAL_OR_INCONSISTENT, exit 2
+    await pool.query('CREATE TABLE public.contributions (id SERIAL PRIMARY KEY)');
+    const partialCli1 = runPreflightCli();
+    assert.equal(partialCli1.exitCode, 2, 'Partial core schema must fail-closed with exit 2');
+    assert.equal(partialCli1.json.schema.schema_state, 'PARTIAL_OR_INCONSISTENT');
+    assert.equal(partialCli1.json.financial.ok, false);
+    assert.ok(partialCli1.json.schema.missing_tables.includes('ledger_expenses'));
+
+    // SLB-R3-04 + SLB-R3-03 (c): Pre-DDL governance inventory on R1 with OOB abstain, non-array options, JSON null, closed seats=3, and valid boundary indices 0 & 1
+    await resetBaseSchema();
+    const r4AdminId = (await pool.query("INSERT INTO admins (email, name, role) VALUES ('r4@sloboda.land', 'R4 Admin', 'super_admin') RETURNING id")).rows[0].id;
+    await pool.query(sqlR1);
+
+    const pOob = (await pool.query(`
+        INSERT INTO governance_proposals (title, vote_type, settlement_id, authoritative_engine, secret_ballot, seats_count, options, abstain_option_index, status, created_by)
+        VALUES ('R4 OOB Abstain 99', 'council_election', 'sloboda-pilot', 'native_secret', TRUE, 1, '["A","B"]'::jsonb, 99, 'open', $1) RETURNING id
+    `, [r4AdminId])).rows[0].id;
+    const pNonArr = (await pool.query(`
+        INSERT INTO governance_proposals (title, vote_type, settlement_id, authoritative_engine, secret_ballot, seats_count, options, abstain_option_index, status, created_by)
+        VALUES ('R4 Non-Array Options', 'council_election', 'sloboda-pilot', 'native_secret', TRUE, 1, '{}'::jsonb, 0, 'open', $1) RETURNING id
+    `, [r4AdminId])).rows[0].id;
+    const pJsonNull = (await pool.query(`
+        INSERT INTO governance_proposals (title, vote_type, settlement_id, authoritative_engine, secret_ballot, seats_count, options, abstain_option_index, status, created_by)
+        VALUES ('R4 JSON Null Options', 'council_election', 'sloboda-pilot', 'native_secret', TRUE, 1, 'null'::jsonb, 0, 'open', $1) RETURNING id
+    `, [r4AdminId])).rows[0].id;
+    const pClosedSeats = (await pool.query(`
+        INSERT INTO governance_proposals (title, vote_type, settlement_id, authoritative_engine, secret_ballot, seats_count, options, abstain_option_index, status, created_by)
+        VALUES ('R4 Closed Seats 3', 'council_election', 'sloboda-pilot', 'native_secret', TRUE, 3, '["A","B"]'::jsonb, NULL, 'closed', $1) RETURNING id
+    `, [r4AdminId])).rows[0].id;
+    const pValid0 = (await pool.query(`
+        INSERT INTO governance_proposals (title, vote_type, settlement_id, authoritative_engine, secret_ballot, seats_count, options, abstain_option_index, status, created_by)
+        VALUES ('R4 Valid Boundary 0', 'council_election', 'sloboda-pilot', 'native_secret', TRUE, 1, '["A","B"]'::jsonb, 0, 'open', $1) RETURNING id
+    `, [r4AdminId])).rows[0].id;
+    const pValid1 = (await pool.query(`
+        INSERT INTO governance_proposals (title, vote_type, settlement_id, authoritative_engine, secret_ballot, seats_count, options, abstain_option_index, status, created_by)
+        VALUES ('R4 Valid Boundary 1', 'council_election', 'sloboda-pilot', 'native_secret', TRUE, 1, '["A","B"]'::jsonb, 1, 'open', $1) RETURNING id
+    `, [r4AdminId])).rows[0].id;
+
+    // Seed R1 legacy contribution & expense (request_fingerprint IS NULL) BEFORE upgrade
+    const r1LegContrib = (await pool.query(`
+        INSERT INTO contributions
+            (settlement_id, purpose, contributor_name, received_kopecks, available_kopecks, reserved_kopecks, paid_kopecks, refunded_kopecks, status, ledger_mode, idempotency_key, verified_by)
+        VALUES ('sloboda-pilot', 'r4-replay', 'R1 Contrib Donor', 120000, 120000, 0, 0, 0, 'unallocated', 'verified_receipt', 'r1 contrib 1', $1)
+        RETURNING *
+    `, [r4AdminId])).rows[0];
+    await pool.query(
+        `INSERT INTO ledger_postings (posting_type, contribution_id, amount_kopecks, actor_admin_id, note) VALUES ('receipt', $1, 120000, $2, 'R1 receipt')`,
+        [r1LegContrib.id, r4AdminId]
+    );
+
+    const preDdlR1Cli = runPreflightCli();
+    assert.equal(preDdlR1Cli.exitCode, 0, 'Healthy R1 pre-DDL preflight must exit 0');
+    assert.equal(preDdlR1Cli.json.schema.schema_state, 'INSTALLED_R1');
+    const preIds = preDdlR1Cli.json.governance.unsupported_proposals.map((p) => p.id).sort((a, b) => a - b);
+    const expectedUnsupportedIds = [pOob, pNonArr, pJsonNull, pClosedSeats].sort((a, b) => a - b);
+    assert.deepEqual(preIds, expectedUnsupportedIds, 'Pre-DDL governance inventory must flag exact unsupported IDs and NOT valid boundary 0/1');
+    assert.ok(!preIds.includes(pValid0) && !preIds.includes(pValid1), 'Valid boundary indices 0 and 1 must NOT be flagged');
+
+    // Run complete R1 -> R2 -> R3 -> R4 upgrade (must NOT throw on non-array / JSON null options!)
+    await coreStore.ensureCoreSchema();
+    const postDdlProps = (await pool.query(
+        'SELECT id, legacy_r1_unsupported, legacy_r1_disposition FROM public.governance_proposals ORDER BY id ASC'
+    )).rows;
+    const postFlagged = postDdlProps.filter((r) => r.legacy_r1_unsupported).map((r) => Number(r.id)).sort((a, b) => a - b);
+    assert.deepEqual(postFlagged, expectedUnsupportedIds, 'Post-upgrade legacy_r1_unsupported IDs must match pre-DDL inventory 1-to-1');
+    for (const preItem of preDdlR1Cli.json.governance.unsupported_proposals) {
+        const postRow = postDdlProps.find((r) => Number(r.id) === preItem.id);
+        assert.equal(postRow.legacy_r1_disposition, preItem.legacy_r1_disposition, `Disposition mismatch for proposal ${preItem.id}`);
+    }
+
+    // Verify already-applied R3 DB upgrades cleanly to R4
+    await pool.query("DELETE FROM public.schema_migrations WHERE version = '2026-11-26-sloboda-core-r4'");
+    const r3Cli = runPreflightCli();
+    assert.equal(r3Cli.exitCode, 0);
+    assert.equal(r3Cli.json.schema.schema_state, 'INSTALLED_R3');
+    await coreStore.ensureCoreSchema();
+    const r4Cli = runPreflightCli();
+    assert.equal(r4Cli.exitCode, 0);
+    assert.equal(r4Cli.json.schema.schema_state, 'INSTALLED_R4');
+
+    // SLB-R3-01: Legacy R1 contribution replay, mismatch 409, concurrent replay, modern whitespace distinction, overlength anti-aliasing
+    const replayPayload = {
+        settlement_id: 'sloboda-pilot',
+        purpose: 'r4-replay',
+        contributor_name: 'R1 Contrib Donor',
+        amount_kopecks: 120000,
+        ledger_mode: 'verified_receipt',
+        idempotency_key: 'r1   contrib   1',
+    };
+    const r1Replay1 = await coreStore.recordContribution(replayPayload, r4AdminId);
+    assert.equal(r1Replay1.idempotent_replay, true);
+    assert.equal(r1Replay1.contribution.id, r1LegContrib.id);
+
+    // Concurrent replay (multi-space + single-space simultaneously)
+    const [conc1, conc2] = await Promise.all([
+        coreStore.recordContribution(replayPayload, r4AdminId),
+        coreStore.recordContribution({ ...replayPayload, idempotency_key: 'r1 contrib 1' }, r4AdminId),
+    ]);
+    assert.equal(conc1.idempotent_replay, true);
+    assert.equal(conc2.idempotent_replay, true);
+    assert.equal(conc1.contribution.id, r1LegContrib.id);
+    assert.equal(conc2.contribution.id, r1LegContrib.id);
+
+    // Mutated payload on legacy key -> 409, zero DB mutation
+    await assert.rejects(
+        () => coreStore.recordContribution({ ...replayPayload, amount_kopecks: 999999 }, r4AdminId),
+        (err) => err.status === 409
+    );
+
+    // Overlength whitespace key against legacy compact key -> replays legacy row
+    const overlengthLegacyKey = `r1${' '.repeat(120)}contrib 1`;
+    assert.ok(overlengthLegacyKey.length > 128);
+    const overLegRes = await coreStore.recordContribution({ ...replayPayload, idempotency_key: overlengthLegacyKey }, r4AdminId);
+    assert.equal(overLegRes.idempotent_replay, true);
+    assert.equal(overLegRes.contribution.id, r1LegContrib.id);
+
+    // Verify counts & kopecks unchanged
+    const cCheck = (await pool.query("SELECT COUNT(*)::int AS cnt, SUM(received_kopecks)::bigint::text AS rec, SUM(available_kopecks)::bigint::text AS avail FROM contributions WHERE purpose = 'r4-replay'")).rows[0];
+    assert.equal(cCheck.cnt, 1);
+    assert.equal(cCheck.rec, '120000');
+    assert.equal(cCheck.avail, '120000');
+    const pCheck = (await pool.query("SELECT COUNT(*)::int AS cnt FROM ledger_postings WHERE contribution_id = $1 AND posting_type = 'receipt'", [r1LegContrib.id])).rows[0];
+    assert.equal(pCheck.cnt, 1);
+
+    // Modern keys: 'modern key' vs 'modern  key' remain distinct; overlength whitespace key MUST NOT alias modern compact key (400)
+    const modC1 = await coreStore.recordContribution({ ...replayPayload, amount_kopecks: 50000, idempotency_key: 'modern key' }, r4AdminId);
+    const modC2 = await coreStore.recordContribution({ ...replayPayload, amount_kopecks: 50000, idempotency_key: 'modern  key' }, r4AdminId);
+    assert.equal(modC1.idempotent_replay, false);
+    assert.equal(modC2.idempotent_replay, false);
+    assert.notEqual(modC1.contribution.id, modC2.contribution.id);
+    await assert.rejects(
+        () => coreStore.recordContribution({ ...replayPayload, amount_kopecks: 50000, idempotency_key: `modern${' '.repeat(125)}key` }, r4AdminId),
+        (err) => err.status === 400,
+        'Overlength whitespace key MUST reject 400 instead of aliasing a modern compact contribution key'
+    );
+
+    // Expense replay parity matrix: modern whitespace distinction + overlength anti-aliasing + unchanged allocations/postings
+    const modE1 = await coreStore.createAndAllocateExpense({
+        settlement_id: 'sloboda-pilot',
+        purpose: 'r4-replay',
+        title: 'Modern Exp 1',
+        category: 'equipment',
+        amount_kopecks: 20000,
+        mark_paid: false,
+        idempotency_key: 'mod exp',
+    }, r4AdminId);
+    const modE2 = await coreStore.createAndAllocateExpense({
+        settlement_id: 'sloboda-pilot',
+        purpose: 'r4-replay',
+        title: 'Modern Exp 1',
+        category: 'equipment',
+        amount_kopecks: 20000,
+        mark_paid: false,
+        idempotency_key: 'mod  exp',
+    }, r4AdminId);
+    assert.equal(modE1.idempotent_replay, false);
+    assert.equal(modE2.idempotent_replay, false);
+    assert.notEqual(modE1.expense.id, modE2.expense.id);
+    const allocsBeforeOverExp = (await pool.query('SELECT COUNT(*)::int AS cnt FROM expense_allocations')).rows[0].cnt;
+    const postingsBeforeOverExp = (await pool.query('SELECT COUNT(*)::int AS cnt FROM ledger_postings')).rows[0].cnt;
+    await assert.rejects(
+        () => coreStore.createAndAllocateExpense({
+            settlement_id: 'sloboda-pilot',
+            purpose: 'r4-replay',
+            title: 'Modern Exp 1',
+            category: 'equipment',
+            amount_kopecks: 20000,
+            mark_paid: false,
+            idempotency_key: `mod${' '.repeat(125)}exp`,
+        }, r4AdminId),
+        (err) => err.status === 400,
+        'Overlength whitespace key MUST reject 400 instead of aliasing a modern compact expense key'
+    );
+    assert.equal((await pool.query('SELECT COUNT(*)::int AS cnt FROM expense_allocations')).rows[0].cnt, allocsBeforeOverExp);
+    assert.equal((await pool.query('SELECT COUNT(*)::int AS cnt FROM ledger_postings')).rows[0].cnt, postingsBeforeOverExp);
+    console.log('PASS [R4] SLB-R3-01, SLB-R3-03, SLB-R3-04 all invariants verified');
 
     // =========================================================================
     // [8/8] Clean up pools

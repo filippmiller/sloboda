@@ -326,26 +326,59 @@ export interface AdminLedgerSummary {
   recent_expenses?: PublicLedgerExpenseSummary[]
 }
 
-/** Validates same-origin relative redirect paths (must start with '/' and not '//' or normalized '/api', no backslashes, '..' traversal, or control chars) */
-export function getSafeRedirectPath(
+function hasControlChars(value: string): boolean {
+  for (let i = 0; i < value.length; i += 1) {
+    const code = value.charCodeAt(i)
+    if (code <= 0x1f || code === 0x7f) {
+      return true
+    }
+  }
+  return false
+}
+
+const MAX_REDIRECT_NEST_DEPTH = 2
+
+/**
+ * Internal strict same-origin relative redirect parser.
+ * Returns null on any invalid/unsafe input so nested ?redirect=... validation
+ * propagates rejection cleanly to the outer call (SLB-R3-05).
+ */
+export function parseSafeRedirectPath(
   raw: string | null | undefined,
-  fallback = '/dashboard',
-): string {
-  if (!raw) return fallback
+  depth = 0,
+): string | null {
+  if (typeof raw !== 'string') return null
   const trimmed = raw.trim()
   if (
+    !trimmed ||
     !trimmed.startsWith('/') ||
     trimmed.startsWith('//') ||
     trimmed.includes('\\') ||
-    /%2f|%5c|%00/i.test(trimmed)
+    /%00/i.test(trimmed) ||
+    hasControlChars(trimmed)
   ) {
-    return fallback
+    return null
   }
-  for (let i = 0; i < trimmed.length; i += 1) {
-    const code = trimmed.charCodeAt(i)
-    if (code <= 0x1f || code === 0x7f) {
-      return fallback
-    }
+  const rawPath = trimmed.split(/[?#]/)[0]
+  if (/%2f|%5c/i.test(rawPath)) {
+    return null
+  }
+  let decodedRawPath: string
+  try {
+    decodedRawPath = decodeURIComponent(rawPath)
+  } catch {
+    return null
+  }
+  if (
+    !decodedRawPath.startsWith('/') ||
+    decodedRawPath.startsWith('//') ||
+    decodedRawPath.includes('\\') ||
+    hasControlChars(decodedRawPath) ||
+    rawPath.split('/').some((seg) => seg === '..') ||
+    decodedRawPath.split('/').some((seg) => seg === '..') ||
+    /^\/api(\/|$)/i.test(decodedRawPath)
+  ) {
+    return null
   }
   try {
     const parsed = new URL(trimmed, 'http://sloboda.local')
@@ -354,23 +387,43 @@ export function getSafeRedirectPath(
       !parsed.pathname.startsWith('/') ||
       parsed.pathname.startsWith('//')
     ) {
-      return fallback
+      return null
     }
-    const rawPath = trimmed.split(/[?#]/)[0]
-    if (rawPath.split('/').some((seg) => seg === '..')) return fallback
-    const decodedPath = decodeURIComponent(parsed.pathname)
+    const decodedCanonicalPath = decodeURIComponent(parsed.pathname)
     if (
       /^\/api(\/|$)/i.test(parsed.pathname) ||
-      /^\/api(\/|$)/i.test(decodedPath) ||
-      decodedPath.includes('\\') ||
-      decodedPath.split('/').some((seg) => seg === '..')
+      /^\/api(\/|$)/i.test(decodedCanonicalPath) ||
+      decodedCanonicalPath.startsWith('//') ||
+      decodedCanonicalPath.includes('\\') ||
+      hasControlChars(decodedCanonicalPath) ||
+      decodedCanonicalPath.split('/').some((seg) => seg === '..')
     ) {
-      return fallback
+      return null
+    }
+    const nestedRedirects = parsed.searchParams.getAll('redirect')
+    if (nestedRedirects.length > 1) {
+      return null
+    }
+    if (nestedRedirects.length === 1) {
+      if (depth >= MAX_REDIRECT_NEST_DEPTH) {
+        return null
+      }
+      if (parseSafeRedirectPath(nestedRedirects[0], depth + 1) === null) {
+        return null
+      }
     }
     return `${parsed.pathname}${parsed.search}${parsed.hash}`
   } catch {
-    return fallback
+    return null
   }
+}
+
+/** Validates same-origin relative redirect paths (must start with '/' and not '//' or normalized '/api', no backslashes, '..' traversal, or control chars; recursively validates nested ?redirect= targets) */
+export function getSafeRedirectPath(
+  raw: string | null | undefined,
+  fallback = '/dashboard',
+): string {
+  return parseSafeRedirectPath(raw, 0) ?? fallback
 }
 
 /** Converts a positive decimal ruble string (up to 2 decimal places) to an integer kopeck string */

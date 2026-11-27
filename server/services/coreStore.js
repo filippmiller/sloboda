@@ -85,6 +85,7 @@ async function ensureCoreSchema() {
     const migrationPath = path.join(__dirname, '../migrations/2026-11-26-sloboda-core.sql');
     const migrationR2Path = path.join(__dirname, '../migrations/2026-11-26-sloboda-core-r2.sql');
     const migrationR3Path = path.join(__dirname, '../migrations/2026-11-26-sloboda-core-r3.sql');
+    const migrationR4Path = path.join(__dirname, '../migrations/2026-11-26-sloboda-core-r4.sql');
     const client = await dbRef.pool.connect();
     let locked = false;
     try {
@@ -92,11 +93,11 @@ async function ensureCoreSchema() {
         locked = true;
 
         const applied = new Set();
-        const tblRes = await client.query(`SELECT to_regclass('schema_migrations') AS tbl`);
+        const tblRes = await client.query(`SELECT to_regclass('public.schema_migrations') AS tbl`);
         if (tblRes.rows[0]?.tbl) {
             const migRes = await client.query(
-                `SELECT version FROM schema_migrations WHERE version = ANY($1)`,
-                [['2026-11-26-sloboda-core', '2026-11-26-sloboda-core-r2', '2026-11-26-sloboda-core-r3']]
+                `SELECT version FROM public.schema_migrations WHERE version = ANY($1)`,
+                [['2026-11-26-sloboda-core', '2026-11-26-sloboda-core-r2', '2026-11-26-sloboda-core-r3', '2026-11-26-sloboda-core-r4']]
             );
             for (const row of migRes.rows) {
                 applied.add(row.version);
@@ -113,6 +114,10 @@ async function ensureCoreSchema() {
         if (!applied.has('2026-11-26-sloboda-core-r3')) {
             const sqlR3 = fs.readFileSync(migrationR3Path, 'utf8');
             await client.query(sqlR3);
+        }
+        if (!applied.has('2026-11-26-sloboda-core-r4')) {
+            const sqlR4 = fs.readFileSync(migrationR4Path, 'utf8');
+            await client.query(sqlR4);
         }
 
         const mCount = await client.query(
@@ -1775,20 +1780,24 @@ function parseKopecks400(val, fieldName) {
     }
 }
 
-function validateIdempotencyKey(raw) {
+function parseIdempotencyKey(raw) {
     if (typeof raw !== 'string' || raw.trim().length === 0) {
         const err = new Error('idempotency_key is required and must be a non-empty string up to 128 characters');
         err.status = 400;
         throw err;
     }
-    const trimmed = raw.trim();
-    const collapsed = trimmed.replace(/\s+/g, ' ');
-    if (trimmed.length > 128 && collapsed.length > 128) {
+    const rawKey = raw.trim();
+    const collapsedKey = rawKey.replace(/\s+/g, ' ');
+    if (rawKey.length > 128 && collapsedKey.length > 128) {
         const err = new Error('idempotency_key is required and must be a non-empty string up to 128 characters');
         err.status = 400;
         throw err;
     }
-    return trimmed.length <= 128 ? trimmed : collapsed;
+    return {
+        rawKey,
+        collapsedKey,
+        isOverlengthRaw: rawKey.length > 128,
+    };
 }
 
 function isPositiveInt(val) {
@@ -1869,7 +1878,7 @@ function matchesExpenseIdempotency(existing, existingAllocs, fp, params, existin
 }
 
 async function recordContribution(data, adminId) {
-    const idempKey = validateIdempotencyKey(data.idempotency_key);
+    const { rawKey: idempKey, collapsedKey, isOverlengthRaw } = parseIdempotencyKey(data.idempotency_key);
     const amountBi = parseKopecks400(data.amount_kopecks, 'amount_kopecks');
     if (amountBi <= 0n) {
         const err = new Error('Сумма взноса должна быть положительной (в копейках)');
@@ -1931,11 +1940,33 @@ async function recordContribution(data, adminId) {
         try {
             await client.query('BEGIN');
             await assertLedgerWriteGateOpen(client);
-            await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`contrib_idem:${idempKey}`]);
+            await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`contrib_idem:${collapsedKey}`]);
 
-            const dup = await client.query(`SELECT * FROM contributions WHERE idempotency_key = $1`, [idempKey]);
-            if (dup.rows[0]) {
-                const existing = dup.rows[0];
+            let dupRow = null;
+            if (isOverlengthRaw) {
+                const legacyDup = await client.query(
+                    `SELECT * FROM contributions WHERE idempotency_key = $1 AND request_fingerprint IS NULL`,
+                    [collapsedKey]
+                );
+                dupRow = legacyDup.rows[0] || null;
+                if (!dupRow) {
+                    const err = new Error('idempotency_key is required and must be a non-empty string up to 128 characters');
+                    err.status = 400;
+                    throw err;
+                }
+            } else {
+                const dup = await client.query(`SELECT * FROM contributions WHERE idempotency_key = $1`, [idempKey]);
+                dupRow = dup.rows[0] || null;
+                if (!dupRow && collapsedKey !== idempKey) {
+                    const legacyDup = await client.query(
+                        `SELECT * FROM contributions WHERE idempotency_key = $1 AND request_fingerprint IS NULL`,
+                        [collapsedKey]
+                    );
+                    dupRow = legacyDup.rows[0] || null;
+                }
+            }
+            if (dupRow) {
+                const existing = dupRow;
                 if (!matchesContributionIdempotency(existing, requestFingerprint, fingerprintParams)) {
                     const err = new Error('Idempotency key already used with different parameters');
                     err.status = 409;
@@ -1975,7 +2006,20 @@ async function recordContribution(data, adminId) {
         }
     }
 
-    const existing = mem.contributions.find((c) => c.idempotency_key === idempKey);
+    let existing = null;
+    if (isOverlengthRaw) {
+        existing = mem.contributions.find((c) => c.idempotency_key === collapsedKey && !c.request_fingerprint) || null;
+        if (!existing) {
+            const err = new Error('idempotency_key is required and must be a non-empty string up to 128 characters');
+            err.status = 400;
+            throw err;
+        }
+    } else {
+        existing = mem.contributions.find((c) => c.idempotency_key === idempKey) || null;
+        if (!existing && collapsedKey !== idempKey) {
+            existing = mem.contributions.find((c) => c.idempotency_key === collapsedKey && !c.request_fingerprint) || null;
+        }
+    }
     if (existing) {
         if (!matchesContributionIdempotency(existing, requestFingerprint, fingerprintParams)) {
             const err = new Error('Idempotency key already used with different parameters');
@@ -2023,7 +2067,7 @@ async function recordContribution(data, adminId) {
 }
 
 async function createAndAllocateExpense(data, adminId) {
-    const idempKey = validateIdempotencyKey(data.idempotency_key);
+    const { rawKey: idempKey, collapsedKey, isOverlengthRaw } = parseIdempotencyKey(data.idempotency_key);
     const amountBi = parseKopecks400(data.amount_kopecks, 'amount_kopecks');
     if (amountBi <= 0n) {
         const err = new Error('Сумма расхода должна быть положительной');
@@ -2105,13 +2149,24 @@ async function createAndAllocateExpense(data, adminId) {
         try {
             await client.query('BEGIN');
             await assertLedgerWriteGateOpen(client);
-            await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`expense_idem:${idempKey}`]);
+            await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`expense_idem:${collapsedKey}`]);
 
-            const dup = await client.query(`SELECT * FROM ledger_expenses WHERE idempotency_key = $1`, [idempKey]);
-            let dupRow = dup.rows[0] || null;
-            if (!dupRow) {
-                const collapsedKey = idempKey.replace(/\s+/g, ' ');
-                if (collapsedKey !== idempKey) {
+            let dupRow = null;
+            if (isOverlengthRaw) {
+                const legacyDup = await client.query(
+                    `SELECT * FROM ledger_expenses WHERE idempotency_key = $1 AND request_fingerprint IS NULL`,
+                    [collapsedKey]
+                );
+                dupRow = legacyDup.rows[0] || null;
+                if (!dupRow) {
+                    const err = new Error('idempotency_key is required and must be a non-empty string up to 128 characters');
+                    err.status = 400;
+                    throw err;
+                }
+            } else {
+                const dup = await client.query(`SELECT * FROM ledger_expenses WHERE idempotency_key = $1`, [idempKey]);
+                dupRow = dup.rows[0] || null;
+                if (!dupRow && collapsedKey !== idempKey) {
                     const legacyDup = await client.query(
                         `SELECT * FROM ledger_expenses WHERE idempotency_key = $1 AND request_fingerprint IS NULL`,
                         [collapsedKey]
@@ -2261,11 +2316,18 @@ async function createAndAllocateExpense(data, adminId) {
     }
 
     // In-memory parity path
-    let existing = mem.expenses.find((e) => e.idempotency_key === idempKey);
-    if (!existing) {
-        const collapsedKey = idempKey.replace(/\s+/g, ' ');
-        if (collapsedKey !== idempKey) {
-            existing = mem.expenses.find((e) => e.idempotency_key === collapsedKey && !e.request_fingerprint);
+    let existing = null;
+    if (isOverlengthRaw) {
+        existing = mem.expenses.find((e) => e.idempotency_key === collapsedKey && !e.request_fingerprint) || null;
+        if (!existing) {
+            const err = new Error('idempotency_key is required and must be a non-empty string up to 128 characters');
+            err.status = 400;
+            throw err;
+        }
+    } else {
+        existing = mem.expenses.find((e) => e.idempotency_key === idempKey) || null;
+        if (!existing && collapsedKey !== idempKey) {
+            existing = mem.expenses.find((e) => e.idempotency_key === collapsedKey && !e.request_fingerprint) || null;
         }
     }
     if (existing) {

@@ -153,17 +153,17 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
 
   test.beforeAll(async () => {
     if (!process.env.DATABASE_URL) return;
-    if (process.env.ALLOW_DESTRUCTIVE_PG_VERIFY !== 'true') {
-      throw new Error('Refusing UI E2E DB mutations without ALLOW_DESTRUCTIVE_PG_VERIFY=true');
-    }
+    const { assertSafeDisposablePgConfig, assertConnectedDisposablePg } = require('../server/utils/pgTestGuard');
+    const guardLabel = 'UI E2E test suite (tests/sloboda-ui-e2e.spec.js)';
+    const { dbName: expectedDbName } = assertSafeDisposablePgConfig(process.env.DATABASE_URL, process.env, guardLabel);
     const { Pool } = require('pg');
     pool = new Pool({ connectionString: process.env.DATABASE_URL });
-    const dbNameRes = await pool.query('SELECT current_database() AS db_name');
-    const dbName = dbNameRes.rows[0]?.db_name || '';
-    if (!/(^|[_-])(test|ci|local|dev)($|[_-])/i.test(dbName)) {
+    try {
+      await assertConnectedDisposablePg(pool, expectedDbName, guardLabel);
+    } catch (err) {
       await pool.end();
       pool = null;
-      throw new Error(`Refusing UI E2E DB mutations on non-disposable database "${dbName}"`);
+      throw err;
     }
     // server/index.js RESET_ADMIN_PASSWORD=true marks existing admins must_change_password=TRUE
     await pool.query(
@@ -987,6 +987,203 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
       expect(finalUrl3.pathname).not.toContain('/api/');
     } finally {
       await mlContext3.close();
+    }
+
+    expect(pageErrors).toEqual([]);
+  });
+
+  test('6. SLB-R3-05: Session expiry (401) inside onboarding preserves nested /applications target (password + magic-link)', async ({ browser, request }) => {
+    test.skip(!process.env.DATABASE_URL, 'Requires real PostgreSQL (DATABASE_URL)');
+
+    const suffix = `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+    const pageErrors = [];
+
+    // 6A: Password re-login after 401 inside /onboarding?redirect=%2Fapplications
+    const emailPw = `e2e.onb401.pw.${suffix}@sloboda.land`;
+    const passwordPw = 'OnbPass123!';
+    await seedUser(pool, {
+      email: emailPw,
+      password: passwordPw,
+      name: `Онборд 401 Пароль ${suffix}`,
+      onboardingCompleted: false,
+    });
+
+    const ctxPw = await browser.newContext();
+    const pagePw = await ctxPw.newPage();
+    trackPageErrors(pagePw, pageErrors, 'onb401-pw');
+    try {
+      // Login targeting /applications -> DashboardLayout redirects unonboarded user to /onboarding?redirect=%2Fapplications
+      await pagePw.goto('/login?redirect=%2Fapplications');
+      await pagePw.locator('input[type="email"]').fill(emailPw);
+      await pagePw.locator('input[type="password"]').fill(passwordPw);
+      await pagePw.locator('button[type="submit"]').click();
+      await pagePw.waitForURL(/\/onboarding\?redirect=%2Fapplications/, { timeout: 15000 });
+
+      // Expire session (clear cookies) before protected onboarding action -> 401 redirects to /login?redirect=%2Fonboarding%3Fredirect%3D%252Fapplications
+      await ctxPw.clearCookies();
+      await pagePw.getByRole('button', { name: /Пропустить|Skip/i }).click();
+      await pagePw.waitForURL(/\/login\?redirect=/, { timeout: 15000 });
+      expect(pagePw.url()).toContain('onboarding');
+
+      // Re-login with password -> must return to /onboarding?redirect=%2Fapplications, then completing onboarding lands on /applications
+      await pagePw.locator('input[type="email"]').fill(emailPw);
+      await pagePw.locator('input[type="password"]').fill(passwordPw);
+      await pagePw.locator('button[type="submit"]').click();
+      await pagePw.waitForURL(/\/onboarding\?redirect=%2Fapplications/, { timeout: 15000 });
+
+      await pagePw.getByRole('button', { name: /Пропустить|Skip/i }).click();
+      await pagePw.waitForURL(/\/applications$/, { timeout: 15000 });
+    } finally {
+      await ctxPw.close();
+    }
+
+    // 6B: Magic-link issuance + verification preserves nested /onboarding?redirect=%2Fapplications for unonboarded user
+    const emailMl = `e2e.onb401.ml.${suffix}@sloboda.land`;
+    await seedUser(pool, {
+      email: emailMl,
+      password: 'OnbMlPass123!',
+      name: `Онборд 401 Магик ${suffix}`,
+      onboardingCompleted: false,
+    });
+
+    const mlNestedRes = await request.post('/api/user/auth/magic-link', {
+      data: { email: emailMl, redirect: '/onboarding?redirect=%2Fapplications' },
+    });
+    expect(mlNestedRes.status()).toBe(200);
+    const mlNestedBody = await mlNestedRes.json();
+    expect(typeof mlNestedBody.debugMagicLink).toBe('string');
+    expect(mlNestedBody.debugMagicLink).toContain('onboarding');
+
+    const ctxMl = await browser.newContext();
+    const pageMl = await ctxMl.newPage();
+    trackPageErrors(pageMl, pageErrors, 'onb401-ml');
+    try {
+      await pageMl.goto(mlNestedBody.debugMagicLink);
+      await pageMl.waitForURL(/\/onboarding\?redirect=%2Fapplications/, { timeout: 15000 });
+      await pageMl.getByRole('button', { name: /Пропустить|Skip/i }).click();
+      await pageMl.waitForURL(/\/applications$/, { timeout: 15000 });
+    } finally {
+      await ctxMl.close();
+    }
+
+    // 6C: Malicious nested redirect (external / /api / duplicate) rejected by server magic-link issuer -> falls back to /dashboard
+    const mlBadRes = await request.post('/api/user/auth/magic-link', {
+      data: { email: emailMl, redirect: '/onboarding?redirect=https%3A%2F%2Fevil.example' },
+    });
+    expect(mlBadRes.status()).toBe(200);
+    const mlBadBody = await mlBadRes.json();
+    expect(mlBadBody.debugMagicLink).toContain('redirect=%2Fdashboard');
+
+    const mlBadApiRes = await request.post('/api/user/auth/magic-link', {
+      data: { email: emailMl, redirect: '/onboarding?redirect=%2Fapi%2Fadmin' },
+    });
+    expect(mlBadApiRes.status()).toBe(200);
+    const mlBadApiBody = await mlBadApiRes.json();
+    expect(mlBadApiBody.debugMagicLink).toContain('redirect=%2Fdashboard');
+
+    expect(pageErrors).toEqual([]);
+  });
+
+  test('7. SLB-R3-06: Late async responses (delayed PATCH 409 & delayed portfolio POST) preserve newer revision draft after immediate reload', async ({ browser, request }) => {
+    test.skip(!process.env.DATABASE_URL, 'Requires real PostgreSQL (DATABASE_URL)');
+
+    const suffix = `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+    const email = `e2e.late.${suffix}@sloboda.land`;
+    const password = 'LatePass123!';
+    const pageErrors = [];
+
+    const seeded = await seedUser(pool, {
+      email,
+      password,
+      name: `Поздний Ответ ${suffix}`,
+      onboardingCompleted: true,
+    });
+    const appRow = (await pool.query(`
+      INSERT INTO member_applications
+        (user_id, full_name, email, city, primary_domain, skills, motivation, status, version, review_note)
+      VALUES ($1, $2, $3, 'Казань', 'ENG', 'Initial X skills', 'Initial X motivation', 'revision_requested', 2, 'Уточните навыки')
+      RETURNING id
+    `, [seeded.id, `Поздний Ответ ${suffix}`, email])).rows[0];
+
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    trackPageErrors(page, pageErrors, 'late-draft');
+
+    try {
+      await page.goto('/login?redirect=%2Fapplications');
+      await page.locator('input[type="email"]').fill(email);
+      await page.locator('input[type="password"]').fill(password);
+      await page.locator('button[type="submit"]').click();
+      await page.waitForURL(/\/applications$/, { timeout: 15000 });
+
+      const skillsInput = page.locator('textarea').first();
+      await expect(skillsInput).toBeVisible({ timeout: 10000 });
+
+      // 7A: Delayed portfolio POST — start with X, type Y while POST is in flight, release response, reload immediately without typing
+      await skillsInput.fill(`Draft X before portfolio ${suffix}`);
+      let releasePortfolio;
+      const portfolioInFlight = new Promise((resolve) => { releasePortfolio = resolve; });
+      let portfolioIntercepted = false;
+      await page.route('**/api/applications/my/portfolio', async (route) => {
+        if (route.request().method() === 'POST' && !portfolioIntercepted) {
+          portfolioIntercepted = true;
+          const resp = await route.fetch();
+          await portfolioInFlight;
+          await route.fulfill({ response: resp });
+          return;
+        }
+        await route.continue();
+      });
+
+      await page.locator('input[placeholder*="Солнечная"], input[placeholder*="название"], input[placeholder*="СЭС"]').first().fill(`Delayed Portfolio ${suffix}`);
+      await page.getByRole('button', { name: /Добавить работу|Добавить в портфолио/i }).click();
+      await page.waitForTimeout(300);
+
+      // Type Y while portfolio POST is still pending!
+      const textY1 = `Newer Y1 typed during portfolio POST ${suffix}`;
+      await skillsInput.fill(textY1);
+      releasePortfolio();
+      await expect(page.getByText(`Delayed Portfolio ${suffix}`)).toBeVisible({ timeout: 10000 });
+
+      // Immediate reload WITHOUT any additional typing -> Y1 MUST persist!
+      await page.reload();
+      await expect(page.locator('textarea').first()).toHaveValue(textY1, { timeout: 10000 });
+
+      // 7B: Delayed PATCH 409 — bump version on server, delay PATCH 409, type Y2 while in flight, release 409, reload immediately without typing
+      let releasePatch409;
+      const patch409InFlight = new Promise((resolve) => { releasePatch409 = resolve; });
+      let patchIntercepted = false;
+      await page.route('**/api/applications/my', async (route) => {
+        if (route.request().method() === 'PATCH' && !patchIntercepted) {
+          patchIntercepted = true;
+          // Advance server version so PATCH returns genuine 409
+          await pool.query('UPDATE member_applications SET version = version + 1 WHERE id = $1', [appRow.id]);
+          const resp = await route.fetch();
+          expect(resp.status()).toBe(409);
+          await patch409InFlight;
+          await route.fulfill({ response: resp });
+          return;
+        }
+        await route.continue();
+      });
+
+      await page.getByRole('button', { name: /Отправить доработанную заявку|Отправить на повторное/i }).click();
+      await page.waitForTimeout(300);
+
+      // Type Y2 while PATCH 409 is still pending!
+      const textY2 = `Newer Y2 typed during PATCH 409 ${suffix}`;
+      await page.locator('textarea').first().fill(textY2);
+      releasePatch409();
+
+      // Wait for conflict UI banner
+      await expect(page.getByText(/Конфликт версий|Версия заявки изменилась/i).first()).toBeVisible({ timeout: 10000 });
+
+      // Immediate reload WITHOUT any additional typing -> Y2 MUST persist AND conflict banner MUST remain!
+      await page.reload();
+      await expect(page.locator('textarea').first()).toHaveValue(textY2, { timeout: 10000 });
+      await expect(page.getByText(/Конфликт версий|Версия заявки изменилась/i).first()).toBeVisible({ timeout: 10000 });
+    } finally {
+      await ctx.close();
     }
 
     expect(pageErrors).toEqual([]);
