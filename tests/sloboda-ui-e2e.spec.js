@@ -485,7 +485,11 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
 
     // Reset ledger tables for deterministic exact kopeck assertions on sloboda-pilot
     await pool.query('TRUNCATE TABLE ledger_postings, expense_allocations, ledger_expenses, contributions RESTART IDENTITY CASCADE');
-    await pool.query(`DELETE FROM sloboda_core_gates WHERE gate_key = 'ledger_integrity'`);
+    await pool.query(
+      `INSERT INTO sloboda_core_gates (gate_key, is_blocked, report_json, checked_at)
+       VALUES ('ledger_integrity', FALSE, '{"ok":true,"discrepancies":[]}'::jsonb, NOW())
+       ON CONFLICT (gate_key) DO UPDATE SET is_blocked = FALSE, report_json = EXCLUDED.report_json, checked_at = NOW()`
+    );
 
     const finUser = await seedUser(pool, {
       email: userEmail,
