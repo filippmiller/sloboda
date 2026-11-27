@@ -289,6 +289,18 @@ router.post('/users/:id/ban', requireUserAuth, requireCsrfIfCookie, requirePermi
       resolvedExpiresAt = parsedDate.toISOString();
     }
 
+    const MAX_TEMP_BAN_MS = 30 * 24 * 3600 * 1000;
+    if (resolvedExpiresAt) {
+      const expiresMs = new Date(resolvedExpiresAt).getTime();
+      const nowMs = Date.now();
+      if (expiresMs <= nowMs) {
+        return res.status(400).json({ error: 'Ban expiry must be in the future' });
+      }
+      if ((expiresMs - nowMs > MAX_TEMP_BAN_MS) && !req.roleConfig?.permissions?.can_ban_users_permanent) {
+        return res.status(403).json({ error: 'Temporary bans cannot exceed 30 days without super_moderator permission' });
+      }
+    }
+
     const moderatorId = req.user.id;
     if (!resolvedExpiresAt && !req.roleConfig?.permissions?.can_ban_users_permanent) {
       return res.status(403).json({ error: 'Permanent bans require super_moderator permission' });

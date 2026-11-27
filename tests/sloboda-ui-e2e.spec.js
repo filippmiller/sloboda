@@ -248,9 +248,15 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
       const revMotivationInput = applicantPage.getByLabel('Мотивация участия');
       await revMotivationInput.fill(uniqueRevMotivation);
 
-      // Simulate 401/session expiry: clear cookies, reload /applications -> /login?redirect=%2Fapplications -> relogin
+      // Simulate 401 on actual PATCH /api/applications/my: clear cookies AFTER typing, click submit -> 401 -> /login?redirect=%2Fapplications -> relogin
       await applicantContext.clearCookies();
-      await applicantPage.reload();
+      const patch401Promise = applicantPage.waitForResponse(
+        (resp) => resp.url().includes('/api/applications/my') && resp.request().method() === 'PATCH'
+      );
+      await applicantPage.getByRole('button', { name: /Отправить доработанную заявку/i }).click();
+      const patch401Resp = await patch401Promise;
+      expect(patch401Resp.status()).toBe(401);
+
       await applicantPage.waitForURL(/\/login\?redirect=%2Fapplications/, { timeout: 15000 });
 
       await loginUserViaUi(applicantPage, applicantEmail, applicantPassword);
@@ -467,6 +473,15 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
     const expenseTitle = `Щебень для дороги (${suffix})`;
     const oldReservedTitle = `Старый резерв страница 2 (${suffix})`;
     const superAdminTok = signAdminToken();
+
+    if (process.env.ALLOW_DESTRUCTIVE_PG_VERIFY !== 'true') {
+      throw new Error('Refusing destructive TRUNCATE without ALLOW_DESTRUCTIVE_PG_VERIFY=true');
+    }
+    const dbNameRes = await pool.query('SELECT current_database() AS db_name');
+    const dbName = dbNameRes.rows[0]?.db_name || '';
+    if (!/test|ci|local|dev/i.test(dbName)) {
+      throw new Error(`Refusing destructive TRUNCATE on non-disposable database "${dbName}"`);
+    }
 
     // Reset ledger tables for deterministic exact kopeck assertions on sloboda-pilot
     await pool.query('TRUNCATE TABLE ledger_postings, expense_allocations, ledger_expenses, contributions RESTART IDENTITY CASCADE');
@@ -818,7 +833,7 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
     }
   });
 
-  test('5. Auth Return-Target Preservation: Onboarding + Invite Registration + Magic Link + Malicious Redirect Block', async ({ browser }) => {
+  test('5. Auth Return-Target Preservation: Onboarding + Invite Registration + Magic Link + Malicious Redirect Block', async ({ browser, request }) => {
     test.skip(!process.env.DATABASE_URL, 'Requires real PostgreSQL (DATABASE_URL)');
 
     const suffix = `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
@@ -879,17 +894,25 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
       await inviteContext.close();
     }
 
-    // 5C: Magic link redirect preservation
+    // 5C: Magic link issuance (POST /api/user/auth/magic-link) + redirect preservation
     const mlEmail1 = `e2e.magic1.${suffix}@sloboda.land`;
-    const mlToken1 = crypto.randomUUID();
     await seedUser(pool, {
       email: mlEmail1,
       password: 'MagicPass123!',
       name: `Магик 1 ${suffix}`,
       onboardingCompleted: true,
-      magicLinkToken: mlToken1,
-      magicLinkExpiresSql: `NOW() + INTERVAL '15 minutes'`,
     });
+
+    const mlIssueRes = await request.post('/api/user/auth/magic-link', {
+      data: { email: mlEmail1, redirect: '/applications' },
+    });
+    expect(mlIssueRes.status()).toBe(200);
+    const mlRow1 = await pool.query(
+      'SELECT magic_link_token FROM users WHERE LOWER(email) = LOWER($1)',
+      [mlEmail1]
+    );
+    const mlToken1 = mlRow1.rows[0]?.magic_link_token;
+    expect(mlToken1).toBeTruthy();
 
     const mlContext1 = await browser.newContext();
     const mlPage1 = await mlContext1.newPage();
@@ -926,6 +949,33 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
       expect(['/dashboard', '/onboarding']).toContain(finalUrl.pathname);
     } finally {
       await mlContext2.close();
+    }
+
+    // 5E: /api/* return target rejected -> redirects safely to /dashboard (NOT /api/user/auth/logout)
+    const mlEmail3 = `e2e.magic3.${suffix}@sloboda.land`;
+    const mlToken3 = crypto.randomUUID();
+    await seedUser(pool, {
+      email: mlEmail3,
+      password: 'MagicPass123!',
+      name: `Магик 3 ${suffix}`,
+      onboardingCompleted: true,
+      magicLinkToken: mlToken3,
+      magicLinkExpiresSql: `NOW() + INTERVAL '15 minutes'`,
+    });
+
+    const mlContext3 = await browser.newContext();
+    const mlPage3 = await mlContext3.newPage();
+    trackPageErrors(mlPage3, pageErrors, 'magic3');
+
+    try {
+      await mlPage3.goto(`/api/user/auth/magic-link/verify?token=${encodeURIComponent(mlToken3)}&redirect=%2Fapi%2Fuser%2Fauth%2Flogout`);
+      await mlPage3.waitForURL(/\/dashboard$/, { timeout: 15000 });
+      const finalUrl3 = new URL(mlPage3.url());
+      expect(finalUrl3.hostname).toBe('localhost');
+      expect(finalUrl3.pathname).toBe('/dashboard');
+      expect(finalUrl3.pathname).not.toContain('/api/');
+    } finally {
+      await mlContext3.close();
     }
 
     expect(pageErrors).toEqual([]);

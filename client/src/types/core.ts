@@ -326,14 +326,19 @@ export interface AdminLedgerSummary {
   recent_expenses?: PublicLedgerExpenseSummary[]
 }
 
-/** Validates same-origin relative redirect paths (must start with '/' and not '//', no backslashes or control chars) */
+/** Validates same-origin relative redirect paths (must start with '/' and not '//' or '/api', no backslashes or control chars) */
 export function getSafeRedirectPath(
   raw: string | null | undefined,
   fallback = '/dashboard',
 ): string {
   if (!raw) return fallback
   const trimmed = raw.trim()
-  if (!trimmed.startsWith('/') || trimmed.startsWith('//') || trimmed.includes('\\')) {
+  if (
+    !trimmed.startsWith('/') ||
+    trimmed.startsWith('//') ||
+    trimmed.includes('\\') ||
+    /^\/api([/?#]|$)/i.test(trimmed)
+  ) {
     return fallback
   }
   for (let i = 0; i < trimmed.length; i += 1) {

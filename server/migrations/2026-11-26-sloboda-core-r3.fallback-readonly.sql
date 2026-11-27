@@ -1,7 +1,11 @@
 -- Sloboda Core Platform Rollback Read-Only Guard (2026-11-26)
 -- Use this BEFORE rolling back application code to R1 on a populated R2/R3 database.
 -- R1 application code is NOT write-compatible with the R2/R3 schema; this guard keeps
--- all financial, governance, and membership evidence readable while blocking core mutations.
+-- all financial, governance, and membership evidence readable while blocking core mutations
+-- (including INSERT, UPDATE, DELETE, and TRUNCATE).
+-- IMPORTANT: R1 (c1a02fa7) public ledger summary sums ALL ledger_mode values (including
+-- pledge and legacy_import) rather than filtering to verified_receipt; the R1 public
+-- ledger summary endpoint must be fenced / not exposed while running in fallback mode.
 -- To re-enable writes after restoring R2/R3 application code, run:
 --   2026-11-26-sloboda-core-r3.restore-writes.sql
 
@@ -19,65 +23,117 @@ DROP TRIGGER IF EXISTS trg_sloboda_rollback_readonly ON contributions;
 CREATE TRIGGER trg_sloboda_rollback_readonly
     BEFORE INSERT OR UPDATE OR DELETE ON contributions
     FOR EACH ROW EXECUTE FUNCTION sloboda_rollback_readonly_guard();
+DROP TRIGGER IF EXISTS trg_sloboda_rollback_readonly_truncate ON contributions;
+CREATE TRIGGER trg_sloboda_rollback_readonly_truncate
+    BEFORE TRUNCATE ON contributions
+    FOR EACH STATEMENT EXECUTE FUNCTION sloboda_rollback_readonly_guard();
 
 DROP TRIGGER IF EXISTS trg_sloboda_rollback_readonly ON ledger_expenses;
 CREATE TRIGGER trg_sloboda_rollback_readonly
     BEFORE INSERT OR UPDATE OR DELETE ON ledger_expenses
     FOR EACH ROW EXECUTE FUNCTION sloboda_rollback_readonly_guard();
+DROP TRIGGER IF EXISTS trg_sloboda_rollback_readonly_truncate ON ledger_expenses;
+CREATE TRIGGER trg_sloboda_rollback_readonly_truncate
+    BEFORE TRUNCATE ON ledger_expenses
+    FOR EACH STATEMENT EXECUTE FUNCTION sloboda_rollback_readonly_guard();
 
 DROP TRIGGER IF EXISTS trg_sloboda_rollback_readonly ON expense_allocations;
 CREATE TRIGGER trg_sloboda_rollback_readonly
     BEFORE INSERT OR UPDATE OR DELETE ON expense_allocations
     FOR EACH ROW EXECUTE FUNCTION sloboda_rollback_readonly_guard();
+DROP TRIGGER IF EXISTS trg_sloboda_rollback_readonly_truncate ON expense_allocations;
+CREATE TRIGGER trg_sloboda_rollback_readonly_truncate
+    BEFORE TRUNCATE ON expense_allocations
+    FOR EACH STATEMENT EXECUTE FUNCTION sloboda_rollback_readonly_guard();
 
 DROP TRIGGER IF EXISTS trg_sloboda_rollback_readonly ON ledger_postings;
 CREATE TRIGGER trg_sloboda_rollback_readonly
     BEFORE INSERT OR UPDATE OR DELETE ON ledger_postings
     FOR EACH ROW EXECUTE FUNCTION sloboda_rollback_readonly_guard();
+DROP TRIGGER IF EXISTS trg_sloboda_rollback_readonly_truncate ON ledger_postings;
+CREATE TRIGGER trg_sloboda_rollback_readonly_truncate
+    BEFORE TRUNCATE ON ledger_postings
+    FOR EACH STATEMENT EXECUTE FUNCTION sloboda_rollback_readonly_guard();
 
 DROP TRIGGER IF EXISTS trg_sloboda_rollback_readonly ON construction_milestones;
 CREATE TRIGGER trg_sloboda_rollback_readonly
     BEFORE INSERT OR UPDATE OR DELETE ON construction_milestones
     FOR EACH ROW EXECUTE FUNCTION sloboda_rollback_readonly_guard();
+DROP TRIGGER IF EXISTS trg_sloboda_rollback_readonly_truncate ON construction_milestones;
+CREATE TRIGGER trg_sloboda_rollback_readonly_truncate
+    BEFORE TRUNCATE ON construction_milestones
+    FOR EACH STATEMENT EXECUTE FUNCTION sloboda_rollback_readonly_guard();
 
 DROP TRIGGER IF EXISTS trg_sloboda_rollback_readonly ON governance_proposals;
 CREATE TRIGGER trg_sloboda_rollback_readonly
     BEFORE INSERT OR UPDATE OR DELETE ON governance_proposals
     FOR EACH ROW EXECUTE FUNCTION sloboda_rollback_readonly_guard();
+DROP TRIGGER IF EXISTS trg_sloboda_rollback_readonly_truncate ON governance_proposals;
+CREATE TRIGGER trg_sloboda_rollback_readonly_truncate
+    BEFORE TRUNCATE ON governance_proposals
+    FOR EACH STATEMENT EXECUTE FUNCTION sloboda_rollback_readonly_guard();
 
 DROP TRIGGER IF EXISTS trg_sloboda_rollback_readonly ON governance_voter_snapshots;
 CREATE TRIGGER trg_sloboda_rollback_readonly
     BEFORE INSERT OR UPDATE OR DELETE ON governance_voter_snapshots
     FOR EACH ROW EXECUTE FUNCTION sloboda_rollback_readonly_guard();
+DROP TRIGGER IF EXISTS trg_sloboda_rollback_readonly_truncate ON governance_voter_snapshots;
+CREATE TRIGGER trg_sloboda_rollback_readonly_truncate
+    BEFORE TRUNCATE ON governance_voter_snapshots
+    FOR EACH STATEMENT EXECUTE FUNCTION sloboda_rollback_readonly_guard();
 
 DROP TRIGGER IF EXISTS trg_sloboda_rollback_readonly ON governance_ballots;
 CREATE TRIGGER trg_sloboda_rollback_readonly
     BEFORE INSERT OR UPDATE OR DELETE ON governance_ballots
     FOR EACH ROW EXECUTE FUNCTION sloboda_rollback_readonly_guard();
+DROP TRIGGER IF EXISTS trg_sloboda_rollback_readonly_truncate ON governance_ballots;
+CREATE TRIGGER trg_sloboda_rollback_readonly_truncate
+    BEFORE TRUNCATE ON governance_ballots
+    FOR EACH STATEMENT EXECUTE FUNCTION sloboda_rollback_readonly_guard();
 
 DROP TRIGGER IF EXISTS trg_sloboda_rollback_readonly ON governance_secret_ballots;
 CREATE TRIGGER trg_sloboda_rollback_readonly
     BEFORE INSERT OR UPDATE OR DELETE ON governance_secret_ballots
     FOR EACH ROW EXECUTE FUNCTION sloboda_rollback_readonly_guard();
+DROP TRIGGER IF EXISTS trg_sloboda_rollback_readonly_truncate ON governance_secret_ballots;
+CREATE TRIGGER trg_sloboda_rollback_readonly_truncate
+    BEFORE TRUNCATE ON governance_secret_ballots
+    FOR EACH STATEMENT EXECUTE FUNCTION sloboda_rollback_readonly_guard();
 
 DROP TRIGGER IF EXISTS trg_sloboda_rollback_readonly ON governance_voter_receipts;
 CREATE TRIGGER trg_sloboda_rollback_readonly
     BEFORE INSERT OR UPDATE OR DELETE ON governance_voter_receipts
     FOR EACH ROW EXECUTE FUNCTION sloboda_rollback_readonly_guard();
+DROP TRIGGER IF EXISTS trg_sloboda_rollback_readonly_truncate ON governance_voter_receipts;
+CREATE TRIGGER trg_sloboda_rollback_readonly_truncate
+    BEFORE TRUNCATE ON governance_voter_receipts
+    FOR EACH STATEMENT EXECUTE FUNCTION sloboda_rollback_readonly_guard();
 
 DROP TRIGGER IF EXISTS trg_sloboda_rollback_readonly ON council_delegations;
 CREATE TRIGGER trg_sloboda_rollback_readonly
     BEFORE INSERT OR UPDATE OR DELETE ON council_delegations
     FOR EACH ROW EXECUTE FUNCTION sloboda_rollback_readonly_guard();
+DROP TRIGGER IF EXISTS trg_sloboda_rollback_readonly_truncate ON council_delegations;
+CREATE TRIGGER trg_sloboda_rollback_readonly_truncate
+    BEFORE TRUNCATE ON council_delegations
+    FOR EACH STATEMENT EXECUTE FUNCTION sloboda_rollback_readonly_guard();
 
 DROP TRIGGER IF EXISTS trg_sloboda_rollback_readonly ON member_applications;
 CREATE TRIGGER trg_sloboda_rollback_readonly
     BEFORE INSERT OR UPDATE OR DELETE ON member_applications
     FOR EACH ROW EXECUTE FUNCTION sloboda_rollback_readonly_guard();
+DROP TRIGGER IF EXISTS trg_sloboda_rollback_readonly_truncate ON member_applications;
+CREATE TRIGGER trg_sloboda_rollback_readonly_truncate
+    BEFORE TRUNCATE ON member_applications
+    FOR EACH STATEMENT EXECUTE FUNCTION sloboda_rollback_readonly_guard();
 
 DROP TRIGGER IF EXISTS trg_sloboda_rollback_readonly ON portfolio_items;
 CREATE TRIGGER trg_sloboda_rollback_readonly
     BEFORE INSERT OR UPDATE OR DELETE ON portfolio_items
     FOR EACH ROW EXECUTE FUNCTION sloboda_rollback_readonly_guard();
+DROP TRIGGER IF EXISTS trg_sloboda_rollback_readonly_truncate ON portfolio_items;
+CREATE TRIGGER trg_sloboda_rollback_readonly_truncate
+    BEFORE TRUNCATE ON portfolio_items
+    FOR EACH STATEMENT EXECUTE FUNCTION sloboda_rollback_readonly_guard();
 
 COMMIT;

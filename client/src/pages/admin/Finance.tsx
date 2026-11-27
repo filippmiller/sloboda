@@ -179,7 +179,17 @@ export default function AdminFinance() {
   const [expenseTotal, setExpenseTotal] = useState(0)
   const [expenseHasMore, setExpenseHasMore] = useState(false)
   const [refreshedConflictExpense, setRefreshedConflictExpense] = useState<AdminLedgerExpense | null>(null)
+  const [loadedSettlement, setLoadedSettlement] = useState<string | null>(null)
+  const [loadedExpenseScope, setLoadedExpenseScope] = useState<string | null>(null)
+  const [loadedContribScope, setLoadedContribScope] = useState<string | null>(null)
   const ledgerFetchSeqRef = useRef(0)
+  const ledgerParamsRef = useRef({
+    selectedSettlement,
+    contribModeFilter,
+    contribPage,
+    expenseStatusFilter,
+    expensePage,
+  })
 
   const [ledgerLoading, setLedgerLoading] = useState(true)
   const [ledgerSummary, setLedgerSummary] = useState<AdminLedgerSummary | null>(null)
@@ -234,13 +244,26 @@ export default function AdminFinance() {
 
   const concreteSettlement =
     selectedSettlement === 'all' ? DEFAULT_SETTLEMENT_ID : selectedSettlement
+  const currentExpenseScope = `${selectedSettlement}::${expenseStatusFilter}::${expensePage}`
+  const currentContribScope = `${selectedSettlement}::${contribModeFilter}::${contribPage}`
+  const summaryAligned = loadedSettlement === selectedSettlement
+  const expensesAligned = summaryAligned && loadedExpenseScope === currentExpenseScope
+  const contribsAligned = summaryAligned && loadedContribScope === currentContribScope
 
   const fetchLedgerData = useCallback(async () => {
+    const {
+      selectedSettlement: targetSettlement,
+      contribModeFilter: targetContribMode,
+      contribPage: targetContribPage,
+      expenseStatusFilter: targetExpenseStatus,
+      expensePage: targetExpensePage,
+    } = ledgerParamsRef.current
+
     const seq = ++ledgerFetchSeqRef.current
     setLedgerLoading(true)
     setLedgerError(null)
     const milestoneSettlement =
-      selectedSettlement === 'all' ? DEFAULT_SETTLEMENT_ID : selectedSettlement
+      targetSettlement === 'all' ? DEFAULT_SETTLEMENT_ID : targetSettlement
 
     const [contribRes, expRes, summaryRes, milestonesRes] = await Promise.allSettled([
       adminApi.get<{
@@ -250,10 +273,10 @@ export default function AdminFinance() {
         has_more?: boolean
       }>('/admin/ledger/contributions', {
         params: {
-          settlement_id: selectedSettlement,
-          ledger_mode: contribModeFilter || undefined,
+          settlement_id: targetSettlement,
+          ledger_mode: targetContribMode || undefined,
           limit: LEDGER_PAGE_SIZE,
-          offset: contribPage * LEDGER_PAGE_SIZE,
+          offset: targetContribPage * LEDGER_PAGE_SIZE,
         },
       }),
       adminApi.get<{
@@ -263,14 +286,14 @@ export default function AdminFinance() {
         has_more?: boolean
       }>('/admin/ledger/expenses', {
         params: {
-          settlement_id: selectedSettlement,
-          status: expenseStatusFilter || undefined,
+          settlement_id: targetSettlement,
+          status: targetExpenseStatus || undefined,
           limit: LEDGER_PAGE_SIZE,
-          offset: expensePage * LEDGER_PAGE_SIZE,
+          offset: targetExpensePage * LEDGER_PAGE_SIZE,
         },
       }),
       adminApi.get<{ success: boolean } & AdminLedgerSummary>('/admin/ledger/summary', {
-        params: { settlement_id: selectedSettlement },
+        params: { settlement_id: targetSettlement },
       }),
       adminApi.get<{ success: boolean; milestones: ConstructionMilestone[] }>(
         '/public/construction/milestones',
@@ -292,11 +315,16 @@ export default function AdminFinance() {
       const hasMore =
         typeof contribRes.value.data.has_more === 'boolean'
           ? contribRes.value.data.has_more
-          : (contribPage + 1) * LEDGER_PAGE_SIZE < totalCount
+          : (targetContribPage + 1) * LEDGER_PAGE_SIZE < totalCount
       setContributions(items)
       setContribTotal(totalCount)
       setContribHasMore(hasMore)
+      setLoadedContribScope(`${targetSettlement}::${targetContribMode}::${targetContribPage}`)
     } else {
+      setContributions([])
+      setContribTotal(0)
+      setContribHasMore(false)
+      setLoadedContribScope(null)
       errors.push(extractApiError(contribRes.reason, 'взносы'))
     }
 
@@ -309,17 +337,23 @@ export default function AdminFinance() {
       const hasMore =
         typeof expRes.value.data.has_more === 'boolean'
           ? expRes.value.data.has_more
-          : (expensePage + 1) * LEDGER_PAGE_SIZE < totalCount
+          : (targetExpensePage + 1) * LEDGER_PAGE_SIZE < totalCount
       setExpenses(items)
       setExpenseTotal(totalCount)
       setExpenseHasMore(hasMore)
+      setLoadedExpenseScope(`${targetSettlement}::${targetExpenseStatus}::${targetExpensePage}`)
     } else {
+      setExpenses([])
+      setExpenseTotal(0)
+      setExpenseHasMore(false)
+      setLoadedExpenseScope(null)
       errors.push(extractApiError(expRes.reason, 'расходы'))
     }
 
     if (summaryRes.status === 'fulfilled') {
       const summaryData = summaryRes.value.data
       setLedgerSummary(summaryData)
+      setLoadedSettlement(targetSettlement)
       if (Array.isArray(summaryData.settlements) && summaryData.settlements.length > 0) {
         const normalized = Array.from(
           new Set(
@@ -331,18 +365,22 @@ export default function AdminFinance() {
         setAvailableSettlements(normalized)
       }
     } else {
+      setLedgerSummary(null)
+      setLoadedSettlement(null)
       errors.push(extractApiError(summaryRes.reason, 'сводка реестра'))
     }
 
     if (milestonesRes.status === 'fulfilled') {
       setMilestones(milestonesRes.value.data.milestones ?? [])
+    } else {
+      setMilestones([])
     }
 
     if (errors.length > 0) {
       setLedgerError(`Часть данных реестра не загрузилась: ${errors.join('; ')}`)
     }
     setLedgerLoading(false)
-  }, [selectedSettlement, contribModeFilter, contribPage, expenseStatusFilter, expensePage])
+  }, [])
 
   const fetchSummary = useCallback(async () => {
     try {
@@ -370,8 +408,22 @@ export default function AdminFinance() {
   }, [filter, search, page])
 
   useEffect(() => {
+    ledgerParamsRef.current = {
+      selectedSettlement,
+      contribModeFilter,
+      contribPage,
+      expenseStatusFilter,
+      expensePage,
+    }
     fetchLedgerData()
-  }, [fetchLedgerData])
+  }, [
+    selectedSettlement,
+    contribModeFilter,
+    contribPage,
+    expenseStatusFilter,
+    expensePage,
+    fetchLedgerData,
+  ])
 
   useEffect(() => {
     fetchSummary()
@@ -507,10 +559,13 @@ export default function AdminFinance() {
           }>(`/admin/ledger/expenses/${exp.id}`)
           const freshExpense = singleRes.data.expense
           if (freshExpense) {
-            setExpenses((prev) =>
-              prev.map((item) => (item.id === freshExpense.id ? freshExpense : item)),
-            )
-            setRefreshedConflictExpense(freshExpense)
+            const activeSettlement = ledgerParamsRef.current.selectedSettlement
+            if (activeSettlement === 'all' || activeSettlement === freshExpense.settlement_id) {
+              setExpenses((prev) =>
+                prev.map((item) => (item.id === freshExpense.id ? freshExpense : item)),
+              )
+              setRefreshedConflictExpense(freshExpense)
+            }
           }
         } catch {
           // Non-fatal; list refresh below still runs
@@ -690,11 +745,11 @@ export default function AdminFinance() {
           )}
 
           {/* KPI Summary Cards: Verified Spendable vs Non-Spendable Modes */}
-          {ledgerLoading && !ledgerSummary ? (
+          {ledgerLoading && (!ledgerSummary || !summaryAligned) ? (
             <div className="flex items-center justify-center py-10">
               <Loader2 className="animate-spin text-accent" size={24} />
             </div>
-          ) : ledgerSummary ? (
+          ) : ledgerSummary && summaryAligned ? (
             <div className="space-y-4">
               {(() => {
                 const verifiedStats = ledgerSummary.by_ledger_mode?.verified_receipt
@@ -1010,7 +1065,7 @@ export default function AdminFinance() {
           <Card>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <h2 className="text-base font-semibold font-display">
-                Расходы реестра ({expenseTotal})
+                Расходы реестра ({expensesAligned ? expenseTotal : 0})
               </h2>
               <div className="flex flex-wrap gap-1.5">
                 {EXPENSE_STATUS_FILTERS.map((opt) => (
@@ -1054,7 +1109,17 @@ export default function AdminFinance() {
               </div>
             )}
 
-            {expenses.length === 0 ? (
+            {!expensesAligned ? (
+              ledgerLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="animate-spin text-accent" size={20} />
+                </div>
+              ) : (
+                <p className="text-sm text-text-muted">
+                  Не удалось загрузить расходы для выбранного поселения и фильтра.
+                </p>
+              )
+            ) : expenses.length === 0 ? (
               <p className="text-sm text-text-muted">Расходов по выбранному фильтру нет.</p>
             ) : (
               <div className="overflow-x-auto">
@@ -1083,7 +1148,7 @@ export default function AdminFinance() {
                       )
                       const isDisputed = disputeStatus === 'open' || exp.status === 'disputed'
                       const version = exp.version ?? 1
-                      const busy = transitioningExpenseId === exp.id
+                      const busy = transitioningExpenseId === exp.id || ledgerLoading || !expensesAligned
 
                       return (
                         <tr key={exp.id} className="align-top">
@@ -1229,7 +1294,7 @@ export default function AdminFinance() {
                 </table>
               </div>
             )}
-            {(expensePage > 0 || expenseHasMore || expenseTotal > LEDGER_PAGE_SIZE) && (
+            {expensesAligned && (expensePage > 0 || expenseHasMore || expenseTotal > LEDGER_PAGE_SIZE) && (
               <div className="flex items-center justify-between gap-3 pt-4 mt-4 border-t border-border">
                 <span className="text-xs text-text-muted">
                   Страница {expensePage + 1} · Всего: {expenseTotal}
@@ -1262,7 +1327,7 @@ export default function AdminFinance() {
           <Card>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <h2 className="text-base font-semibold font-display">
-                Взносы в реестре ({contribTotal})
+                Взносы в реестре ({contribsAligned ? contribTotal : 0})
               </h2>
               <div className="flex flex-wrap gap-1.5">
                 {CONTRIB_MODE_FILTERS.map((opt) => (
@@ -1284,7 +1349,17 @@ export default function AdminFinance() {
                 ))}
               </div>
             </div>
-            {contributions.length === 0 ? (
+            {!contribsAligned ? (
+              ledgerLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="animate-spin text-accent" size={20} />
+                </div>
+              ) : (
+                <p className="text-sm text-text-muted">
+                  Не удалось загрузить взносы для выбранного поселения и фильтра.
+                </p>
+              )
+            ) : contributions.length === 0 ? (
               <p className="text-sm text-text-muted">Взносов по выбранному фильтру нет.</p>
             ) : (
               <div className="space-y-2.5">
@@ -1333,7 +1408,7 @@ export default function AdminFinance() {
                 })}
               </div>
             )}
-            {(contribPage > 0 || contribHasMore || contribTotal > LEDGER_PAGE_SIZE) && (
+            {contribsAligned && (contribPage > 0 || contribHasMore || contribTotal > LEDGER_PAGE_SIZE) && (
               <div className="flex items-center justify-between gap-3 pt-4 mt-4 border-t border-border">
                 <span className="text-xs text-text-muted">
                   Страница {contribPage + 1} · Всего: {contribTotal}

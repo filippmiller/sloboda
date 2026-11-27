@@ -74,6 +74,10 @@ function sanitizeInternalRedirect(raw, fallback = '/dashboard') {
     ) {
         return fallback;
     }
+    const pathOnly = trimmed.split(/[?#]/)[0].toLowerCase();
+    if (pathOnly === '/api' || pathOnly.startsWith('/api/')) {
+        return fallback;
+    }
     return trimmed;
 }
 
@@ -85,7 +89,15 @@ function getPublicAppOrigin(req) {
         || ''
     ).trim().replace(/\/+$/, '');
     if (configured) return configured;
-    return `${req.protocol}://${req.get('host')}`;
+    if (process.env.NODE_ENV === 'production') {
+        throw new Error('PUBLIC_APP_URL is required in production');
+    }
+    const host = typeof req?.get === 'function' ? (req.get('host') || '').trim() : '';
+    if (/^(localhost|127\.0\.0\.1)(:\d+)?$/i.test(host)) {
+        const protocol = req.protocol === 'https' ? 'https' : 'http';
+        return `${protocol}://${host}`;
+    }
+    return 'http://localhost:3000';
 }
 
 /**

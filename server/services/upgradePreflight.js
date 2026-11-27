@@ -310,6 +310,89 @@ async function runFinancialIntegrityCheck(client) {
         });
     }
 
+    // 8a. Allocations funded by non-verified_receipt contributions
+    const nonVerifiedAlloc = await client.query(`
+        SELECT ea.id AS allocation_id,
+               ea.expense_id,
+               ea.contribution_id,
+               ea.amount_kopecks::text AS amount_kopecks,
+               c.ledger_mode
+        FROM expense_allocations ea
+        JOIN contributions c ON c.id = ea.contribution_id
+        WHERE c.ledger_mode IS DISTINCT FROM 'verified_receipt'
+        ORDER BY ea.expense_id ASC, ea.contribution_id ASC
+    `);
+    for (const row of nonVerifiedAlloc.rows) {
+        discrepancies.push({
+            type: 'NON_VERIFIED_ALLOCATION_FUNDING',
+            allocation_id: row.allocation_id,
+            expense_id: row.expense_id,
+            contribution_id: row.contribution_id,
+            amount_kopecks: row.amount_kopecks,
+            ledger_mode: row.ledger_mode,
+        });
+    }
+
+    // 8b. Expense postings (reserve/pay/release) without a matching expense_allocations row
+    const orphanPostings = await client.query(`
+        SELECT p.id AS posting_id,
+               p.posting_type,
+               p.expense_id,
+               p.contribution_id,
+               p.amount_kopecks::text AS amount_kopecks
+        FROM ledger_postings p
+        WHERE p.posting_type IN ('reserve', 'pay', 'release')
+          AND p.expense_id IS NOT NULL
+          AND p.contribution_id IS NOT NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM expense_allocations ea
+              WHERE ea.expense_id = p.expense_id
+                AND ea.contribution_id = p.contribution_id
+          )
+        ORDER BY p.id ASC
+    `);
+    for (const row of orphanPostings.rows) {
+        discrepancies.push({
+            type: 'ORPHAN_EXPENSE_POSTING',
+            posting_id: row.posting_id,
+            posting_type: row.posting_type,
+            expense_id: row.expense_id,
+            contribution_id: row.contribution_id,
+            amount_kopecks: row.amount_kopecks,
+        });
+    }
+
+    // 8c. Cancelled expenses: every allocation must have a matching release posting with matching amount
+    const cancelledReleaseMismatch = await client.query(`
+        SELECT ea.expense_id,
+               ea.contribution_id,
+               ea.amount_kopecks::text AS alloc_amount_kopecks,
+               COALESCE(SUM(lp.amount_kopecks), 0)::text AS release_posting_amount_kopecks,
+               COUNT(lp.id)::int AS release_posting_count
+        FROM expense_allocations ea
+        JOIN ledger_expenses le ON le.id = ea.expense_id
+        LEFT JOIN ledger_postings lp
+          ON lp.expense_id = ea.expense_id
+         AND lp.contribution_id = ea.contribution_id
+         AND lp.posting_type = 'release'
+        WHERE (${effFinExpr}) = 'cancelled'
+           OR le.status = 'cancelled'
+        GROUP BY ea.expense_id, ea.contribution_id, ea.amount_kopecks
+        HAVING COUNT(lp.id) <> 1
+            OR COALESCE(SUM(lp.amount_kopecks), 0) <> ea.amount_kopecks
+        ORDER BY ea.expense_id ASC, ea.contribution_id ASC
+    `);
+    for (const row of cancelledReleaseMismatch.rows) {
+        discrepancies.push({
+            type: 'MISSING_OR_MISMATCHED_RELEASE_POSTING',
+            expense_id: row.expense_id,
+            contribution_id: row.contribution_id,
+            alloc_amount_kopecks: row.alloc_amount_kopecks,
+            release_posting_amount_kopecks: row.release_posting_amount_kopecks,
+            release_posting_count: row.release_posting_count,
+        });
+    }
+
     return {
         ok: discrepancies.length === 0,
         discrepancies,

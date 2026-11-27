@@ -109,7 +109,8 @@ interface RevisionConflict {
   serverVersion: number
   serverStatus: ApplicationStatus
   draftBaseVersion: number
-  serverApplication: MemberApplication
+  serverApplication: MemberApplication | null
+  refreshFailed?: boolean
 }
 
 function getDraftStorageKey(userId?: string | number | null): string {
@@ -189,6 +190,7 @@ export default function Applications() {
   const [draftReady, setDraftReady] = useState(false)
   const [revisionConflict, setRevisionConflict] = useState<RevisionConflict | null>(null)
   const [revisionDraftVisible, setRevisionDraftVisible] = useState(false)
+  const [retryingConflict, setRetryingConflict] = useState(false)
 
   // Initial application form state
   const [fullName, setFullName] = useState('')
@@ -545,27 +547,38 @@ export default function Applications() {
   }
 
   const handleKeepRevisionDraftForNewVersion = () => {
-    if (!application) return
-    const key = getRevisionDraftKey(effectiveUserId, application.id)
+    if (!application || revisionConflict?.refreshFailed) return
+    const targetApp = revisionConflict?.serverApplication ?? application
+    const key = getRevisionDraftKey(effectiveUserId, targetApp.id)
     writeRevisionDraft(key, {
-      applicationId: application.id,
-      baseVersion: application.version,
+      applicationId: targetApp.id,
+      baseVersion: targetApp.version,
       ...getRevisionFieldsSnapshot(),
       updatedAt: new Date().toISOString(),
     })
     setRevisionConflict(null)
     setRevisionDraftVisible(true)
-    toast.success(`Ваши правки сохранены для версии #${application.version}`)
+    toast.success(`Ваши правки сохранены для версии #${targetApp.version}`)
   }
 
   const handleLoadServerRevisionVersion = () => {
-    if (!application) return
-    const key = getRevisionDraftKey(effectiveUserId, application.id)
+    if (!application || revisionConflict?.refreshFailed) return
+    const targetApp = revisionConflict?.serverApplication ?? application
+    const key = getRevisionDraftKey(effectiveUserId, targetApp.id)
     removeRevisionDraft(key)
-    syncRevisionFields(application)
+    syncRevisionFields(targetApp)
     setRevisionConflict(null)
     setRevisionDraftVisible(false)
-    toast.info(`Загружена серверная версия #${application.version}`)
+    toast.info(`Загружена серверная версия #${targetApp.version}`)
+  }
+
+  const handleRetryConflictRefresh = async () => {
+    setRetryingConflict(true)
+    try {
+      await loadMyApplication()
+    } finally {
+      setRetryingConflict(false)
+    }
   }
 
   const handleResubmitRevision = async (e: FormEvent) => {
@@ -626,6 +639,15 @@ export default function Applications() {
               serverStatus: freshApp.status,
               draftBaseVersion: application.version,
               serverApplication: freshApp,
+              refreshFailed: false,
+            })
+          } else {
+            setRevisionConflict({
+              serverVersion: application.version,
+              serverStatus: application.status,
+              draftBaseVersion: application.version,
+              serverApplication: null,
+              refreshFailed: true,
             })
           }
         } catch {
@@ -633,7 +655,8 @@ export default function Applications() {
             serverVersion: application.version,
             serverStatus: application.status,
             draftBaseVersion: application.version,
-            serverApplication: application,
+            serverApplication: null,
+            refreshFailed: true,
           })
         }
       } else {
@@ -651,6 +674,7 @@ export default function Applications() {
       return
     }
 
+    const prevVersion = application?.version
     setSubmittingPortfolio(true)
     try {
       const res = await api.post<{
@@ -665,24 +689,82 @@ export default function Applications() {
       })
       setPortfolio((prev) => [res.data.item, ...prev])
       const nextVersion =
-        res.data.application_version ?? (application ? application.version + 1 : 1)
+        res.data.application_version ?? (typeof prevVersion === 'number' ? prevVersion + 1 : 1)
       setApplication((prev) => (prev ? { ...prev, version: nextVersion } : prev))
+
+      let detectedConcurrentChange = false
       if (application) {
         const revKey = getRevisionDraftKey(effectiveUserId, application.id)
         const existingDraft = readRevisionDraft(revKey)
-        if (existingDraft) {
-          writeRevisionDraft(revKey, {
-            ...existingDraft,
-            baseVersion: nextVersion,
-            ...getRevisionFieldsSnapshot(),
-            updatedAt: new Date().toISOString(),
-          })
+        if (
+          typeof prevVersion === 'number' &&
+          nextVersion === prevVersion + 1 &&
+          (!existingDraft || existingDraft.baseVersion === prevVersion)
+        ) {
+          if (existingDraft) {
+            writeRevisionDraft(revKey, {
+              ...existingDraft,
+              baseVersion: nextVersion,
+              ...getRevisionFieldsSnapshot(),
+              updatedAt: new Date().toISOString(),
+            })
+          }
+        } else if (
+          typeof prevVersion === 'number' &&
+          (nextVersion > prevVersion + 1 || (existingDraft && existingDraft.baseVersion !== prevVersion))
+        ) {
+          detectedConcurrentChange = Boolean(existingDraft)
+          try {
+            const freshRes = await api.get<MyApplicationResponse>('/applications/my')
+            const freshApp = freshRes.data.application ?? null
+            if (freshApp) {
+              setApplication(freshApp)
+              setPortfolio(freshRes.data.portfolio ?? [])
+              setMembership(freshRes.data.membership ?? null)
+              if (existingDraft) {
+                setRevisionConflict({
+                  serverVersion: freshApp.version,
+                  serverStatus: freshApp.status,
+                  draftBaseVersion: existingDraft.baseVersion,
+                  serverApplication: freshApp,
+                  refreshFailed: false,
+                })
+                setRevisionDraftVisible(true)
+              } else {
+                syncRevisionFields(freshApp)
+              }
+            } else if (existingDraft) {
+              setRevisionConflict({
+                serverVersion: nextVersion,
+                serverStatus: application.status,
+                draftBaseVersion: existingDraft.baseVersion,
+                serverApplication: null,
+                refreshFailed: true,
+              })
+              setRevisionDraftVisible(true)
+            }
+          } catch {
+            if (existingDraft) {
+              setRevisionConflict({
+                serverVersion: nextVersion,
+                serverStatus: application.status,
+                draftBaseVersion: existingDraft.baseVersion,
+                serverApplication: null,
+                refreshFailed: true,
+              })
+              setRevisionDraftVisible(true)
+            }
+          }
         }
       }
       setNewItemTitle('')
       setNewItemSummary('')
       setNewItemUrl('')
-      toast.success('Работа добавлена в портфолио')
+      if (detectedConcurrentChange) {
+        toast.warning('Работа добавлена в портфолио, но заявка изменилась на сервере — проверьте конфликт версий')
+      } else {
+        toast.success('Работа добавлена в портфолио')
+      }
     } catch (err: unknown) {
       toast.error(extractApiError(err, 'Не удалось добавить работу в портфолио'))
     } finally {
@@ -1031,38 +1113,61 @@ export default function Applications() {
                 <div className="flex items-center gap-2 text-red-400 text-sm font-semibold">
                   <AlertCircle size={16} />
                   <span>
-                    Обнаружено изменение заявки на сервере (версия #{revisionConflict.serverVersion}, статус:{' '}
-                    {(APPLICATION_STATUS_META[revisionConflict.serverStatus] ?? {
-                      label: revisionConflict.serverStatus,
-                    }).label}
-                    )
+                    {revisionConflict.refreshFailed ? (
+                      'Версия заявки изменилась на сервере, но не удалось загрузить актуальные данные'
+                    ) : (
+                      <>
+                        Обнаружено изменение заявки на сервере (версия #{revisionConflict.serverVersion}, статус:{' '}
+                        {(APPLICATION_STATUS_META[revisionConflict.serverStatus] ?? {
+                          label: revisionConflict.serverStatus,
+                        }).label}
+                        )
+                      </>
+                    )}
                   </span>
                 </div>
                 <p className="text-xs text-text-secondary">
                   Ваш локальный черновик доработки создавался для версии #{revisionConflict.draftBaseVersion}.
-                  {revisionConflict.serverStatus === 'revision_requested'
-                    ? ' Выберите, сохранить ли локальные правки для новой версии или загрузить серверные данные.'
-                    : ' Статус заявки изменился и повторная отправка отключена. Ваши локальные правки сохранены ниже для копирования.'}
+                  {revisionConflict.refreshFailed
+                    ? ' Ваши локальные правки сохранены. Обновите версию с сервера перед выбором действия.'
+                    : revisionConflict.serverStatus === 'revision_requested'
+                      ? ' Выберите, сохранить ли локальные правки для новой версии или загрузить серверные данные.'
+                      : ' Статус заявки изменился и повторная отправка отключена. Ваши локальные правки сохранены ниже для копирования.'}
                 </p>
-                {revisionConflict.serverStatus === 'revision_requested' && (
+                {revisionConflict.refreshFailed ? (
                   <div className="flex flex-wrap gap-2">
                     <Button
                       type="button"
                       size="sm"
                       variant="primary"
-                      onClick={handleKeepRevisionDraftForNewVersion}
+                      loading={retryingConflict}
+                      onClick={handleRetryConflictRefresh}
                     >
-                      Сохранить мои правки для версии #{revisionConflict.serverVersion}
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      onClick={handleLoadServerRevisionVersion}
-                    >
-                      Загрузить серверную версию #{revisionConflict.serverVersion}
+                      <RotateCcw size={14} />
+                      Обновить версию с сервера
                     </Button>
                   </div>
+                ) : (
+                  revisionConflict.serverStatus === 'revision_requested' && (
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="primary"
+                        onClick={handleKeepRevisionDraftForNewVersion}
+                      >
+                        Сохранить мои правки для версии #{revisionConflict.serverVersion}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={handleLoadServerRevisionVersion}
+                      >
+                        Загрузить серверную версию #{revisionConflict.serverVersion}
+                      </Button>
+                    </div>
+                  )
                 )}
               </div>
             )}

@@ -36,6 +36,7 @@ WHERE (legacy_r1_unsupported = FALSE OR legacy_r1_disposition IS NULL)
       OR quorum_members_pct IS NULL OR quorum_members_pct < 1 OR quorum_members_pct > 100
       OR quorum_capital_pct IS NULL OR quorum_capital_pct < 1 OR quorum_capital_pct > 100
       OR (abstain_option_index IS NOT NULL AND abstain_option_index < 0)
+      OR (abstain_option_index IS NOT NULL AND (jsonb_typeof(options) <> 'array' OR abstain_option_index >= jsonb_array_length(options)))
   );
 
 ALTER TABLE governance_proposals DROP CONSTRAINT IF EXISTS chk_governance_proposals_seats_count;
@@ -56,7 +57,7 @@ ALTER TABLE governance_proposals
 ALTER TABLE governance_proposals DROP CONSTRAINT IF EXISTS chk_governance_proposals_abstain_index;
 ALTER TABLE governance_proposals
     ADD CONSTRAINT chk_governance_proposals_abstain_index
-    CHECK (legacy_r1_unsupported = TRUE OR abstain_option_index IS NULL OR abstain_option_index >= 0);
+    CHECK (legacy_r1_unsupported = TRUE OR abstain_option_index IS NULL OR (abstain_option_index >= 0 AND jsonb_typeof(options) = 'array' AND abstain_option_index < jsonb_array_length(options)));
 
 ALTER TABLE governance_proposals DROP CONSTRAINT IF EXISTS chk_governance_proposals_engine_secrecy;
 ALTER TABLE governance_proposals
@@ -161,7 +162,24 @@ CREATE INDEX IF NOT EXISTS idx_forum_moderation_actions_moderator ON forum_moder
 CREATE INDEX IF NOT EXISTS idx_forum_moderation_actions_target_user ON forum_moderation_actions(target_user_id);
 CREATE INDEX IF NOT EXISTS idx_forum_moderation_actions_type ON forum_moderation_actions(action_type);
 
--- Non-destructive idempotent data copy from legacy user_roles / user_bans / user_warnings if present
+CREATE TABLE IF NOT EXISTS forum_reputation (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    total_points INTEGER DEFAULT 0,
+    posts_created INTEGER DEFAULT 0,
+    threads_created INTEGER DEFAULT 0,
+    comments_made INTEGER DEFAULT 0,
+    upvotes_received INTEGER DEFAULT 0,
+    downvotes_received INTEGER DEFAULT 0,
+    days_since_registration INTEGER DEFAULT 0,
+    last_activity_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_forum_reputation_user ON forum_reputation(user_id);
+CREATE INDEX IF NOT EXISTS idx_forum_reputation_points ON forum_reputation(total_points DESC);
+
+-- Non-destructive idempotent data copy from legacy user_roles / user_bans / user_warnings / user_reputation / moderation_actions if present
 DO $$
 DECLARE
     shared_cols TEXT;
@@ -210,6 +228,116 @@ BEGIN
               AND fw.reason = uw.reason
               AND fw.created_at IS NOT DISTINCT FROM uw.created_at
         );
+    END IF;
+
+    IF to_regclass('public.user_reputation') IS NOT NULL THEN
+        SELECT string_agg(quote_ident(c1.column_name), ', ' ORDER BY c1.ordinal_position)
+        INTO shared_cols
+        FROM information_schema.columns c1
+        JOIN information_schema.columns c2
+          ON c2.table_schema = 'public'
+         AND c2.table_name = 'forum_reputation'
+         AND c2.column_name = c1.column_name
+        WHERE c1.table_schema = 'public'
+          AND c1.table_name = 'user_reputation'
+          AND c1.column_name <> 'id';
+
+        IF shared_cols IS NOT NULL AND shared_cols <> '' THEN
+            EXECUTE format(
+                'INSERT INTO forum_reputation (%s) SELECT %s FROM user_reputation ur WHERE EXISTS (SELECT 1 FROM users u WHERE u.id = ur.user_id) ON CONFLICT (user_id) DO NOTHING',
+                shared_cols,
+                shared_cols
+            );
+        END IF;
+    END IF;
+
+    IF to_regclass('public.moderation_actions') IS NOT NULL THEN
+        DECLARE
+            ma_cols TEXT[];
+            mod_expr TEXT;
+            act_expr TEXT;
+            target_user_expr TEXT;
+            reason_expr TEXT;
+            created_expr TEXT;
+            created_cmp_expr TEXT;
+            details_base_expr TEXT;
+            details_extra_parts TEXT[] := ARRAY['''migrated_from'', ''moderation_actions'''];
+            details_expr TEXT;
+        BEGIN
+            SELECT COALESCE(array_agg(column_name::text), ARRAY[]::text[])
+            INTO ma_cols
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'moderation_actions';
+
+            mod_expr := CASE
+                WHEN 'moderator_id' = ANY(ma_cols)
+                    THEN 'CASE WHEN ma.moderator_id IS NOT NULL AND EXISTS (SELECT 1 FROM users u WHERE u.id = ma.moderator_id) THEN ma.moderator_id ELSE NULL END'
+                ELSE 'NULL::integer'
+            END;
+            act_expr := CASE
+                WHEN 'action_type' = ANY(ma_cols) THEN 'COALESCE(ma.action_type, ''legacy_action'')'
+                ELSE '''legacy_action''::varchar(50)'
+            END;
+            target_user_expr := CASE
+                WHEN 'target_user_id' = ANY(ma_cols)
+                    THEN 'CASE WHEN ma.target_user_id IS NOT NULL AND EXISTS (SELECT 1 FROM users u WHERE u.id = ma.target_user_id) THEN ma.target_user_id ELSE NULL END'
+                ELSE 'NULL::integer'
+            END;
+            reason_expr := CASE
+                WHEN 'reason' = ANY(ma_cols) THEN 'ma.reason'
+                ELSE 'NULL::text'
+            END;
+            IF 'created_at' = ANY(ma_cols) THEN
+                created_expr := 'ma.created_at';
+                created_cmp_expr := 'fma.created_at IS NOT DISTINCT FROM (ma.created_at)';
+            ELSE
+                created_expr := 'CURRENT_TIMESTAMP';
+                created_cmp_expr := 'TRUE';
+            END IF;
+
+            IF 'details' = ANY(ma_cols) THEN
+                details_base_expr := 'CASE WHEN ma.details IS NULL THEN ''{}''::jsonb WHEN jsonb_typeof(ma.details::jsonb) = ''object'' THEN ma.details::jsonb ELSE jsonb_build_object(''legacy_details'', ma.details::jsonb) END';
+            ELSE
+                details_base_expr := '''{}''::jsonb';
+            END IF;
+
+            IF 'id' = ANY(ma_cols) THEN
+                details_extra_parts := array_append(details_extra_parts, '''legacy_action_id'', ma.id');
+            END IF;
+            IF 'target_comment_id' = ANY(ma_cols) THEN
+                details_extra_parts := array_append(details_extra_parts, '''target_comment_id'', ma.target_comment_id');
+            END IF;
+            IF 'target_thread_id' = ANY(ma_cols) THEN
+                details_extra_parts := array_append(details_extra_parts, '''target_thread_id'', ma.target_thread_id');
+            END IF;
+            IF 'target_post_id' = ANY(ma_cols) THEN
+                details_extra_parts := array_append(details_extra_parts, '''target_post_id'', ma.target_post_id');
+            END IF;
+
+            details_expr := format(
+                '(%s) || jsonb_strip_nulls(jsonb_build_object(%s))',
+                details_base_expr,
+                array_to_string(details_extra_parts, ', ')
+            );
+
+            EXECUTE format(
+                'INSERT INTO forum_moderation_actions (moderator_id, action_type, target_user_id, reason, details, created_at)
+                 SELECT %s, %s, %s, %s, %s, %s
+                 FROM moderation_actions ma
+                 WHERE NOT EXISTS (
+                     SELECT 1 FROM forum_moderation_actions fma
+                     WHERE fma.moderator_id IS NOT DISTINCT FROM (%s)
+                       AND fma.action_type = (%s)
+                       AND fma.target_user_id IS NOT DISTINCT FROM (%s)
+                       AND fma.reason IS NOT DISTINCT FROM (%s)
+                       AND fma.details IS NOT DISTINCT FROM (%s)
+                       AND %s
+                 )',
+                mod_expr, act_expr, target_user_expr, reason_expr, details_expr, created_expr,
+                mod_expr, act_expr, target_user_expr, reason_expr, details_expr, created_cmp_expr
+            );
+        END;
     END IF;
 END $$;
 

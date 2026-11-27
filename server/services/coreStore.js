@@ -156,6 +156,12 @@ async function assertLedgerWriteGateOpen(client) {
     const gateRes = await client.query(
         `SELECT is_blocked, report_json FROM sloboda_core_gates WHERE gate_key = 'ledger_integrity' FOR SHARE`
     );
+    if (gateRes.rows.length === 0) {
+        const err = new Error('Ledger integrity gate has not been initialized/verified');
+        err.status = 503;
+        err.code = 'LEDGER_INTEGRITY_GATE_BLOCKED';
+        throw err;
+    }
     if (gateRes.rows[0]?.is_blocked === true) {
         const err = new Error('Запись в финансовый реестр заблокирована: обнаружены расхождения целостности данных (LEDGER_INTEGRITY_GATE_BLOCKED)');
         err.status = 503;
@@ -2095,8 +2101,19 @@ async function createAndAllocateExpense(data, adminId) {
             await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`expense_idem:${idempKey}`]);
 
             const dup = await client.query(`SELECT * FROM ledger_expenses WHERE idempotency_key = $1`, [idempKey]);
-            if (dup.rows[0]) {
-                const ex = dup.rows[0];
+            let dupRow = dup.rows[0] || null;
+            if (!dupRow) {
+                const collapsedKey = idempKey.replace(/\s+/g, ' ');
+                if (collapsedKey !== idempKey) {
+                    const legacyDup = await client.query(
+                        `SELECT * FROM ledger_expenses WHERE idempotency_key = $1 AND request_fingerprint IS NULL`,
+                        [collapsedKey]
+                    );
+                    dupRow = legacyDup.rows[0] || null;
+                }
+            }
+            if (dupRow) {
+                const ex = dupRow;
                 const allocs = (await client.query(
                     `SELECT ea.*, c.ledger_mode AS contribution_ledger_mode
                      FROM expense_allocations ea
@@ -2237,7 +2254,13 @@ async function createAndAllocateExpense(data, adminId) {
     }
 
     // In-memory parity path
-    const existing = mem.expenses.find((e) => e.idempotency_key === idempKey);
+    let existing = mem.expenses.find((e) => e.idempotency_key === idempKey);
+    if (!existing) {
+        const collapsedKey = idempKey.replace(/\s+/g, ' ');
+        if (collapsedKey !== idempKey) {
+            existing = mem.expenses.find((e) => e.idempotency_key === collapsedKey && !e.request_fingerprint);
+        }
+    }
     if (existing) {
         const allocs = mem.allocations
             .filter((a) => a.expense_id === existing.id)

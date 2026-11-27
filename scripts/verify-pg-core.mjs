@@ -379,7 +379,96 @@ async function run() {
     assert.equal(dupPayGate.report.financial.ok, false);
     assert.equal(dupPayGate.is_blocked, true);
     assert.ok(dupPayGate.report.financial.discrepancies.some((d) => d.type === 'duplicate_terminal_posting_per_allocation'));
-    console.log('PASS [2/8] R1->R3 upgrade, unsupported proposals, append-only trigger & SLB-R2-03 integrity gate block/recovery');
+
+    // Pre-upgrade corrupted R1 database -> ensureCoreSchema() MUST block immediately on startup
+    // without manual revalidateLedgerIntegrity(), AND mark out-of-bounds abstain_option_index R1 proposals unsupported
+    await resetBaseSchema();
+    const preAdminId = (await pool.query("INSERT INTO admins (email, name, role) VALUES ('precorrupt@sloboda.land', 'PreCorrupt Admin', 'super_admin') RETURNING id")).rows[0].id;
+    await pool.query(sqlR1);
+
+    // (a1) Corrupted R1 reservation mismatch (reserved_kopecks=50000 with no matching allocation)
+    const preVerifiedContrib = (await pool.query(`
+        INSERT INTO contributions (settlement_id, purpose, contributor_name, received_kopecks, available_kopecks, reserved_kopecks, paid_kopecks, refunded_kopecks, status, ledger_mode, idempotency_key, verified_by)
+        VALUES ('sloboda-pilot', 'general', 'PreCorrupt Verified', 100000, 50000, 50000, 0, 0, 'partially_allocated', 'verified_receipt', 'pre-corrupt-verified', $1)
+        RETURNING id
+    `, [preAdminId])).rows[0];
+
+    // (a2) Pledge-funded R1 allocation (ledger_mode = 'pledge' used in expense_allocations)
+    const prePledgeContrib = (await pool.query(`
+        INSERT INTO contributions (settlement_id, purpose, contributor_name, received_kopecks, available_kopecks, reserved_kopecks, paid_kopecks, refunded_kopecks, status, ledger_mode, idempotency_key, verified_by)
+        VALUES ('sloboda-pilot', 'general', 'PreCorrupt Pledge', 50000, 0, 50000, 0, 0, 'allocated', 'pledge', 'pre-corrupt-pledge', $1)
+        RETURNING id
+    `, [preAdminId])).rows[0];
+    const prePledgeExp = (await pool.query(`
+        INSERT INTO ledger_expenses (settlement_id, purpose, title, category, amount_kopecks, status, idempotency_key, approved_by)
+        VALUES ('sloboda-pilot', 'general', 'PreCorrupt Pledge Expense', 'roads', 50000, 'reserved', 'pre-corrupt-pledge-exp', $1)
+        RETURNING id
+    `, [preAdminId])).rows[0];
+    await pool.query(`
+        INSERT INTO expense_allocations (expense_id, contribution_id, amount_kopecks, allocation_rule, financing_share_label, legal_right_type)
+        VALUES ($1, $2, 50000, 'fifo', '500.00 ₽ (100.0%)', 'observer_trace')
+    `, [prePledgeExp.id, prePledgeContrib.id]);
+    await pool.query(`
+        INSERT INTO ledger_postings (posting_type, contribution_id, expense_id, amount_kopecks, actor_admin_id, note)
+        VALUES ('reserve', $1, $2, 50000, $3, 'pre-upgrade pledge reserve')
+    `, [prePledgeContrib.id, prePledgeExp.id, preAdminId]);
+
+    // (a3) Orphan pay posting (no matching expense_allocations row for (expense_id, contribution_id))
+    await pool.query(`
+        INSERT INTO ledger_postings (posting_type, contribution_id, expense_id, amount_kopecks, actor_admin_id, note)
+        VALUES ('pay', $1, $2, 10000, $3, 'pre-upgrade orphan pay posting')
+    `, [preVerifiedContrib.id, prePledgeExp.id, preAdminId]);
+
+    // (b) R1 proposal with out-of-bounds abstain_option_index = 99 for a 2-option proposal
+    const r1OobAbstainProp = (await pool.query(`
+        INSERT INTO governance_proposals
+            (title, vote_type, settlement_id, authoritative_engine, secret_ballot, seats_count, options, abstain_option_index, status, created_by, opened_at)
+        VALUES ('R1 Out-Of-Bounds Abstain', 'council_election', 'sloboda-pilot', 'native_secret', TRUE, 1, '["Option A","Option B"]'::jsonb, 99, 'open', $1, NOW())
+        RETURNING id
+    `, [preAdminId])).rows[0];
+
+    // Upgrade via ensureCoreSchema() ONLY (do NOT call revalidateLedgerIntegrity() manually)
+    await coreStore.ensureCoreSchema();
+
+    const preCorruptGateDb = await pool.query("SELECT is_blocked FROM sloboda_core_gates WHERE gate_key = 'ledger_integrity'");
+    assert.equal(preCorruptGateDb.rows[0]?.is_blocked, true, 'ensureCoreSchema() MUST persist sloboda_core_gates.is_blocked=true for corrupted R1 DB');
+
+    const preCorruptPreflight = await coreStore.getLedgerPreflightReport();
+    assert.equal(preCorruptPreflight.is_blocked, true);
+    assert.equal(preCorruptPreflight.report.financial.ok, false, 'ensureCoreSchema() preflight financial.ok MUST be false');
+    const preDiscrepancies = preCorruptPreflight.report.financial.discrepancies || [];
+    assert.ok(
+        preDiscrepancies.some((d) => String(d.type || d.code || '').toUpperCase() === 'NON_VERIFIED_ALLOCATION_FUNDING'),
+        'Preflight MUST flag NON_VERIFIED_ALLOCATION_FUNDING on pledge-funded R1 allocation'
+    );
+    assert.ok(
+        preDiscrepancies.some((d) => String(d.type || d.code || '').toUpperCase() === 'ORPHAN_EXPENSE_POSTING'),
+        'Preflight MUST flag ORPHAN_EXPENSE_POSTING on orphan R1 pay posting'
+    );
+    assert.ok(
+        preDiscrepancies.some((d) => d.type === 'contribution_reserved_allocation_mismatch'),
+        'Preflight MUST flag contribution_reserved_allocation_mismatch on corrupted R1 reservation'
+    );
+
+    await assert.rejects(
+        () => coreStore.recordContribution({
+            settlement_id: 'sloboda-pilot',
+            purpose: 'general',
+            contributor_name: 'Blocked Immediately On Startup',
+            amount_kopecks: 10000,
+            idempotency_key: 'pre-corrupt-blocked-write',
+        }, preAdminId),
+        (err) => err.status === 503 && err.code === 'LEDGER_INTEGRITY_GATE_BLOCKED',
+        'Corrupted R1 upgrade MUST block ledger writes immediately on startup with 503 LEDGER_INTEGRITY_GATE_BLOCKED'
+    );
+
+    const oobPropAfter = (await pool.query(
+        'SELECT legacy_r1_unsupported, legacy_r1_disposition FROM governance_proposals WHERE id = $1',
+        [r1OobAbstainProp.id]
+    )).rows[0];
+    assert.equal(oobPropAfter.legacy_r1_unsupported, true, 'Out-of-bounds abstain_option_index=99 R1 proposal MUST be marked legacy_r1_unsupported=true');
+    assert.equal(oobPropAfter.legacy_r1_disposition, 'frozen_requires_operator_disposition');
+    console.log('PASS [2/8] R1->R3 upgrade, unsupported proposals (incl. OOB abstain_option_index), pre-upgrade corruption gate & recovery');
 
     // =========================================================================
     // [3/8] SLB-R2-05: Rollback / Fallback Read-Only Mode on Populated R3 Schema
@@ -394,6 +483,14 @@ async function run() {
         contributor_name: 'RO Donor',
         amount_kopecks: 100000,
         idempotency_key: 'ro-contrib-1',
+    }, roAdminId);
+    await coreStore.recordContribution({
+        settlement_id: 'sloboda-pilot',
+        purpose: 'general',
+        contributor_name: 'RO Pledge',
+        amount_kopecks: 250000,
+        ledger_mode: 'pledge',
+        idempotency_key: 'ro-pledge-1',
     }, roAdminId);
     const roExp = await coreStore.createAndAllocateExpense({
         settlement_id: 'sloboda-pilot',
@@ -410,13 +507,28 @@ async function run() {
 
     // Reads continue to work
     const roContribs = await coreStore.listAdminContributions({ settlement_id: 'all', limit: 10, offset: 0 });
-    assert.equal(roContribs.total, 1);
+    assert.equal(roContribs.total, 2);
     const roExps = await coreStore.listAdminExpenses({ settlement_id: 'all', limit: 10, offset: 0 });
     assert.equal(roExps.total, 1);
     const roSummary = await coreStore.getAdminLedgerSummary('all');
     assert.equal(roSummary.totals.reserved.kopecks_str, '40000');
 
-    // Simulated R1 direct writes fail with SQLSTATE 55000 (ROLLBACK_READONLY_MODE) and mutate zero rows
+    // R1 vs R3 public summary distinction: R3 excludes pledge/legacy_import; R1's raw sum across all ledger_mode differs when pledges exist
+    const roPublicSummary = await coreStore.getPublicLedgerSummary('sloboda-pilot');
+    assert.equal(roPublicSummary.totals.received.kopecks_str, '100000', 'R3 public summary must include verified_receipt only');
+    const rawR1AllModesRes = await pool.query(
+        "SELECT COALESCE(SUM(received_kopecks), 0)::bigint::text AS raw_received FROM contributions WHERE settlement_id = 'sloboda-pilot'"
+    );
+    const rawR1AllModesReceived = rawR1AllModesRes.rows[0].raw_received;
+    assert.equal(rawR1AllModesReceived, '350000');
+    assert.notEqual(
+        rawR1AllModesReceived,
+        roPublicSummary.totals.received.kopecks_str,
+        'R1 raw all-mode sum differs from R3 verified-only public summary when pledges exist (R1 public summary must be fenced during fallback)'
+    );
+    console.log(`  [3/8] R3 public summary received=${roPublicSummary.totals.received.kopecks_str} vs R1 raw all-mode sum=${rawR1AllModesReceived} (fencing required in fallback)`);
+
+    // Simulated R1 direct writes & TRUNCATE fail with SQLSTATE 55000 (ROLLBACK_READONLY_MODE) and mutate zero rows
     await assert.rejects(
         () => pool.query("UPDATE ledger_expenses SET status = 'paid' WHERE id = $1", [roExp.expense.id]),
         (err) => err.code === '55000' && /ROLLBACK_READONLY_MODE/.test(err.message)
@@ -425,6 +537,13 @@ async function run() {
         () => pool.query("INSERT INTO governance_proposals (title, vote_type, options) VALUES ('R1 Proposal Write', 'council_election', '[\"A\",\"B\"]'::jsonb)"),
         (err) => err.code === '55000' && /ROLLBACK_READONLY_MODE/.test(err.message)
     );
+    await assert.rejects(
+        () => pool.query('TRUNCATE TABLE ledger_expenses CASCADE'),
+        (err) => err.code === '55000' && /ROLLBACK_READONLY_MODE/.test(err.message),
+        'TRUNCATE TABLE ledger_expenses MUST fail with SQLSTATE 55000 ROLLBACK_READONLY_MODE'
+    );
+    const expCountAfterTruncate = (await pool.query('SELECT COUNT(*)::int AS cnt FROM ledger_expenses')).rows[0].cnt;
+    assert.equal(expCountAfterTruncate, 1, 'Blocked TRUNCATE must leave ledger_expenses rows intact');
     const expStatusAfterRo = await pool.query('SELECT status, financial_status FROM ledger_expenses WHERE id = $1', [roExp.expense.id]);
     assert.equal(expStatusAfterRo.rows[0].status, 'reserved');
     assert.equal(expStatusAfterRo.rows[0].financial_status, 'reserved');
@@ -634,7 +753,7 @@ async function run() {
     `);
     const [regUser, modUser, superModUser, targetUser, commentAuthor, legacyBannedUser] = modUsersRes.rows;
 
-    // Seed legacy user_bans before R3 migration to verify non-destructive legacy copy
+    // Seed legacy user_bans & moderation_actions before R3 migration to verify non-destructive legacy copy
     await pool.query(`
         CREATE TABLE user_bans (
             id SERIAL PRIMARY KEY,
@@ -647,23 +766,47 @@ async function run() {
             is_active BOOLEAN DEFAULT TRUE,
             lifted_at TIMESTAMP,
             lifted_by INTEGER
-        )
+        );
+        CREATE TABLE moderation_actions (
+            id SERIAL PRIMARY KEY,
+            moderator_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            action_type VARCHAR(50) NOT NULL,
+            target_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            target_comment_id INTEGER,
+            target_thread_id INTEGER,
+            reason TEXT,
+            details JSONB,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
     `);
     await pool.query(`
         INSERT INTO user_bans (user_id, banned_by, ban_type, reason, is_active)
         VALUES ($1, $2, 'temporary', 'Legacy pre-R3 active ban', true)
     `, [legacyBannedUser.id, superModUser.id]);
+    await pool.query(`
+        INSERT INTO moderation_actions (moderator_id, action_type, target_user_id, reason, details)
+        VALUES ($1, 'warn_user', $2, 'Legacy pre-R3 moderation action', '{"legacy":true}'::jsonb)
+    `, [superModUser.id, legacyBannedUser.id]);
 
     await coreStore.ensureCoreSchema();
     // Re-running R3 SQL directly must remain idempotent for legacy copy
     await pool.query(sqlR3);
+
+    const repTableReg = await pool.query("SELECT to_regclass('public.forum_reputation') AS rep_reg");
+    assert.ok(repTableReg.rows[0].rep_reg, 'R3 migration via ensureCoreSchema() MUST create forum_reputation');
 
     const legacyBanRows = await pool.query('SELECT * FROM forum_bans WHERE user_id = $1', [legacyBannedUser.id]);
     assert.equal(legacyBanRows.rows.length, 1, 'Legacy user_bans copy must preserve active ban without duplication');
     const legacyActiveBan = await db.getActiveBan(legacyBannedUser.id);
     assert.ok(legacyActiveBan && legacyActiveBan.reason === 'Legacy pre-R3 active ban');
 
-    // Minimal forum_comments / forum_votes / forum_reputation tables required by votes route / db helpers
+    const legacyModActionRows = await pool.query(
+        "SELECT * FROM forum_moderation_actions WHERE target_user_id = $1 AND reason = 'Legacy pre-R3 moderation action'",
+        [legacyBannedUser.id]
+    );
+    assert.equal(legacyModActionRows.rows.length, 1, 'Legacy moderation_actions copy must preserve action without duplication');
+
+    // Minimal forum_comments / forum_votes tables required by votes route / db helpers (forum_reputation comes from R3 migration)
     await pool.query(`
         CREATE TABLE IF NOT EXISTS forum_comments (
             id SERIAL PRIMARY KEY,
@@ -680,17 +823,6 @@ async function run() {
             vote_type VARCHAR(20) NOT NULL CHECK (vote_type IN ('upvote', 'downvote')),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (user_id, comment_id)
-        );
-        CREATE TABLE IF NOT EXISTS forum_reputation (
-            id SERIAL PRIMARY KEY,
-            user_id INTEGER UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-            total_points INTEGER DEFAULT 0,
-            threads_created INTEGER DEFAULT 0,
-            comments_made INTEGER DEFAULT 0,
-            upvotes_received INTEGER DEFAULT 0,
-            downvotes_received INTEGER DEFAULT 0,
-            last_activity_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     `);
 
@@ -792,6 +924,39 @@ async function run() {
             method: 'POST', token: targetTok, body: { commentId: testCommentId, voteType: 'downvote' },
         });
         assert.equal(voteWithExpiredBan.status, 200);
+
+        // Copied legacy moderation_actions row is visible via GET /api/moderation/actions
+        const modActionsRes = await apiJson(baseUrl, '/api/moderation/actions', {
+            method: 'GET', token: superModTok,
+        });
+        assert.equal(modActionsRes.status, 200);
+        assert.ok(
+            Array.isArray(modActionsRes.json?.actions)
+            && modActionsRes.json.actions.some((a) => a.reason === 'Legacy pre-R3 moderation action'),
+            'Copied legacy moderation_actions row must be visible via GET /api/moderation/actions'
+        );
+
+        // Ban with past expiresAt -> 400
+        const pastExpiresBan = await apiJson(baseUrl, `/api/moderation/users/${targetUser.id}/ban`, {
+            method: 'POST',
+            token: modTok,
+            body: {
+                reason: 'Invalid past expiresAt timestamp',
+                expiresAt: new Date(Date.now() - 3600 * 1000).toISOString(),
+            },
+        });
+        assert.equal(pastExpiresBan.status, 400, 'Ban with past expiresAt MUST return 400');
+
+        // Junior moderator CANNOT issue 40-day ban (403)
+        const fortyDayModBan = await apiJson(baseUrl, `/api/moderation/users/${targetUser.id}/ban`, {
+            method: 'POST',
+            token: modTok,
+            body: {
+                reason: 'Exceeds junior moderator temp ban cap',
+                duration_hours: 40 * 24,
+            },
+        });
+        assert.equal(fortyDayModBan.status, 403, 'Junior moderator 40-day ban MUST return 403');
 
         // Junior moderator CANNOT issue permanent ban (403)
         const modPermBan = await apiJson(baseUrl, `/api/moderation/users/${targetUser.id}/ban`, {

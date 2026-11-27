@@ -240,6 +240,7 @@ WHERE (legacy_r1_unsupported = FALSE OR legacy_r1_disposition IS NULL)
       OR quorum_members_pct IS NULL OR quorum_members_pct < 1 OR quorum_members_pct > 100
       OR quorum_capital_pct IS NULL OR quorum_capital_pct < 1 OR quorum_capital_pct > 100
       OR (abstain_option_index IS NOT NULL AND abstain_option_index < 0)
+      OR (abstain_option_index IS NOT NULL AND (jsonb_typeof(options) <> 'array' OR abstain_option_index >= jsonb_array_length(options)))
   );
 
 DO $$
@@ -262,7 +263,7 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_governance_proposals_abstain_index') THEN
         ALTER TABLE governance_proposals
             ADD CONSTRAINT chk_governance_proposals_abstain_index
-            CHECK (legacy_r1_unsupported = TRUE OR abstain_option_index IS NULL OR abstain_option_index >= 0);
+            CHECK (legacy_r1_unsupported = TRUE OR abstain_option_index IS NULL OR (abstain_option_index >= 0 AND jsonb_typeof(options) = 'array' AND abstain_option_index < jsonb_array_length(options)));
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_governance_proposals_engine_secrecy') THEN
         ALTER TABLE governance_proposals
