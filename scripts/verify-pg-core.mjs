@@ -647,9 +647,11 @@ async function run() {
             is_active BOOLEAN DEFAULT TRUE,
             lifted_at TIMESTAMP,
             lifted_by INTEGER
-        );
+        )
+    `);
+    await pool.query(`
         INSERT INTO user_bans (user_id, banned_by, ban_type, reason, is_active)
-        VALUES ($1, $2, 'temporary', 'Legacy pre-R3 active ban', true);
+        VALUES ($1, $2, 'temporary', 'Legacy pre-R3 active ban', true)
     `, [legacyBannedUser.id, superModUser.id]);
 
     await coreStore.ensureCoreSchema();
