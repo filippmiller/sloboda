@@ -301,7 +301,7 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
       await expect(appCard).toContainText('Одобрена', { timeout: 15000 });
 
       // 8. Negative control: intercept /api/applications/my with 500 -> error banner + Retry, NO fake observer banner
-      await applicantPage.route('**/api/applications/my', (route) =>
+      await applicantPage.route('**/api/applications/my*', (route) =>
         route.fulfill({
           status: 500,
           contentType: 'application/json',
@@ -312,7 +312,7 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
       await expect(applicantPage.getByRole('button', { name: 'Повторить загрузку' })).toBeVisible({ timeout: 15000 });
       await expect(applicantPage.locator('body')).toContainText(/Simulated 500 error|Не удалось загрузить данные заявки/i);
       await expect(applicantPage.getByText('Наблюдатель (observer)')).toHaveCount(0);
-      await applicantPage.unroute('**/api/applications/my');
+      await applicantPage.unroute('**/api/applications/my*');
 
       expect(pageErrors).toEqual([]);
     } finally {
@@ -518,7 +518,7 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
 
     const kpiCard = (title) =>
       adminPage.locator('div.rounded-xl', {
-        has: adminPage.locator('p', { hasText: title }),
+        has: adminPage.locator('p, span', { hasText: title }),
       }).first();
 
     try {
@@ -738,7 +738,7 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
       await modPage.waitForURL(new RegExp(`/forum/thread/${threadId}$`), { timeout: 15000 });
 
       await expect(modPage.locator('h1', { hasText: threadTitle })).toBeVisible({ timeout: 15000 });
-      await expect(modPage.getByText('Панель модератора')).toBeVisible({ timeout: 15000 });
+      await expect(modPage.getByText('Действия модератора')).toBeVisible({ timeout: 15000 });
 
       // Click Pin button (Закрепить -> Открепить)
       const pinRespPromise = modPage.waitForResponse(

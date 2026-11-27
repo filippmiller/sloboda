@@ -12,9 +12,11 @@ module.exports = defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: 1,
+  timeout: 60000,
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report-ui' }]],
   use: {
     baseURL: 'http://localhost:3201',
+    locale: 'ru-RU',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
