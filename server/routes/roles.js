@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { requireUserAuth } = require('../middleware/userAuth');
 const { requirePermission } = require('../middleware/rolePermission');
+const { ROLE_TIERS } = require('../config/roles');
 
 let db;
 
@@ -51,15 +52,19 @@ router.get('/user/me', requireUserAuth, async (req, res) => {
 
     const result = await db.pool.query(`
       SELECT
-        u.id as user_id,
-        u.username,
+        u.id,
+        u.name,
+        u.email,
         r.id as role_id,
-        r.name as role_name,
-        r.display_name,
-        r.color,
-        r.can_moderate,
-        r.can_ban,
-        r.can_manage_roles
+        r.role,
+        r.can_pin_threads,
+        r.can_lock_threads,
+        r.can_warn_users,
+        r.can_ban_users_temporary,
+        r.can_ban_users_permanent,
+        r.can_delete_others_content,
+        r.can_view_mod_log,
+        r.can_view_user_history
       FROM users u
       LEFT JOIN forum_roles r ON r.user_id = u.id
       WHERE u.id = $1
@@ -69,7 +74,27 @@ router.get('/user/me', requireUserAuth, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.json({ userRole: result.rows[0] });
+    const row = result.rows[0];
+    const roleKey = row.role || 'new_user';
+    const tier = ROLE_TIERS[roleKey] || ROLE_TIERS.new_user;
+    const displayName = tier.displayName || tier.name || roleKey;
+
+    res.json({
+      userRole: {
+        ...row,
+        role: roleKey,
+        level: tier.level,
+        display_name: displayName,
+        permissions: tier.permissions
+      },
+      role: {
+        id: row.role_id || 0,
+        name: roleKey,
+        display_name: displayName,
+        level: tier.level,
+        permissions: tier.permissions
+      }
+    });
   } catch (error) {
     console.error('Error fetching user role:', error);
     res.status(500).json({ error: 'Failed to fetch user role' });

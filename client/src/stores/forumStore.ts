@@ -1,6 +1,7 @@
 // Forum state management with Zustand
 import { create } from 'zustand';
 import axios from 'axios';
+import api from '@/services/api';
 import { getApiErrorMessage } from '@/lib/utils';
 
 interface Thread {
@@ -266,8 +267,25 @@ export const useForumStore = create<ForumState>((set, get) => ({
   fetchUserRole: async () => {
     set({ roleLoading: true });
     try {
-      const response = await axios.get('/api/roles/user/me');
-      set({ userRole: response.data.role, roleLoading: false });
+      const response = await api.get('/roles/user/me');
+      const rawRole = response.data.role || response.data.userRole || null;
+      const normalizedRole = rawRole
+        ? {
+            ...rawRole,
+            role: rawRole.role ?? rawRole.role_name ?? 'user',
+            level:
+              typeof rawRole.level === 'number'
+                ? rawRole.level
+                : rawRole.can_manage_roles
+                  ? 4
+                  : rawRole.can_moderate ||
+                      rawRole.role_name === 'moderator' ||
+                      rawRole.role_name === 'super_moderator'
+                    ? 3
+                    : 1,
+          }
+        : null;
+      set({ userRole: normalizedRole, roleLoading: false });
     } catch {
       set({ roleLoading: false });
     }

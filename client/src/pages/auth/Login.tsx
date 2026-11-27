@@ -102,13 +102,18 @@ export default function Login() {
     defaultValues: { password: '', confirmPassword: '' },
   })
 
+  const redirectTarget = getSafeRedirectPath(searchParams.get('redirect'), '/dashboard')
+  const registerInvitePath =
+    redirectTarget !== '/dashboard'
+      ? `/register/invite?redirect=${encodeURIComponent(redirectTarget)}`
+      : '/register/invite'
+
   const handleLogin = async (data: LoginForm) => {
     setIsLoading(true)
     try {
       await login(data.email, data.password)
       toast.success(t('auth.login.welcomeToast'))
-      const targetPath = getSafeRedirectPath(searchParams.get('redirect'), '/dashboard')
-      navigate(targetPath, { replace: true })
+      navigate(redirectTarget, { replace: true })
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message :
@@ -123,7 +128,10 @@ export default function Login() {
   const handleMagicLink = async (data: MagicLinkForm) => {
     setIsLoading(true)
     try {
-      await api.post('/user/auth/magic-link', { email: data.email })
+      await api.post('/user/auth/magic-link', {
+        email: data.email,
+        redirect: redirectTarget,
+      })
       setMagicLinkSent(true)
       toast.success(t('auth.magicLink.sentToast'))
     } catch (err: unknown) {
@@ -515,7 +523,7 @@ export default function Login() {
             <p className="text-xs text-text-muted">
               {t('auth.login.hasInvite')}{' '}
               <Link
-                to="/register/invite"
+                to={registerInvitePath}
                 className="text-accent hover:text-accent-hover transition-colors"
               >
                 {t('auth.login.registerLink')}

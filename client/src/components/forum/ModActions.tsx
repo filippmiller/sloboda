@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pin, Lock, Unlock, AlertTriangle } from 'lucide-react';
 import Button from '@/components/ui/Button';
-import axios from 'axios';
+import api from '@/services/api';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/utils';
 
@@ -29,8 +29,8 @@ export function ModActions({
   const handlePin = async () => {
     setIsProcessing(true);
     try {
-      await axios.post(`/api/moderation/threads/${threadId}/pin`, {
-        is_pinned: !isPinned
+      await api.post(`/moderation/threads/${threadId}/pin`, {
+        pinned: !isPinned
       });
       toast.success(isPinned ? t('forum.moderation.toasts.threadUnpinned') : t('forum.moderation.toasts.threadPinned'));
       onUpdate();
@@ -44,8 +44,8 @@ export function ModActions({
   const handleLock = async () => {
     setIsProcessing(true);
     try {
-      await axios.post(`/api/moderation/threads/${threadId}/lock`, {
-        is_locked: !isLocked
+      await api.post(`/moderation/threads/${threadId}/lock`, {
+        locked: !isLocked
       });
       toast.success(isLocked ? t('forum.moderation.toasts.threadUnlocked') : t('forum.moderation.toasts.threadLocked'));
       onUpdate();

@@ -485,7 +485,8 @@ test.describe('Sloboda Core Acceptance Suite', () => {
         expect(milestonesRes.status()).toBe(200);
     });
 
-    test('SLB-R1-17: Moderation routes map exclusively to canonical permissions in server/config/roles.js', async () => {
+    // Static RBAC config check only (runs in TEST_NO_DB=true); real PostgreSQL functional moderation & ban enforcement tests live in scripts/verify-pg-core.mjs
+    test('SLB-R1-17 (static RBAC): Moderation routes map exclusively to canonical permissions in server/config/roles.js', async () => {
         const fs = require('node:fs');
         const path = require('node:path');
         const { ROLE_TIERS } = require('../server/config/roles');

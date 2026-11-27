@@ -10,8 +10,11 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const core = require('./slobodaCore');
+const upgradePreflight = require('./upgradePreflight');
 
 const DEFAULT_SETTLEMENT = 'sloboda-pilot';
+const SCHEMA_MIGRATION_LOCK_ID = 77261126;
+const LEDGER_GATE_XACT_LOCK_ID = 77261127;
 
 let dbRef = null;
 
@@ -81,14 +84,19 @@ async function ensureCoreSchema() {
     }
     const migrationPath = path.join(__dirname, '../migrations/2026-11-26-sloboda-core.sql');
     const migrationR2Path = path.join(__dirname, '../migrations/2026-11-26-sloboda-core-r2.sql');
+    const migrationR3Path = path.join(__dirname, '../migrations/2026-11-26-sloboda-core-r3.sql');
     const client = await dbRef.pool.connect();
+    let locked = false;
     try {
+        await client.query(`SELECT pg_advisory_lock($1)`, [SCHEMA_MIGRATION_LOCK_ID]);
+        locked = true;
+
         const applied = new Set();
         const tblRes = await client.query(`SELECT to_regclass('schema_migrations') AS tbl`);
         if (tblRes.rows[0]?.tbl) {
             const migRes = await client.query(
                 `SELECT version FROM schema_migrations WHERE version = ANY($1)`,
-                [['2026-11-26-sloboda-core', '2026-11-26-sloboda-core-r2']]
+                [['2026-11-26-sloboda-core', '2026-11-26-sloboda-core-r2', '2026-11-26-sloboda-core-r3']]
             );
             for (const row of migRes.rows) {
                 applied.add(row.version);
@@ -102,6 +110,11 @@ async function ensureCoreSchema() {
             const sqlR2 = fs.readFileSync(migrationR2Path, 'utf8');
             await client.query(sqlR2);
         }
+        if (!applied.has('2026-11-26-sloboda-core-r3')) {
+            const sqlR3 = fs.readFileSync(migrationR3Path, 'utf8');
+            await client.query(sqlR3);
+        }
+
         const mCount = await client.query(
             'SELECT COUNT(*)::int AS cnt FROM construction_milestones WHERE settlement_id = $1',
             [DEFAULT_SETTLEMENT]
@@ -118,6 +131,113 @@ async function ensureCoreSchema() {
                 ON CONFLICT (settlement_id, code) DO NOTHING
             `, [DEFAULT_SETTLEMENT]);
         }
+
+        const report = await upgradePreflight.runFullPreflight(client);
+        await upgradePreflight.persistLedgerGate(client, report);
+        if (!report.financial.ok) {
+            console.warn(
+                '[sloboda-core] Ledger integrity gate BLOCKED (%d discrepancies). Writes are disabled until resolved.',
+                report.financial.discrepancies.length
+            );
+        }
+    } catch (err) {
+        await client.query('ROLLBACK').catch(() => {});
+        throw err;
+    } finally {
+        if (locked) {
+            await client.query(`SELECT pg_advisory_unlock($1)`, [SCHEMA_MIGRATION_LOCK_ID]).catch(() => {});
+        }
+        client.release();
+    }
+}
+
+async function assertLedgerWriteGateOpen(client) {
+    await client.query(`SELECT pg_advisory_xact_lock_shared($1)`, [LEDGER_GATE_XACT_LOCK_ID]);
+    const gateRes = await client.query(
+        `SELECT is_blocked, report_json FROM sloboda_core_gates WHERE gate_key = 'ledger_integrity' FOR SHARE`
+    );
+    if (gateRes.rows[0]?.is_blocked === true) {
+        const err = new Error('Запись в финансовый реестр заблокирована: обнаружены расхождения целостности данных (LEDGER_INTEGRITY_GATE_BLOCKED)');
+        err.status = 503;
+        err.code = 'LEDGER_INTEGRITY_GATE_BLOCKED';
+        err.details = gateRes.rows[0].report_json;
+        throw err;
+    }
+}
+
+async function getLedgerPreflightReport() {
+    if (!isPgMode()) {
+        const checkedAt = new Date().toISOString();
+        return {
+            gate_key: 'ledger_integrity',
+            is_blocked: false,
+            checked_at: checkedAt,
+            report: {
+                financial: {
+                    ok: true,
+                    discrepancies: [],
+                    stats: {
+                        contributions_count: mem.contributions.length,
+                        expenses_count: mem.expenses.length,
+                        allocations_count: mem.allocations.length,
+                        postings_count: mem.postings.length,
+                    },
+                    checked_at: checkedAt,
+                },
+                governance: {
+                    ok: true,
+                    legacy_unsupported_count: mem.proposals.filter((p) => p.legacy_r1_unsupported === true).length,
+                    inventory: [],
+                },
+                checked_at: checkedAt,
+            },
+        };
+    }
+
+    const client = await dbRef.pool.connect();
+    try {
+        const gateRes = await client.query(
+            `SELECT gate_key, is_blocked, report_json, checked_at FROM sloboda_core_gates WHERE gate_key = 'ledger_integrity'`
+        );
+        if (gateRes.rows[0]) {
+            const row = gateRes.rows[0];
+            return {
+                gate_key: row.gate_key,
+                is_blocked: Boolean(row.is_blocked),
+                checked_at: row.checked_at,
+                report: row.report_json,
+            };
+        }
+        const report = await upgradePreflight.runFullPreflight(client);
+        return {
+            gate_key: 'ledger_integrity',
+            is_blocked: !report.financial.ok,
+            checked_at: report.checked_at,
+            report,
+        };
+    } finally {
+        client.release();
+    }
+}
+
+async function revalidateLedgerIntegrity() {
+    if (!isPgMode()) {
+        return getLedgerPreflightReport();
+    }
+    const client = await dbRef.pool.connect();
+    try {
+        await client.query('BEGIN');
+        await client.query(`SELECT pg_advisory_xact_lock($1)`, [LEDGER_GATE_XACT_LOCK_ID]);
+        const report = await upgradePreflight.runFullPreflight(client);
+        const persisted = await upgradePreflight.persistLedgerGate(client, report);
+        await client.query('COMMIT');
+        return {
+            ...persisted,
+            checked_at: report.checked_at,
+        };
+    } catch (err) {
+        await client.query('ROLLBACK').catch(() => {});
+        throw err;
     } finally {
         client.release();
     }
@@ -994,6 +1114,12 @@ async function openProposal(proposalId) {
                 err.status = 404;
                 throw err;
             }
+            if (prop.legacy_r1_unsupported === true) {
+                const err = new Error('Устаревшее предложение R1 не поддерживается и заблокировано до решения оператора');
+                err.status = 409;
+                err.code = 'LEGACY_UNSUPPORTED_PROPOSAL';
+                throw err;
+            }
             if (prop.status !== 'draft') {
                 const err = new Error(`Нельзя открыть голосование в статусе ${prop.status}`);
                 err.status = 409;
@@ -1088,6 +1214,12 @@ async function openProposal(proposalId) {
     if (!prop) {
         const err = new Error('Голосование не найдено');
         err.status = 404;
+        throw err;
+    }
+    if (prop.legacy_r1_unsupported === true) {
+        const err = new Error('Устаревшее предложение R1 не поддерживается и заблокировано до решения оператора');
+        err.status = 409;
+        err.code = 'LEGACY_UNSUPPORTED_PROPOSAL';
         throw err;
     }
     if (prop.status !== 'draft') {
@@ -1192,6 +1324,12 @@ async function castGovernanceBallot({ proposalId, userId, chamber, optionIndex }
             const pRes = await client.query(`SELECT * FROM governance_proposals WHERE id = $1 FOR UPDATE`, [proposalId]);
             const prop = pRes.rows[0];
             if (!prop) { const err = new Error('Голосование не найдено'); err.status = 404; throw err; }
+            if (prop.legacy_r1_unsupported === true) {
+                const err = new Error('Устаревшее предложение R1 не поддерживается и заблокировано до решения оператора');
+                err.status = 409;
+                err.code = 'LEGACY_UNSUPPORTED_PROPOSAL';
+                throw err;
+            }
             if (prop.authoritative_engine === 'loomio' || prop.authoritative_engine === 'belenios') {
                 const err = new Error(`Голосование привязано к внешнему движку ${prop.authoritative_engine}; прямой приём бюллетеней отключён`);
                 err.status = 409;
@@ -1274,6 +1412,12 @@ async function castGovernanceBallot({ proposalId, userId, chamber, optionIndex }
 
     const prop = mem.proposals.find((p) => p.id === Number(proposalId));
     if (!prop) { const err = new Error('Голосование не найдено'); err.status = 404; throw err; }
+    if (prop.legacy_r1_unsupported === true) {
+        const err = new Error('Устаревшее предложение R1 не поддерживается и заблокировано до решения оператора');
+        err.status = 409;
+        err.code = 'LEGACY_UNSUPPORTED_PROPOSAL';
+        throw err;
+    }
     if (prop.authoritative_engine === 'loomio' || prop.authoritative_engine === 'belenios') {
         const err = new Error(`Голосование привязано к внешнему движку ${prop.authoritative_engine}; прямой приём бюллетеней отключён`);
         err.status = 409;
@@ -1354,6 +1498,12 @@ async function closeProposal(proposalId) {
             const pRes = await client.query(`SELECT * FROM governance_proposals WHERE id = $1 FOR UPDATE`, [proposalId]);
             const prop = pRes.rows[0];
             if (!prop) { const err = new Error('Голосование не найдено'); err.status = 404; throw err; }
+            if (prop.legacy_r1_unsupported === true) {
+                const err = new Error('Устаревшее предложение R1 не поддерживается и заблокировано до решения оператора');
+                err.status = 409;
+                err.code = 'LEGACY_UNSUPPORTED_PROPOSAL';
+                throw err;
+            }
             if (prop.status !== 'open') { const err = new Error(`Нельзя закрыть голосование в статусе ${prop.status}`); err.status = 409; throw err; }
 
             const snaps = (await client.query(`SELECT * FROM governance_voter_snapshots WHERE proposal_id = $1 ORDER BY user_id ASC`, [proposalId])).rows;
@@ -1393,6 +1543,12 @@ async function closeProposal(proposalId) {
 
     const prop = mem.proposals.find((p) => p.id === Number(proposalId));
     if (!prop) { const err = new Error('Голосование не найдено'); err.status = 404; throw err; }
+    if (prop.legacy_r1_unsupported === true) {
+        const err = new Error('Устаревшее предложение R1 не поддерживается и заблокировано до решения оператора');
+        err.status = 409;
+        err.code = 'LEGACY_UNSUPPORTED_PROPOSAL';
+        throw err;
+    }
     if (prop.status !== 'open') { const err = new Error(`Нельзя закрыть голосование в статусе ${prop.status}`); err.status = 409; throw err; }
 
     const snaps = mem.snapshots.filter((s) => s.proposal_id === prop.id).sort((a, b) => a.user_id - b.user_id);
@@ -1650,9 +1806,9 @@ function matchesContributionIdempotency(existing, fp, params) {
     );
 }
 
-function matchesExpenseIdempotency(existing, existingAllocs, fp, params) {
+function matchesExpenseIdempotency(existing, existingAllocs, fp, params, existingPostings = []) {
     if (existing.request_fingerprint) {
-        return existing.request_fingerprint === fp;
+        return { matched: existing.request_fingerprint === fp, legacy: false };
     }
     const basicMatch = (
         existing.settlement_id === params.settlement_id
@@ -1662,13 +1818,41 @@ function matchesExpenseIdempotency(existing, existingAllocs, fp, params) {
         && existing.category === params.category
         && String(existing.amount_kopecks) === params.amount_kopecks
         && (existing.allocation_rule || 'fifo') === params.allocation_rule
+        && (existing.asset_name || null) === (params.asset_name || null)
+        && (existing.asset_location || null) === (params.asset_location || null)
+        && (existing.receipt_url || null) === (params.receipt_url || null)
+        && (existing.photo_url || null) === (params.photo_url || null)
     );
-    if (!basicMatch) return false;
-    if (params.allocation_rule !== 'explicit') return true;
-    const normExisting = [...existingAllocs]
-        .sort((a, b) => Number(a.contribution_id) - Number(b.contribution_id))
-        .map((a) => ({ contribution_id: Number(a.contribution_id), amount_kopecks: String(a.amount_kopecks) }));
-    return core.canonicalJson(normExisting) === core.canonicalJson(params.explicit_allocations);
+    if (!basicMatch) return { matched: false, legacy: true };
+
+    let legacyReplayNote = null;
+    const postingTypes = new Set((existingPostings || []).map((p) => p.posting_type));
+    if (postingTypes.has('reserve')) {
+        if (Boolean(params.mark_paid) !== false) {
+            return { matched: false, legacy: true };
+        }
+    } else if (postingTypes.has('pay')) {
+        if (Boolean(params.mark_paid) !== true) {
+            return { matched: false, legacy: true };
+        }
+    } else {
+        legacyReplayNote = 'mark_paid_not_recorded_in_r1';
+    }
+
+    if (params.allocation_rule === 'explicit') {
+        const normExisting = [...existingAllocs]
+            .sort((a, b) => Number(a.contribution_id) - Number(b.contribution_id))
+            .map((a) => ({ contribution_id: Number(a.contribution_id), amount_kopecks: String(a.amount_kopecks) }));
+        if (core.canonicalJson(normExisting) !== core.canonicalJson(params.explicit_allocations)) {
+            return { matched: false, legacy: true };
+        }
+    }
+
+    return {
+        matched: true,
+        legacy: true,
+        ...(legacyReplayNote ? { legacy_replay_note: legacyReplayNote } : {}),
+    };
 }
 
 async function recordContribution(data, adminId) {
@@ -1733,6 +1917,7 @@ async function recordContribution(data, adminId) {
         const client = await dbRef.pool.connect();
         try {
             await client.query('BEGIN');
+            await assertLedgerWriteGateOpen(client);
             await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`contrib_idem:${idempKey}`]);
 
             const dup = await client.query(`SELECT * FROM contributions WHERE idempotency_key = $1`, [idempKey]);
@@ -1906,19 +2091,35 @@ async function createAndAllocateExpense(data, adminId) {
         const client = await dbRef.pool.connect();
         try {
             await client.query('BEGIN');
+            await assertLedgerWriteGateOpen(client);
             await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`expense_idem:${idempKey}`]);
 
             const dup = await client.query(`SELECT * FROM ledger_expenses WHERE idempotency_key = $1`, [idempKey]);
             if (dup.rows[0]) {
                 const ex = dup.rows[0];
-                const allocs = (await client.query(`SELECT * FROM expense_allocations WHERE expense_id = $1 ORDER BY contribution_id ASC`, [ex.id])).rows;
-                if (!matchesExpenseIdempotency(ex, allocs, requestFingerprint, fingerprintParams)) {
+                const allocs = (await client.query(
+                    `SELECT ea.*, c.ledger_mode AS contribution_ledger_mode
+                     FROM expense_allocations ea
+                     LEFT JOIN contributions c ON c.id = ea.contribution_id
+                     WHERE ea.expense_id = $1
+                     ORDER BY ea.contribution_id ASC`,
+                    [ex.id]
+                )).rows;
+                const existingPostings = ex.request_fingerprint
+                    ? []
+                    : (await client.query(`SELECT posting_type FROM ledger_postings WHERE expense_id = $1`, [ex.id])).rows;
+                const idemCheck = matchesExpenseIdempotency(ex, allocs, requestFingerprint, fingerprintParams, existingPostings);
+                if (!idemCheck.matched) {
                     const err = new Error('Idempotency key already used with different parameters');
                     err.status = 409;
                     throw err;
                 }
                 await client.query('COMMIT');
-                return { expense: serializeExpense(ex, allocs), idempotent_replay: true };
+                return {
+                    expense: serializeExpense(ex, allocs),
+                    idempotent_replay: true,
+                    ...(idemCheck.legacy_replay_note ? { legacy_replay_note: idemCheck.legacy_replay_note } : {}),
+                };
             }
 
             if (milestoneId !== null) {
@@ -2038,13 +2239,26 @@ async function createAndAllocateExpense(data, adminId) {
     // In-memory parity path
     const existing = mem.expenses.find((e) => e.idempotency_key === idempKey);
     if (existing) {
-        const allocs = mem.allocations.filter((a) => a.expense_id === existing.id);
-        if (!matchesExpenseIdempotency(existing, allocs, requestFingerprint, fingerprintParams)) {
+        const allocs = mem.allocations
+            .filter((a) => a.expense_id === existing.id)
+            .map((a) => ({
+                ...a,
+                contribution_ledger_mode: mem.contributions.find((c) => c.id === a.contribution_id)?.ledger_mode || null,
+            }));
+        const existingPostings = existing.request_fingerprint
+            ? []
+            : mem.postings.filter((p) => p.expense_id === existing.id);
+        const idemCheck = matchesExpenseIdempotency(existing, allocs, requestFingerprint, fingerprintParams, existingPostings);
+        if (!idemCheck.matched) {
             const err = new Error('Idempotency key already used with different parameters');
             err.status = 409;
             throw err;
         }
-        return { expense: serializeExpense(existing, allocs), idempotent_replay: true };
+        return {
+            expense: serializeExpense(existing, allocs),
+            idempotent_replay: true,
+            ...(idemCheck.legacy_replay_note ? { legacy_replay_note: idemCheck.legacy_replay_note } : {}),
+        };
     }
 
     if (milestoneId !== null) {
@@ -2150,6 +2364,13 @@ function serializeExpense(e, allocs = []) {
     const financialStatus = e.financial_status || (e.status === 'disputed' ? 'reserved' : e.status);
     const disputeStatus = e.dispute_status || (e.status === 'disputed' ? 'open' : 'none');
     const syncedStatus = disputeStatus === 'open' ? 'disputed' : financialStatus;
+    const allocationLedgerModes = [
+        ...new Set(
+            allocs
+                .map((a) => a.contribution_ledger_mode || a.ledger_mode)
+                .filter(Boolean)
+        ),
+    ];
     return {
         id: e.id,
         settlement_id: e.settlement_id,
@@ -2169,6 +2390,7 @@ function serializeExpense(e, allocs = []) {
         version: Number(e.version || 1),
         paid_at: e.paid_at,
         created_at: e.created_at,
+        allocation_ledger_modes: allocationLedgerModes,
         allocations: allocs.map((a) => ({
             id: a.id,
             contribution_id: a.contribution_id,
@@ -2320,6 +2542,7 @@ async function transitionExpenseStatus(expenseId, newStatus, adminId, expectedVe
         const client = await dbRef.pool.connect();
         try {
             await client.query('BEGIN');
+            await assertLedgerWriteGateOpen(client);
             const ex = (await client.query(`SELECT * FROM ledger_expenses WHERE id = $1 FOR UPDATE`, [expenseId])).rows[0];
             if (!ex) { const err = new Error('Расход не найден'); err.status = 404; throw err; }
 
@@ -2505,71 +2728,362 @@ async function transitionExpenseStatus(expenseId, newStatus, adminId, expectedVe
     return serializeExpense(ex, allocs);
 }
 
-async function listAdminContributions({ settlement_id, limit = 50, offset = 0 } = {}) {
+async function listAdminContributions({ settlement_id, ledger_mode, limit = 50, offset = 0 } = {}) {
     const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 200);
     const safeOffset = Math.max(Number(offset) || 0, 0);
-    if (isPgMode()) {
-        const r = settlement_id
-            ? await dbRef.pool.query(
-                `SELECT * FROM contributions WHERE settlement_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2 OFFSET $3`,
-                [settlement_id, safeLimit, safeOffset]
-            )
-            : await dbRef.pool.query(
-                `SELECT * FROM contributions ORDER BY created_at DESC, id DESC LIMIT $1 OFFSET $2`,
-                [safeLimit, safeOffset]
-            );
-        return r.rows.map(serializeContribution);
-    }
-    const filtered = mem.contributions
-        .filter((c) => !settlement_id || c.settlement_id === settlement_id)
-        .sort((a, b) => {
-            const dt = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-            return dt !== 0 ? dt : b.id - a.id;
-        })
-        .slice(safeOffset, safeOffset + safeLimit);
-    return filtered.map(serializeContribution);
-}
+    const scopedSettlement = settlement_id && settlement_id !== 'all' ? settlement_id : null;
 
-async function listAdminExpenses({ settlement_id, status, limit = 50, offset = 0 } = {}) {
-    const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 200);
-    const safeOffset = Math.max(Number(offset) || 0, 0);
     if (isPgMode()) {
         const clauses = [];
         const params = [];
-        if (settlement_id) {
-            params.push(settlement_id);
+        if (scopedSettlement) {
+            params.push(scopedSettlement);
+            clauses.push(`settlement_id = $${params.length}`);
+        }
+        if (ledger_mode) {
+            params.push(ledger_mode);
+            clauses.push(`ledger_mode = $${params.length}`);
+        }
+        const whereSql = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
+        const countRes = await dbRef.pool.query(
+            `SELECT COUNT(*)::int AS total FROM contributions ${whereSql}`,
+            params
+        );
+        const total = Number(countRes.rows[0]?.total || 0);
+        const queryParams = [...params, safeLimit, safeOffset];
+        const r = await dbRef.pool.query(
+            `SELECT * FROM contributions ${whereSql} ORDER BY created_at DESC, id DESC LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}`,
+            queryParams
+        );
+        const contributions = r.rows.map(serializeContribution);
+        return {
+            contributions,
+            total,
+            has_more: safeOffset + contributions.length < total,
+            limit: safeLimit,
+            offset: safeOffset,
+        };
+    }
+
+    const filteredAll = mem.contributions
+        .filter((c) => (!scopedSettlement || c.settlement_id === scopedSettlement) && (!ledger_mode || c.ledger_mode === ledger_mode))
+        .sort((a, b) => {
+            const dt = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            return dt !== 0 ? dt : b.id - a.id;
+        });
+    const total = filteredAll.length;
+    const contributions = filteredAll.slice(safeOffset, safeOffset + safeLimit).map(serializeContribution);
+    return {
+        contributions,
+        total,
+        has_more: safeOffset + contributions.length < total,
+        limit: safeLimit,
+        offset: safeOffset,
+    };
+}
+
+async function listAdminExpenses({ settlement_id, status, financial_status, dispute_status, limit = 50, offset = 0 } = {}) {
+    const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 200);
+    const safeOffset = Math.max(Number(offset) || 0, 0);
+    const scopedSettlement = settlement_id && settlement_id !== 'all' ? settlement_id : null;
+
+    if (isPgMode()) {
+        const clauses = [];
+        const params = [];
+        if (scopedSettlement) {
+            params.push(scopedSettlement);
             clauses.push(`settlement_id = $${params.length}`);
         }
         if (status) {
             params.push(status);
             clauses.push(`status = $${params.length}`);
         }
+        if (financial_status) {
+            params.push(financial_status);
+            clauses.push(`financial_status = $${params.length}`);
+        }
+        if (dispute_status) {
+            params.push(dispute_status);
+            clauses.push(`dispute_status = $${params.length}`);
+        }
         const whereSql = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
-        params.push(safeLimit, safeOffset);
-        const rows = (await dbRef.pool.query(
-            `SELECT * FROM ledger_expenses ${whereSql} ORDER BY created_at DESC, id DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
+        const countRes = await dbRef.pool.query(
+            `SELECT COUNT(*)::int AS total FROM ledger_expenses ${whereSql}`,
             params
+        );
+        const total = Number(countRes.rows[0]?.total || 0);
+        const queryParams = [...params, safeLimit, safeOffset];
+        const rows = (await dbRef.pool.query(
+            `SELECT * FROM ledger_expenses ${whereSql} ORDER BY created_at DESC, id DESC LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}`,
+            queryParams
         )).rows;
         const ids = rows.map((e) => e.id);
         const allocs = ids.length
-            ? (await dbRef.pool.query(`SELECT * FROM expense_allocations WHERE expense_id = ANY($1) ORDER BY contribution_id ASC`, [ids])).rows
+            ? (await dbRef.pool.query(
+                `SELECT ea.*, c.ledger_mode AS contribution_ledger_mode
+                 FROM expense_allocations ea
+                 LEFT JOIN contributions c ON c.id = ea.contribution_id
+                 WHERE ea.expense_id = ANY($1)
+                 ORDER BY ea.contribution_id ASC`,
+                [ids]
+            )).rows
             : [];
-        return rows.map((e) => serializeExpense(e, allocs.filter((a) => Number(a.expense_id) === Number(e.id))));
+        const expenses = rows.map((e) => serializeExpense(e, allocs.filter((a) => Number(a.expense_id) === Number(e.id))));
+        return {
+            expenses,
+            total,
+            has_more: safeOffset + expenses.length < total,
+            limit: safeLimit,
+            offset: safeOffset,
+        };
     }
 
-    const filtered = mem.expenses
-        .filter((e) => (!settlement_id || e.settlement_id === settlement_id) && (!status || e.status === status))
+    const filteredAll = mem.expenses
+        .filter((e) => {
+            const eFin = e.financial_status || (e.status === 'disputed' ? 'reserved' : e.status);
+            const eDisp = e.dispute_status || (e.status === 'disputed' ? 'open' : 'none');
+            return (
+                (!scopedSettlement || e.settlement_id === scopedSettlement)
+                && (!status || e.status === status)
+                && (!financial_status || eFin === financial_status)
+                && (!dispute_status || eDisp === dispute_status)
+            );
+        })
+        .sort((a, b) => {
+            const dt = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            return dt !== 0 ? dt : b.id - a.id;
+        });
+    const total = filteredAll.length;
+    const expenses = filteredAll.slice(safeOffset, safeOffset + safeLimit).map((e) => {
+        const allocs = mem.allocations
+            .filter((a) => a.expense_id === e.id)
+            .sort((a, b) => a.contribution_id - b.contribution_id)
+            .map((a) => ({
+                ...a,
+                contribution_ledger_mode: mem.contributions.find((c) => c.id === a.contribution_id)?.ledger_mode || null,
+            }));
+        return serializeExpense(e, allocs);
+    });
+    return {
+        expenses,
+        total,
+        has_more: safeOffset + expenses.length < total,
+        limit: safeLimit,
+        offset: safeOffset,
+    };
+}
+
+async function getAdminExpenseById(expenseId) {
+    const eid = Number(expenseId);
+    if (!Number.isInteger(eid) || eid <= 0) return null;
+
+    if (isPgMode()) {
+        const row = (await dbRef.pool.query(`SELECT * FROM ledger_expenses WHERE id = $1`, [eid])).rows[0];
+        if (!row) return null;
+        const allocs = (await dbRef.pool.query(
+            `SELECT ea.*, c.ledger_mode AS contribution_ledger_mode
+             FROM expense_allocations ea
+             LEFT JOIN contributions c ON c.id = ea.contribution_id
+             WHERE ea.expense_id = $1
+             ORDER BY ea.contribution_id ASC`,
+            [eid]
+        )).rows;
+        return serializeExpense(row, allocs);
+    }
+
+    const row = mem.expenses.find((e) => e.id === eid);
+    if (!row) return null;
+    const allocs = mem.allocations
+        .filter((a) => a.expense_id === row.id)
+        .sort((a, b) => a.contribution_id - b.contribution_id)
+        .map((a) => ({
+            ...a,
+            contribution_ledger_mode: mem.contributions.find((c) => c.id === a.contribution_id)?.ledger_mode || null,
+        }));
+    return serializeExpense(row, allocs);
+}
+
+function emptyModeTotals() {
+    return {
+        received: core.formatKopecks(0n),
+        available: core.formatKopecks(0n),
+        reserved: core.formatKopecks(0n),
+        paid: core.formatKopecks(0n),
+        refunded: core.formatKopecks(0n),
+        contributions_count: 0,
+    };
+}
+
+async function getAdminLedgerSummary(settlementId = 'all') {
+    const isAll = !settlementId || settlementId === 'all';
+    const byMode = {
+        verified_receipt: emptyModeTotals(),
+        pledge: emptyModeTotals(),
+        legacy_import: emptyModeTotals(),
+    };
+
+    if (isPgMode()) {
+        const modeRows = (await dbRef.pool.query(
+            `SELECT ledger_mode,
+                    COALESCE(SUM(received_kopecks),0)::bigint AS received,
+                    COALESCE(SUM(available_kopecks),0)::bigint AS available,
+                    COALESCE(SUM(reserved_kopecks),0)::bigint AS reserved,
+                    COALESCE(SUM(paid_kopecks),0)::bigint AS paid,
+                    COALESCE(SUM(refunded_kopecks),0)::bigint AS refunded,
+                    COUNT(*)::int AS contributions_count
+             FROM contributions
+             ${isAll ? '' : 'WHERE settlement_id = $1'}
+             GROUP BY ledger_mode`,
+            isAll ? [] : [settlementId]
+        )).rows;
+
+        for (const r of modeRows) {
+            if (!byMode[r.ledger_mode]) {
+                byMode[r.ledger_mode] = emptyModeTotals();
+            }
+            byMode[r.ledger_mode] = {
+                received: core.formatKopecks(r.received),
+                available: core.formatKopecks(r.available),
+                reserved: core.formatKopecks(r.reserved),
+                paid: core.formatKopecks(r.paid),
+                refunded: core.formatKopecks(r.refunded),
+                contributions_count: Number(r.contributions_count || 0),
+            };
+        }
+
+        const settlementRows = (await dbRef.pool.query(`
+            SELECT DISTINCT settlement_id FROM (
+                SELECT settlement_id FROM contributions
+                UNION
+                SELECT settlement_id FROM ledger_expenses
+                UNION
+                SELECT settlement_id FROM construction_milestones
+            ) s
+            WHERE settlement_id IS NOT NULL AND settlement_id <> ''
+            ORDER BY settlement_id ASC
+        `)).rows;
+        const settlements = settlementRows.map((r) => r.settlement_id);
+
+        const milestones = isAll
+            ? (await dbRef.pool.query(
+                `SELECT m.*,
+                        COALESCE((
+                            SELECT SUM(le.amount_kopecks)
+                            FROM ledger_expenses le
+                            WHERE le.milestone_id = m.id
+                              AND le.settlement_id = m.settlement_id
+                              AND le.financial_status = 'paid'
+                        ), 0)::bigint AS spent_kopecks
+                 FROM construction_milestones m
+                 ORDER BY m.settlement_id ASC, m.id ASC`
+            )).rows.map((m) => serializeMilestone(m, m.spent_kopecks))
+            : await listConstructionMilestones(settlementId);
+
+        const recentExpensesRows = (await dbRef.pool.query(
+            `SELECT * FROM ledger_expenses
+             ${isAll ? '' : 'WHERE settlement_id = $1'}
+             ORDER BY created_at DESC, id DESC
+             LIMIT 20`,
+            isAll ? [] : [settlementId]
+        )).rows;
+        const recentIds = recentExpensesRows.map((e) => e.id);
+        const recentAllocs = recentIds.length
+            ? (await dbRef.pool.query(
+                `SELECT ea.*, c.ledger_mode AS contribution_ledger_mode
+                 FROM expense_allocations ea
+                 LEFT JOIN contributions c ON c.id = ea.contribution_id
+                 WHERE ea.expense_id = ANY($1)
+                 ORDER BY ea.contribution_id ASC`,
+                [recentIds]
+            )).rows
+            : [];
+        const recentExpenses = recentExpensesRows.map((e) =>
+            serializeExpense(e, recentAllocs.filter((a) => Number(a.expense_id) === Number(e.id)))
+        );
+
+        return {
+            settlement_id: isAll ? 'all' : settlementId,
+            totals: byMode.verified_receipt,
+            by_ledger_mode: byMode,
+            settlements,
+            milestones,
+            recent_expenses: recentExpenses,
+        };
+    }
+
+    seedDefaultMilestonesMem();
+    const acc = {
+        verified_receipt: { received: 0n, available: 0n, reserved: 0n, paid: 0n, refunded: 0n, count: 0 },
+        pledge: { received: 0n, available: 0n, reserved: 0n, paid: 0n, refunded: 0n, count: 0 },
+        legacy_import: { received: 0n, available: 0n, reserved: 0n, paid: 0n, refunded: 0n, count: 0 },
+    };
+    for (const c of mem.contributions) {
+        if (!isAll && c.settlement_id !== settlementId) continue;
+        const mode = c.ledger_mode || 'verified_receipt';
+        if (!acc[mode]) {
+            acc[mode] = { received: 0n, available: 0n, reserved: 0n, paid: 0n, refunded: 0n, count: 0 };
+        }
+        acc[mode].received += BigInt(c.received_kopecks);
+        acc[mode].available += BigInt(c.available_kopecks);
+        acc[mode].reserved += BigInt(c.reserved_kopecks);
+        acc[mode].paid += BigInt(c.paid_kopecks);
+        acc[mode].refunded += BigInt(c.refunded_kopecks);
+        acc[mode].count += 1;
+    }
+    for (const [mode, v] of Object.entries(acc)) {
+        byMode[mode] = {
+            received: core.formatKopecks(v.received),
+            available: core.formatKopecks(v.available),
+            reserved: core.formatKopecks(v.reserved),
+            paid: core.formatKopecks(v.paid),
+            refunded: core.formatKopecks(v.refunded),
+            contributions_count: v.count,
+        };
+    }
+
+    const settlements = [
+        ...new Set([
+            ...mem.contributions.map((c) => c.settlement_id),
+            ...mem.expenses.map((e) => e.settlement_id),
+            ...mem.milestones.map((m) => m.settlement_id),
+        ].filter(Boolean)),
+    ].sort();
+
+    const milestones = isAll
+        ? mem.milestones.map((m) => {
+            const spent = mem.expenses
+                .filter((e) => e.milestone_id === m.id && e.settlement_id === m.settlement_id && e.financial_status === 'paid')
+                .reduce((sum, e) => sum + BigInt(e.amount_kopecks), 0n);
+            return serializeMilestone(m, spent);
+        })
+        : await listConstructionMilestones(settlementId);
+
+    const recentExpenses = mem.expenses
+        .filter((e) => isAll || e.settlement_id === settlementId)
         .sort((a, b) => {
             const dt = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
             return dt !== 0 ? dt : b.id - a.id;
         })
-        .slice(safeOffset, safeOffset + safeLimit);
-    return filtered.map((e) => {
-        const allocs = mem.allocations
-            .filter((a) => a.expense_id === e.id)
-            .sort((a, b) => a.contribution_id - b.contribution_id);
-        return serializeExpense(e, allocs);
-    });
+        .slice(0, 20)
+        .map((e) => {
+            const allocs = mem.allocations
+                .filter((a) => a.expense_id === e.id)
+                .sort((a, b) => a.contribution_id - b.contribution_id)
+                .map((a) => ({
+                    ...a,
+                    contribution_ledger_mode: mem.contributions.find((c) => c.id === a.contribution_id)?.ledger_mode || null,
+                }));
+            return serializeExpense(e, allocs);
+        });
+
+    return {
+        settlement_id: isAll ? 'all' : settlementId,
+        totals: byMode.verified_receipt,
+        by_ledger_mode: byMode,
+        settlements,
+        milestones,
+        recent_expenses: recentExpenses,
+    };
 }
 
 async function getMyLedger(userId) {
@@ -2922,6 +3436,10 @@ module.exports = {
     transitionExpenseStatus,
     listAdminContributions,
     listAdminExpenses,
+    getAdminExpenseById,
+    getAdminLedgerSummary,
+    revalidateLedgerIntegrity,
+    getLedgerPreflightReport,
     getMyLedger,
     getPublicLedgerSummary,
     listConstructionMilestones,

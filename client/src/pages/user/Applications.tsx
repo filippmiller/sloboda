@@ -89,8 +89,38 @@ interface ApplicationDraft {
   initialPortfolioUrl: string
 }
 
+interface RevisionDraftFields {
+  revFullName: string
+  revCity: string
+  revPrimaryDomain: string
+  revSkills: string
+  revMotivation: string
+  revTrialTaskTitle: string
+  revTrialTaskUrl: string
+}
+
+interface RevisionDraft extends RevisionDraftFields {
+  applicationId: number
+  baseVersion: number
+  updatedAt: string
+}
+
+interface RevisionConflict {
+  serverVersion: number
+  serverStatus: ApplicationStatus
+  draftBaseVersion: number
+  serverApplication: MemberApplication
+}
+
 function getDraftStorageKey(userId?: string | number | null): string {
   return `sloboda_application_draft:${userId || 'anon'}`
+}
+
+function getRevisionDraftKey(
+  userId: string | number | null | undefined,
+  appId: number,
+): string {
+  return `sloboda_revision_draft:${userId || 'anon'}:${appId}`
 }
 
 function readDraft(key: string): Partial<ApplicationDraft> | null {
@@ -104,16 +134,61 @@ function readDraft(key: string): Partial<ApplicationDraft> | null {
   }
 }
 
+function readRevisionDraft(key: string): RevisionDraft | null {
+  try {
+    const raw = localStorage.getItem(key)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<RevisionDraft>
+    if (!parsed || typeof parsed !== 'object') return null
+    if (typeof parsed.applicationId !== 'number' || typeof parsed.baseVersion !== 'number') {
+      return null
+    }
+    return {
+      applicationId: parsed.applicationId,
+      baseVersion: parsed.baseVersion,
+      revFullName: typeof parsed.revFullName === 'string' ? parsed.revFullName : '',
+      revCity: typeof parsed.revCity === 'string' ? parsed.revCity : '',
+      revPrimaryDomain: typeof parsed.revPrimaryDomain === 'string' ? parsed.revPrimaryDomain : 'GEN',
+      revSkills: typeof parsed.revSkills === 'string' ? parsed.revSkills : '',
+      revMotivation: typeof parsed.revMotivation === 'string' ? parsed.revMotivation : '',
+      revTrialTaskTitle: typeof parsed.revTrialTaskTitle === 'string' ? parsed.revTrialTaskTitle : '',
+      revTrialTaskUrl: typeof parsed.revTrialTaskUrl === 'string' ? parsed.revTrialTaskUrl : '',
+      updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : '',
+    }
+  } catch {
+    return null
+  }
+}
+
+function writeRevisionDraft(key: string, draft: RevisionDraft): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(draft))
+  } catch {
+    // Ignore storage quota errors
+  }
+}
+
+function removeRevisionDraft(key: string): void {
+  try {
+    localStorage.removeItem(key)
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 export default function Applications() {
   const authUser = useAuthStore((s) => s.user)
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [loading, setLoading] = useState(true)
+  const [loadFailed, setLoadFailed] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [application, setApplication] = useState<MemberApplication | null>(null)
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>([])
   const [membership, setMembership] = useState<MembershipInfo | null>(null)
   const [draftReady, setDraftReady] = useState(false)
+  const [revisionConflict, setRevisionConflict] = useState<RevisionConflict | null>(null)
+  const [revisionDraftVisible, setRevisionDraftVisible] = useState(false)
 
   // Initial application form state
   const [fullName, setFullName] = useState('')
@@ -168,7 +243,59 @@ export default function Applications() {
     setRevTrialTaskUrl(app.trial_task_url || '')
   }, [])
 
+  const effectiveUserId = membership?.id ?? authUser?.id ?? application?.user_id
+
+  const getRevisionFieldsSnapshot = useCallback(
+    (): RevisionDraftFields => ({
+      revFullName,
+      revCity,
+      revPrimaryDomain,
+      revSkills,
+      revMotivation,
+      revTrialTaskTitle,
+      revTrialTaskUrl,
+    }),
+    [
+      revFullName,
+      revCity,
+      revPrimaryDomain,
+      revSkills,
+      revMotivation,
+      revTrialTaskTitle,
+      revTrialTaskUrl,
+    ],
+  )
+
+  const updateRevisionField = useCallback(
+    <K extends keyof RevisionDraftFields>(field: K, value: RevisionDraftFields[K]) => {
+      if (field === 'revFullName') setRevFullName(value)
+      else if (field === 'revCity') setRevCity(value)
+      else if (field === 'revPrimaryDomain') setRevPrimaryDomain(value)
+      else if (field === 'revSkills') setRevSkills(value)
+      else if (field === 'revMotivation') setRevMotivation(value)
+      else if (field === 'revTrialTaskTitle') setRevTrialTaskTitle(value)
+      else if (field === 'revTrialTaskUrl') setRevTrialTaskUrl(value)
+
+      if (application && application.status === 'revision_requested') {
+        const key = getRevisionDraftKey(effectiveUserId, application.id)
+        const nextFields: RevisionDraftFields = {
+          ...getRevisionFieldsSnapshot(),
+          [field]: value,
+        }
+        writeRevisionDraft(key, {
+          applicationId: application.id,
+          baseVersion: revisionConflict?.draftBaseVersion ?? application.version,
+          ...nextFields,
+          updatedAt: new Date().toISOString(),
+        })
+        setRevisionDraftVisible(true)
+      }
+    },
+    [application, effectiveUserId, getRevisionFieldsSnapshot, revisionConflict?.draftBaseVersion],
+  )
+
   const loadMyApplication = useCallback(async () => {
+    setLoadFailed(false)
     try {
       const res = await api.get<MyApplicationResponse>('/applications/my')
       const app = res.data.application ?? null
@@ -176,13 +303,48 @@ export default function Applications() {
       setPortfolio(res.data.portfolio ?? [])
       setMembership(res.data.membership ?? null)
       setError(null)
+      setLoadFailed(false)
 
       if (app) {
-        syncRevisionFields(app)
+        const resolvedUserId = res.data.membership?.id ?? authUser?.id ?? app.user_id
+        const revKey = getRevisionDraftKey(resolvedUserId, app.id)
+        const savedRevDraft = readRevisionDraft(revKey)
+
+        if (savedRevDraft) {
+          setRevFullName(savedRevDraft.revFullName)
+          setRevCity(savedRevDraft.revCity)
+          setRevPrimaryDomain(savedRevDraft.revPrimaryDomain || 'GEN')
+          setRevSkills(savedRevDraft.revSkills)
+          setRevMotivation(savedRevDraft.revMotivation)
+          setRevTrialTaskTitle(savedRevDraft.revTrialTaskTitle)
+          setRevTrialTaskUrl(savedRevDraft.revTrialTaskUrl)
+          setRevisionDraftVisible(true)
+
+          if (
+            savedRevDraft.baseVersion !== app.version ||
+            app.status !== 'revision_requested'
+          ) {
+            setRevisionConflict({
+              serverVersion: app.version,
+              serverStatus: app.status,
+              draftBaseVersion: savedRevDraft.baseVersion,
+              serverApplication: app,
+            })
+          } else {
+            setRevisionConflict(null)
+          }
+        } else {
+          syncRevisionFields(app)
+          setRevisionConflict(null)
+          setRevisionDraftVisible(false)
+        }
+
         if (app.primary_domain) {
           setNewItemDomain(app.primary_domain)
         }
       } else {
+        setRevisionConflict(null)
+        setRevisionDraftVisible(false)
         const userId = res.data.membership?.id ?? authUser?.id
         const userDraft = readDraft(getDraftStorageKey(userId))
         const anonDraft = userId ? readDraft(getDraftStorageKey(null)) : null
@@ -208,6 +370,7 @@ export default function Applications() {
       }
       setDraftReady(true)
     } catch (err: unknown) {
+      setLoadFailed(true)
       setError(extractApiError(err, 'Не удалось загрузить данные заявки'))
     } finally {
       setLoading(false)
@@ -219,9 +382,8 @@ export default function Applications() {
   }, [loadMyApplication])
 
   // Persist draft in sessionStorage while filling initial form
-  const effectiveUserId = membership?.id ?? authUser?.id
   useEffect(() => {
-    if (!draftReady || loading || application) return
+    if (!draftReady || loading || application || loadFailed) return
     const key = getDraftStorageKey(effectiveUserId)
     const draft: ApplicationDraft = {
       fullName,
@@ -246,6 +408,7 @@ export default function Applications() {
     draftReady,
     loading,
     application,
+    loadFailed,
     effectiveUserId,
     fullName,
     email,
@@ -381,9 +544,33 @@ export default function Applications() {
     }
   }
 
+  const handleKeepRevisionDraftForNewVersion = () => {
+    if (!application) return
+    const key = getRevisionDraftKey(effectiveUserId, application.id)
+    writeRevisionDraft(key, {
+      applicationId: application.id,
+      baseVersion: application.version,
+      ...getRevisionFieldsSnapshot(),
+      updatedAt: new Date().toISOString(),
+    })
+    setRevisionConflict(null)
+    setRevisionDraftVisible(true)
+    toast.success(`Ваши правки сохранены для версии #${application.version}`)
+  }
+
+  const handleLoadServerRevisionVersion = () => {
+    if (!application) return
+    const key = getRevisionDraftKey(effectiveUserId, application.id)
+    removeRevisionDraft(key)
+    syncRevisionFields(application)
+    setRevisionConflict(null)
+    setRevisionDraftVisible(false)
+    toast.info(`Загружена серверная версия #${application.version}`)
+  }
+
   const handleResubmitRevision = async (e: FormEvent) => {
     e.preventDefault()
-    if (!application) return
+    if (!application || revisionConflict) return
     if (revFullName.trim().length < 2) {
       toast.error('Имя должно содержать от 2 символов')
       return
@@ -405,18 +592,50 @@ export default function Applications() {
           trial_task_url: revTrialTaskUrl.trim(),
         },
       )
+      removeRevisionDraft(getRevisionDraftKey(effectiveUserId, application.id))
+      setRevisionConflict(null)
+      setRevisionDraftVisible(false)
       setApplication(res.data.application)
       syncRevisionFields(res.data.application)
       toast.success('Доработанная заявка отправлена на повторное рассмотрение')
     } catch (err: unknown) {
       if (axios.isAxiosError(err) && err.response?.status === 409) {
+        const draftKey = getRevisionDraftKey(effectiveUserId, application.id)
+        writeRevisionDraft(draftKey, {
+          applicationId: application.id,
+          baseVersion: application.version,
+          ...getRevisionFieldsSnapshot(),
+          updatedAt: new Date().toISOString(),
+        })
+        setRevisionDraftVisible(true)
         toast.warning(
           extractApiError(
             err,
-            'Версия заявки изменилась. Данные обновлены с сервера.',
+            'Версия заявки изменилась. Ваши правки сохранены — выберите действие.',
           ),
         )
-        await loadMyApplication()
+        try {
+          const freshRes = await api.get<MyApplicationResponse>('/applications/my')
+          const freshApp = freshRes.data.application ?? null
+          if (freshApp) {
+            setApplication(freshApp)
+            setPortfolio(freshRes.data.portfolio ?? [])
+            setMembership(freshRes.data.membership ?? null)
+            setRevisionConflict({
+              serverVersion: freshApp.version,
+              serverStatus: freshApp.status,
+              draftBaseVersion: application.version,
+              serverApplication: freshApp,
+            })
+          }
+        } catch {
+          setRevisionConflict({
+            serverVersion: application.version,
+            serverStatus: application.status,
+            draftBaseVersion: application.version,
+            serverApplication: application,
+          })
+        }
       } else {
         toast.error(extractApiError(err, 'Не удалось отправить доработанную заявку'))
       }
@@ -445,11 +664,21 @@ export default function Applications() {
         artifact_url: newItemUrl.trim(),
       })
       setPortfolio((prev) => [res.data.item, ...prev])
-      setApplication((prev) =>
-        prev
-          ? { ...prev, version: res.data.application_version ?? prev.version + 1 }
-          : prev,
-      )
+      const nextVersion =
+        res.data.application_version ?? (application ? application.version + 1 : 1)
+      setApplication((prev) => (prev ? { ...prev, version: nextVersion } : prev))
+      if (application) {
+        const revKey = getRevisionDraftKey(effectiveUserId, application.id)
+        const existingDraft = readRevisionDraft(revKey)
+        if (existingDraft) {
+          writeRevisionDraft(revKey, {
+            ...existingDraft,
+            baseVersion: nextVersion,
+            ...getRevisionFieldsSnapshot(),
+            updatedAt: new Date().toISOString(),
+          })
+        }
+      }
       setNewItemTitle('')
       setNewItemSummary('')
       setNewItemUrl('')
@@ -480,42 +709,57 @@ export default function Applications() {
         </p>
       </div>
 
-      {error && (
+      {(error || loadFailed) && (
         <Card className="border-red-500/30 bg-red-500/5">
-          <div className="flex items-center gap-3 text-red-400 text-sm">
-            <AlertCircle size={18} />
-            <span>{error}</span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3 text-red-400 text-sm">
+              <AlertCircle size={18} className="shrink-0" />
+              <span>{error || 'Не удалось загрузить данные заявки'}</span>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                setLoading(true)
+                loadMyApplication()
+              }}
+            >
+              Повторить загрузку
+            </Button>
           </div>
         </Card>
       )}
 
-      {/* Membership Status Banner */}
-      <Card variant="highlighted">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2 flex-wrap">
-              <ShieldCheck size={18} className="text-accent" />
-              <span className="text-sm font-semibold text-text">Статус членства:</span>
-              <Badge variant={membershipMeta.variant} dot pulse={membershipStatus === 'applicant'}>
-                {membershipMeta.label}
-              </Badge>
+      {/* Membership Status Banner (hidden when load failed so fake observer banner never renders) */}
+      {!loadFailed && (
+        <Card variant="highlighted">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <ShieldCheck size={18} className="text-accent" />
+                <span className="text-sm font-semibold text-text">Статус членства:</span>
+                <Badge variant={membershipMeta.variant} dot pulse={membershipStatus === 'applicant'}>
+                  {membershipMeta.label}
+                </Badge>
+              </div>
+              <p className="text-sm text-text-secondary">{membershipMeta.description}</p>
+              <p className="text-xs text-green font-medium">
+                Членство в Слободе бесплатно и не требует оплаты — приём осуществляется по заявке и вкладу.
+              </p>
             </div>
-            <p className="text-sm text-text-secondary">{membershipMeta.description}</p>
-            <p className="text-xs text-green font-medium">
-              Членство в Слободе бесплатно и не требует оплаты — приём осуществляется по заявке и вкладу.
-            </p>
+            {membership?.membership_admitted_at && (
+              <div className="text-xs text-text-muted shrink-0">
+                Принят:{' '}
+                {new Date(membership.membership_admitted_at).toLocaleDateString('ru-RU')}
+              </div>
+            )}
           </div>
-          {membership?.membership_admitted_at && (
-            <div className="text-xs text-text-muted shrink-0">
-              Принят:{' '}
-              {new Date(membership.membership_admitted_at).toLocaleDateString('ru-RU')}
-            </div>
-          )}
-        </div>
-      </Card>
+        </Card>
+      )}
 
       {/* Expandable Guest Application Claim Panel */}
-      {!application && (
+      {!loadFailed && !application && (
         <Card padding="sm">
           <button
             type="button"
@@ -575,7 +819,7 @@ export default function Applications() {
       )}
 
       {/* Either New Application Form OR Existing Application + Portfolio */}
-      {!application ? (
+      {loadFailed && !application ? null : !application ? (
         <Card>
           <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
             <div className="flex items-center gap-2">
@@ -782,19 +1026,60 @@ export default function Applications() {
               </div>
             )}
 
+            {revisionConflict && (
+              <div className="mb-5 p-4 rounded-lg bg-red-500/10 border border-red-500/30 space-y-3">
+                <div className="flex items-center gap-2 text-red-400 text-sm font-semibold">
+                  <AlertCircle size={16} />
+                  <span>
+                    Обнаружено изменение заявки на сервере (версия #{revisionConflict.serverVersion}, статус:{' '}
+                    {(APPLICATION_STATUS_META[revisionConflict.serverStatus] ?? {
+                      label: revisionConflict.serverStatus,
+                    }).label}
+                    )
+                  </span>
+                </div>
+                <p className="text-xs text-text-secondary">
+                  Ваш локальный черновик доработки создавался для версии #{revisionConflict.draftBaseVersion}.
+                  {revisionConflict.serverStatus === 'revision_requested'
+                    ? ' Выберите, сохранить ли локальные правки для новой версии или загрузить серверные данные.'
+                    : ' Статус заявки изменился и повторная отправка отключена. Ваши локальные правки сохранены ниже для копирования.'}
+                </p>
+                {revisionConflict.serverStatus === 'revision_requested' && (
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="primary"
+                      onClick={handleKeepRevisionDraftForNewVersion}
+                    >
+                      Сохранить мои правки для версии #{revisionConflict.serverVersion}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={handleLoadServerRevisionVersion}
+                    >
+                      Загрузить серверную версию #{revisionConflict.serverVersion}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {application.status === 'revision_requested' ? (
               <form onSubmit={handleResubmitRevision} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Input
                     label="ФИО *"
                     value={revFullName}
-                    onChange={(e) => setRevFullName(e.target.value)}
+                    onChange={(e) => updateRevisionField('revFullName', e.target.value)}
                     required
                   />
                   <Input
                     label="Город / регион"
                     value={revCity}
-                    onChange={(e) => setRevCity(e.target.value)}
+                    onChange={(e) => updateRevisionField('revCity', e.target.value)}
                   />
                 </div>
 
@@ -808,7 +1093,7 @@ export default function Applications() {
                   <select
                     id="rev-primary-domain"
                     value={revPrimaryDomain}
-                    onChange={(e) => setRevPrimaryDomain(e.target.value)}
+                    onChange={(e) => updateRevisionField('revPrimaryDomain', e.target.value)}
                     className="w-full px-3 py-2 rounded-lg bg-bg-card border border-border text-text focus:outline-none focus:border-accent transition-colors"
                   >
                     {SETTLEMENT_DOMAINS.map((d) => (
@@ -822,14 +1107,14 @@ export default function Applications() {
                 <Textarea
                   label="Навыки и компетенции"
                   value={revSkills}
-                  onChange={(e) => setRevSkills(e.target.value)}
+                  onChange={(e) => updateRevisionField('revSkills', e.target.value)}
                   rows={3}
                 />
 
                 <Textarea
                   label="Мотивация участия"
                   value={revMotivation}
-                  onChange={(e) => setRevMotivation(e.target.value)}
+                  onChange={(e) => updateRevisionField('revMotivation', e.target.value)}
                   rows={3}
                 />
 
@@ -837,19 +1122,23 @@ export default function Applications() {
                   <Input
                     label="Название тестового задания"
                     value={revTrialTaskTitle}
-                    onChange={(e) => setRevTrialTaskTitle(e.target.value)}
+                    onChange={(e) => updateRevisionField('revTrialTaskTitle', e.target.value)}
                   />
                   <Input
                     label="Ссылка на тестовое задание"
                     type="url"
                     value={revTrialTaskUrl}
-                    onChange={(e) => setRevTrialTaskUrl(e.target.value)}
+                    onChange={(e) => updateRevisionField('revTrialTaskUrl', e.target.value)}
                     placeholder="https://..."
                   />
                 </div>
 
                 <div className="flex justify-end pt-2">
-                  <Button type="submit" loading={submittingRevision}>
+                  <Button
+                    type="submit"
+                    loading={submittingRevision}
+                    disabled={Boolean(revisionConflict)}
+                  >
                     <RotateCcw size={15} />
                     Отправить доработанную заявку
                   </Button>
@@ -857,6 +1146,55 @@ export default function Applications() {
               </form>
             ) : (
               <>
+                {revisionDraftVisible && (
+                  <div className="mb-5 p-4 rounded-lg bg-bg-elevated border border-amber-500/30 space-y-3">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <p className="text-sm font-semibold text-amber-400">
+                        Сохранённые локальные правки (только чтение, повторная отправка недоступна)
+                      </p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={handleLoadServerRevisionVersion}
+                      >
+                        Очистить черновик
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-text-secondary">
+                      <div>
+                        <span className="text-text-muted">ФИО:</span>{' '}
+                        <span className="text-text select-all">{revFullName || '—'}</span>
+                      </div>
+                      <div>
+                        <span className="text-text-muted">Город:</span>{' '}
+                        <span className="text-text select-all">{revCity || '—'}</span>
+                      </div>
+                      <div>
+                        <span className="text-text-muted">Домен:</span>{' '}
+                        <span className="text-text select-all">{revPrimaryDomain}</span>
+                      </div>
+                      <div>
+                        <span className="text-text-muted">Тестовое задание:</span>{' '}
+                        <span className="text-text select-all">
+                          {revTrialTaskTitle || '—'} {revTrialTaskUrl ? `(${revTrialTaskUrl})` : ''}
+                        </span>
+                      </div>
+                    </div>
+                    {revSkills && (
+                      <div className="text-xs">
+                        <p className="text-text-muted mb-0.5">Навыки:</p>
+                        <p className="text-text whitespace-pre-line select-all">{revSkills}</p>
+                      </div>
+                    )}
+                    {revMotivation && (
+                      <div className="text-xs">
+                        <p className="text-text-muted mb-0.5">Мотивация:</p>
+                        <p className="text-text whitespace-pre-line select-all">{revMotivation}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div>
                     <dt className="text-text-muted text-xs">Имя</dt>

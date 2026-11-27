@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import axios from 'axios'
 import { toast } from 'sonner'
 import {
@@ -29,9 +29,9 @@ import {
   extractApiError,
   rublesToKopecksString,
   type AdminLedgerExpense,
+  type AdminLedgerSummary,
   type ConstructionMilestone,
   type LedgerContribution,
-  type PublicLedgerSummary,
 } from '@/types/core'
 
 interface FinanceSummary {
@@ -106,6 +106,42 @@ const EXPENSE_STATUS_BADGE: Record<
   disputed: { label: 'Оспорен', variant: 'danger' },
 }
 
+const DEFAULT_SETTLEMENT_ID = 'sloboda-pilot'
+const LEDGER_PAGE_SIZE = 25
+
+const LEDGER_MODE_META: Record<
+  string,
+  { label: string; variant: 'success' | 'warning' | 'default' }
+> = {
+  verified_receipt: {
+    label: 'Подтверждён (verified_receipt)',
+    variant: 'success',
+  },
+  pledge: {
+    label: 'Обещание (pledge — не расходуется)',
+    variant: 'warning',
+  },
+  legacy_import: {
+    label: 'Импорт (legacy_import)',
+    variant: 'default',
+  },
+}
+
+const CONTRIB_MODE_FILTERS = [
+  { value: '', label: 'Все' },
+  { value: 'verified_receipt', label: 'verified_receipt' },
+  { value: 'pledge', label: 'pledge' },
+  { value: 'legacy_import', label: 'legacy_import' },
+] as const
+
+const EXPENSE_STATUS_FILTERS = [
+  { value: '', label: 'Все' },
+  { value: 'reserved', label: 'В резерве (reserved)' },
+  { value: 'disputed', label: 'Спор (disputed)' },
+  { value: 'paid', label: 'Оплачено (paid)' },
+  { value: 'cancelled', label: 'Отменено (cancelled)' },
+] as const
+
 function generateIdempotencyKey(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID()
@@ -132,8 +168,21 @@ export default function AdminFinance() {
   // ============================================
   // NEW VERIFIED KOPECK LEDGER STATE
   // ============================================
+  const [selectedSettlement, setSelectedSettlement] = useState<string>(DEFAULT_SETTLEMENT_ID)
+  const [availableSettlements, setAvailableSettlements] = useState<string[]>([DEFAULT_SETTLEMENT_ID])
+  const [contribModeFilter, setContribModeFilter] = useState<string>('')
+  const [contribPage, setContribPage] = useState(0)
+  const [contribTotal, setContribTotal] = useState(0)
+  const [contribHasMore, setContribHasMore] = useState(false)
+  const [expenseStatusFilter, setExpenseStatusFilter] = useState<string>('')
+  const [expensePage, setExpensePage] = useState(0)
+  const [expenseTotal, setExpenseTotal] = useState(0)
+  const [expenseHasMore, setExpenseHasMore] = useState(false)
+  const [refreshedConflictExpense, setRefreshedConflictExpense] = useState<AdminLedgerExpense | null>(null)
+  const ledgerFetchSeqRef = useRef(0)
+
   const [ledgerLoading, setLedgerLoading] = useState(true)
-  const [ledgerSummary, setLedgerSummary] = useState<PublicLedgerSummary | null>(null)
+  const [ledgerSummary, setLedgerSummary] = useState<AdminLedgerSummary | null>(null)
   const [contributions, setContributions] = useState<LedgerContribution[]>([])
   const [expenses, setExpenses] = useState<AdminLedgerExpense[]>([])
   const [milestones, setMilestones] = useState<ConstructionMilestone[]>([])
@@ -183,37 +232,104 @@ export default function AdminFinance() {
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  const concreteSettlement =
+    selectedSettlement === 'all' ? DEFAULT_SETTLEMENT_ID : selectedSettlement
+
   const fetchLedgerData = useCallback(async () => {
+    const seq = ++ledgerFetchSeqRef.current
     setLedgerLoading(true)
     setLedgerError(null)
+    const milestoneSettlement =
+      selectedSettlement === 'all' ? DEFAULT_SETTLEMENT_ID : selectedSettlement
+
     const [contribRes, expRes, summaryRes, milestonesRes] = await Promise.allSettled([
-      adminApi.get<{ success: boolean; contributions: LedgerContribution[] }>(
-        '/admin/ledger/contributions',
-      ),
-      adminApi.get<{ success: boolean; expenses: AdminLedgerExpense[] }>(
-        '/admin/ledger/expenses',
-      ),
-      adminApi.get<{ success: boolean } & PublicLedgerSummary>('/public/ledger/summary'),
+      adminApi.get<{
+        success: boolean
+        contributions: LedgerContribution[]
+        total?: number
+        has_more?: boolean
+      }>('/admin/ledger/contributions', {
+        params: {
+          settlement_id: selectedSettlement,
+          ledger_mode: contribModeFilter || undefined,
+          limit: LEDGER_PAGE_SIZE,
+          offset: contribPage * LEDGER_PAGE_SIZE,
+        },
+      }),
+      adminApi.get<{
+        success: boolean
+        expenses: AdminLedgerExpense[]
+        total?: number
+        has_more?: boolean
+      }>('/admin/ledger/expenses', {
+        params: {
+          settlement_id: selectedSettlement,
+          status: expenseStatusFilter || undefined,
+          limit: LEDGER_PAGE_SIZE,
+          offset: expensePage * LEDGER_PAGE_SIZE,
+        },
+      }),
+      adminApi.get<{ success: boolean } & AdminLedgerSummary>('/admin/ledger/summary', {
+        params: { settlement_id: selectedSettlement },
+      }),
       adminApi.get<{ success: boolean; milestones: ConstructionMilestone[] }>(
         '/public/construction/milestones',
+        { params: { settlement_id: milestoneSettlement } },
       ),
     ])
 
+    if (seq !== ledgerFetchSeqRef.current) {
+      return
+    }
+
     const errors: string[] = []
     if (contribRes.status === 'fulfilled') {
-      setContributions(contribRes.value.data.contributions ?? [])
+      const items = contribRes.value.data.contributions ?? []
+      const totalCount =
+        typeof contribRes.value.data.total === 'number'
+          ? contribRes.value.data.total
+          : items.length
+      const hasMore =
+        typeof contribRes.value.data.has_more === 'boolean'
+          ? contribRes.value.data.has_more
+          : (contribPage + 1) * LEDGER_PAGE_SIZE < totalCount
+      setContributions(items)
+      setContribTotal(totalCount)
+      setContribHasMore(hasMore)
     } else {
       errors.push(extractApiError(contribRes.reason, 'взносы'))
     }
 
     if (expRes.status === 'fulfilled') {
-      setExpenses(expRes.value.data.expenses ?? [])
+      const items = expRes.value.data.expenses ?? []
+      const totalCount =
+        typeof expRes.value.data.total === 'number'
+          ? expRes.value.data.total
+          : items.length
+      const hasMore =
+        typeof expRes.value.data.has_more === 'boolean'
+          ? expRes.value.data.has_more
+          : (expensePage + 1) * LEDGER_PAGE_SIZE < totalCount
+      setExpenses(items)
+      setExpenseTotal(totalCount)
+      setExpenseHasMore(hasMore)
     } else {
       errors.push(extractApiError(expRes.reason, 'расходы'))
     }
 
     if (summaryRes.status === 'fulfilled') {
-      setLedgerSummary(summaryRes.value.data)
+      const summaryData = summaryRes.value.data
+      setLedgerSummary(summaryData)
+      if (Array.isArray(summaryData.settlements) && summaryData.settlements.length > 0) {
+        const normalized = Array.from(
+          new Set(
+            [DEFAULT_SETTLEMENT_ID, ...summaryData.settlements].filter(
+              (s): s is string => typeof s === 'string' && s.trim().length > 0 && s !== 'all',
+            ),
+          ),
+        )
+        setAvailableSettlements(normalized)
+      }
     } else {
       errors.push(extractApiError(summaryRes.reason, 'сводка реестра'))
     }
@@ -226,7 +342,7 @@ export default function AdminFinance() {
       setLedgerError(`Часть данных реестра не загрузилась: ${errors.join('; ')}`)
     }
     setLedgerLoading(false)
-  }, [])
+  }, [selectedSettlement, contribModeFilter, contribPage, expenseStatusFilter, expensePage])
 
   const fetchSummary = useCallback(async () => {
     try {
@@ -281,6 +397,7 @@ export default function AdminFinance() {
     try {
       const payload: Record<string, unknown> = {
         idempotency_key: contribIdempKey,
+        settlement_id: concreteSettlement,
         contributor_name: contribName.trim(),
         amount_kopecks: kopecks,
         purpose: contribPurpose.trim() || 'general',
@@ -331,6 +448,7 @@ export default function AdminFinance() {
     try {
       const payload: Record<string, unknown> = {
         idempotency_key: expIdempKey,
+        settlement_id: concreteSettlement,
         title: expTitle.trim(),
         category: expCategory,
         amount_kopecks: kopecks,
@@ -374,13 +492,29 @@ export default function AdminFinance() {
         status: nextStatus,
         expected_version: exp.version ?? 1,
       })
+      setRefreshedConflictExpense((prev) => (prev?.id === exp.id ? null : prev))
       toast.success(`Статус расхода #${exp.id} обновлён: ${nextStatus}`)
       await fetchLedgerData()
     } catch (err: unknown) {
       if (axios.isAxiosError(err) && err.response?.status === 409) {
         toast.warning(
-          extractApiError(err, 'Конфликт версии или недопустимый переход статуса. Список обновлён.'),
+          extractApiError(err, 'Конфликт версии или недопустимый переход статуса. Данные обновлены.'),
         )
+        try {
+          const singleRes = await adminApi.get<{
+            success?: boolean
+            expense?: AdminLedgerExpense
+          }>(`/admin/ledger/expenses/${exp.id}`)
+          const freshExpense = singleRes.data.expense
+          if (freshExpense) {
+            setExpenses((prev) =>
+              prev.map((item) => (item.id === freshExpense.id ? freshExpense : item)),
+            )
+            setRefreshedConflictExpense(freshExpense)
+          }
+        } catch {
+          // Non-fatal; list refresh below still runs
+        }
         await fetchLedgerData()
       } else {
         toast.error(extractApiError(err, 'Не удалось обновить статус расхода'))
@@ -509,6 +643,43 @@ export default function AdminFinance() {
 
       {activeTab === 'ledger' ? (
         <div className="space-y-8">
+          {/* Settlement Scope Selector */}
+          <Card padding="sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-text">Область поселения (Settlement Scope)</p>
+                <p className="text-xs text-text-muted">
+                  Фильтрует сводку, взносы и расходы; создание новых записей привязано к{' '}
+                  <code className="text-text">{concreteSettlement}</code>.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <label htmlFor="settlement-scope" className="text-xs text-text-secondary shrink-0">
+                  Поселение:
+                </label>
+                <select
+                  id="settlement-scope"
+                  value={selectedSettlement}
+                  onChange={(e) => {
+                    setSelectedSettlement(e.target.value)
+                    setContribPage(0)
+                    setExpensePage(0)
+                    setExpMilestoneId('')
+                    setRefreshedConflictExpense(null)
+                  }}
+                  className="px-3 py-2 rounded-lg bg-bg-card border border-border text-text text-sm focus:outline-none focus:border-accent"
+                >
+                  <option value="all">Все поселения (all)</option>
+                  {availableSettlements.map((settlement) => (
+                    <option key={settlement} value={settlement}>
+                      {settlement}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </Card>
+
           {ledgerError && (
             <Card className="border-amber-500/30 bg-amber-500/5">
               <div className="flex items-center gap-2 text-amber-400 text-sm">
@@ -518,40 +689,102 @@ export default function AdminFinance() {
             </Card>
           )}
 
-          {/* KPI Summary Cards */}
+          {/* KPI Summary Cards: Verified Spendable vs Non-Spendable Modes */}
           {ledgerLoading && !ledgerSummary ? (
             <div className="flex items-center justify-center py-10">
               <Loader2 className="animate-spin text-accent" size={24} />
             </div>
           ) : ledgerSummary ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card>
-                <p className="text-xs text-text-secondary">Получено в реестр</p>
-                <p className="text-xl font-bold font-display text-text mt-1">
-                  {ledgerSummary.totals.received.rubles_str} ₽
-                </p>
-                <p className="text-[11px] text-text-muted mt-1">
-                  Взносов: {ledgerSummary.totals.contributions_count}
-                </p>
-              </Card>
-              <Card>
-                <p className="text-xs text-text-secondary">Доступный остаток</p>
-                <p className="text-xl font-bold font-display text-green mt-1">
-                  {ledgerSummary.totals.available.rubles_str} ₽
-                </p>
-              </Card>
-              <Card>
-                <p className="text-xs text-text-secondary">Зарезервировано</p>
-                <p className="text-xl font-bold font-display text-amber-400 mt-1">
-                  {ledgerSummary.totals.reserved.rubles_str} ₽
-                </p>
-              </Card>
-              <Card>
-                <p className="text-xs text-text-secondary">Оплачено по расходам</p>
-                <p className="text-xl font-bold font-display text-accent mt-1">
-                  {ledgerSummary.totals.paid.rubles_str} ₽
-                </p>
-              </Card>
+            <div className="space-y-4">
+              {(() => {
+                const verifiedStats = ledgerSummary.by_ledger_mode?.verified_receipt
+                const pledgeStats = ledgerSummary.by_ledger_mode?.pledge
+                const legacyStats = ledgerSummary.by_ledger_mode?.legacy_import
+                const verifiedReceived =
+                  verifiedStats?.received.rubles_str ?? ledgerSummary.totals.received.rubles_str
+                const verifiedAvailable =
+                  verifiedStats?.available?.rubles_str ?? ledgerSummary.totals.available.rubles_str
+                const verifiedReserved =
+                  verifiedStats?.reserved?.rubles_str ?? ledgerSummary.totals.reserved.rubles_str
+                const verifiedPaid =
+                  verifiedStats?.paid?.rubles_str ?? ledgerSummary.totals.paid.rubles_str
+                const verifiedCount =
+                  verifiedStats?.contributions_count ?? ledgerSummary.totals.contributions_count
+
+                return (
+                  <>
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <ShieldCheck size={16} className="text-green" />
+                        <h3 className="text-sm font-semibold text-text">
+                          Проверенные средства (verified_receipt)
+                        </h3>
+                        <Badge variant="success">Доступно к аллокации</Badge>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <Card>
+                          <p className="text-xs text-text-secondary">Получено (verified_receipt)</p>
+                          <p className="text-xl font-bold font-display text-text mt-1">
+                            {verifiedReceived} ₽
+                          </p>
+                          <p className="text-[11px] text-text-muted mt-1">
+                            Взносов: {verifiedCount}
+                          </p>
+                        </Card>
+                        <Card>
+                          <p className="text-xs text-text-secondary">Доступный остаток (расходуемый)</p>
+                          <p className="text-xl font-bold font-display text-green mt-1">
+                            {verifiedAvailable} ₽
+                          </p>
+                        </Card>
+                        <Card>
+                          <p className="text-xs text-text-secondary">Зарезервировано</p>
+                          <p className="text-xl font-bold font-display text-amber-400 mt-1">
+                            {verifiedReserved} ₽
+                          </p>
+                        </Card>
+                        <Card>
+                          <p className="text-xs text-text-secondary">Оплачено по расходам</p>
+                          <p className="text-xl font-bold font-display text-accent mt-1">
+                            {verifiedPaid} ₽
+                          </p>
+                        </Card>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Card className="border-amber-500/25 bg-amber-500/5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-semibold text-amber-400">
+                            Обещания (pledge)
+                          </span>
+                          <Badge variant="warning">Не расходуется</Badge>
+                        </div>
+                        <p className="text-lg font-bold font-display text-text mt-1">
+                          {pledgeStats?.received.rubles_str ?? '0.00'} ₽
+                        </p>
+                        <p className="text-[11px] text-text-muted mt-1">
+                          Записей: {pledgeStats?.contributions_count ?? 0} · Не участвует в доступном остатке и аллокациях расходов.
+                        </p>
+                      </Card>
+                      <Card className="border-border bg-bg-elevated/40">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-semibold text-text-secondary">
+                            Исторический импорт (legacy_import)
+                          </span>
+                          <Badge variant="default">Архив · не расходуется</Badge>
+                        </div>
+                        <p className="text-lg font-bold font-display text-text mt-1">
+                          {legacyStats?.received.rubles_str ?? '0.00'} ₽
+                        </p>
+                        <p className="text-[11px] text-text-muted mt-1">
+                          Записей: {legacyStats?.contributions_count ?? 0} · Исторический учёт без доступного остатка для новых трат.
+                        </p>
+                      </Card>
+                    </div>
+                  </>
+                )
+              })()}
             </div>
           ) : null}
 
@@ -560,11 +793,12 @@ export default function AdminFinance() {
             {/* Record Verified Contribution */}
             <Card>
               <div className="flex items-center justify-between gap-2 mb-4">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <ShieldCheck size={18} className="text-green" />
                   <h2 className="text-base font-semibold font-display">
                     Записать верифицированный взнос
                   </h2>
+                  <Badge variant="info">{concreteSettlement}</Badge>
                 </div>
                 <span className="text-[10px] font-mono text-text-muted" title={contribIdempKey}>
                   key: {contribIdempKey.slice(0, 8)}…
@@ -649,11 +883,12 @@ export default function AdminFinance() {
             {/* Create & Allocate Expense */}
             <Card>
               <div className="flex items-center justify-between gap-2 mb-4">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <ArrowDownRight size={18} className="text-accent" />
                   <h2 className="text-base font-semibold font-display">
                     Создать и аллоцировать расход
                   </h2>
+                  <Badge variant="info">{concreteSettlement}</Badge>
                 </div>
                 <span className="text-[10px] font-mono text-text-muted" title={expIdempKey}>
                   key: {expIdempKey.slice(0, 8)}…
@@ -773,11 +1008,54 @@ export default function AdminFinance() {
 
           {/* Expenses Table */}
           <Card>
-            <h2 className="text-base font-semibold font-display mb-4">
-              Расходы реестра ({expenses.length})
-            </h2>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <h2 className="text-base font-semibold font-display">
+                Расходы реестра ({expenseTotal})
+              </h2>
+              <div className="flex flex-wrap gap-1.5">
+                {EXPENSE_STATUS_FILTERS.map((opt) => (
+                  <button
+                    key={opt.value || 'all'}
+                    type="button"
+                    onClick={() => {
+                      setExpenseStatusFilter(opt.value)
+                      setExpensePage(0)
+                    }}
+                    className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-colors ${
+                      expenseStatusFilter === opt.value
+                        ? 'bg-accent/15 text-accent border border-accent/30'
+                        : 'text-text-secondary hover:text-text hover:bg-bg-elevated border border-border'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {refreshedConflictExpense && (
+              <div className="mb-4 p-3 rounded-lg border border-amber-500/30 bg-amber-500/5 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <span className="font-semibold text-amber-400">
+                    Актуальное состояние расхода #{refreshedConflictExpense.id}:
+                  </span>{' '}
+                  <span className="text-text">{refreshedConflictExpense.title}</span> — статус{' '}
+                  <code>{refreshedConflictExpense.status}</code>, версия{' '}
+                  <code>v{refreshedConflictExpense.version ?? 1}</code>, поселение{' '}
+                  <code>{refreshedConflictExpense.settlement_id}</code>.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setRefreshedConflictExpense(null)}
+                  className="text-text-muted hover:text-text shrink-0"
+                >
+                  Скрыть
+                </button>
+              </div>
+            )}
+
             {expenses.length === 0 ? (
-              <p className="text-sm text-text-muted">Расходов в реестре пока нет.</p>
+              <p className="text-sm text-text-muted">Расходов по выбранному фильтру нет.</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left border-collapse">
@@ -810,9 +1088,17 @@ export default function AdminFinance() {
                       return (
                         <tr key={exp.id} className="align-top">
                           <td className="py-3 pr-3">
-                            <p className="font-medium text-text">
-                              #{exp.id} · {exp.title}
-                            </p>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="font-medium text-text">
+                                #{exp.id} · {exp.title}
+                              </p>
+                              <Badge variant="info">{exp.settlement_id}</Badge>
+                              {exp.allocation_ledger_modes?.map((mode) => (
+                                <Badge key={mode} variant="default">
+                                  {mode}
+                                </Badge>
+                              ))}
+                            </div>
                             <p className="text-xs text-text-muted">
                               {CATEGORY_LABELS[exp.category] || exp.category} · {exp.purpose} ·{' '}
                               {exp.allocation_rule}
@@ -943,49 +1229,135 @@ export default function AdminFinance() {
                 </table>
               </div>
             )}
+            {(expensePage > 0 || expenseHasMore || expenseTotal > LEDGER_PAGE_SIZE) && (
+              <div className="flex items-center justify-between gap-3 pt-4 mt-4 border-t border-border">
+                <span className="text-xs text-text-muted">
+                  Страница {expensePage + 1} · Всего: {expenseTotal}
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    disabled={expensePage === 0 || ledgerLoading}
+                    onClick={() => setExpensePage((p) => Math.max(0, p - 1))}
+                  >
+                    Назад
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    disabled={!expenseHasMore || ledgerLoading}
+                    onClick={() => setExpensePage((p) => p + 1)}
+                  >
+                    Вперёд
+                  </Button>
+                </div>
+              </div>
+            )}
           </Card>
 
           {/* Contributions List */}
           <Card>
-            <h2 className="text-base font-semibold font-display mb-4">
-              Взносы в реестре ({contributions.length})
-            </h2>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <h2 className="text-base font-semibold font-display">
+                Взносы в реестре ({contribTotal})
+              </h2>
+              <div className="flex flex-wrap gap-1.5">
+                {CONTRIB_MODE_FILTERS.map((opt) => (
+                  <button
+                    key={opt.value || 'all'}
+                    type="button"
+                    onClick={() => {
+                      setContribModeFilter(opt.value)
+                      setContribPage(0)
+                    }}
+                    className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-colors ${
+                      contribModeFilter === opt.value
+                        ? 'bg-accent/15 text-accent border border-accent/30'
+                        : 'text-text-secondary hover:text-text hover:bg-bg-elevated border border-border'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             {contributions.length === 0 ? (
-              <p className="text-sm text-text-muted">Верифицированных взносов пока нет.</p>
+              <p className="text-sm text-text-muted">Взносов по выбранному фильтру нет.</p>
             ) : (
               <div className="space-y-2.5">
-                {contributions.map((c) => (
-                  <div
-                    key={c.id}
-                    className="p-3 rounded-lg bg-bg-elevated/60 border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium text-text">
-                          #{c.id} · {c.contributor_name}
-                        </span>
-                        <Badge variant="default">{c.status}</Badge>
-                        <Badge variant="info">{c.legal_right_type}</Badge>
-                        {c.share_class && <Badge variant="default">{c.share_class}</Badge>}
+                {contributions.map((c) => {
+                  const modeMeta = LEDGER_MODE_META[c.ledger_mode] ?? {
+                    label: c.ledger_mode,
+                    variant: 'default' as const,
+                  }
+                  return (
+                    <div
+                      key={c.id}
+                      className="p-3 rounded-lg bg-bg-elevated/60 border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-medium text-text">
+                            #{c.id} · {c.contributor_name}
+                          </span>
+                          <Badge variant="info">{c.settlement_id}</Badge>
+                          <Badge variant={modeMeta.variant}>{modeMeta.label}</Badge>
+                          <Badge variant="default">{c.status}</Badge>
+                          <Badge variant="info">{c.legal_right_type}</Badge>
+                          {c.share_class && <Badge variant="default">{c.share_class}</Badge>}
+                        </div>
+                        <p className="text-xs text-text-muted mt-0.5">
+                          Назначение: {c.purpose}
+                          {c.user_id ? ` · User #${c.user_id}` : ''} ·{' '}
+                          {new Date(c.created_at).toLocaleDateString('ru-RU')}
+                        </p>
                       </div>
-                      <p className="text-xs text-text-muted mt-0.5">
-                        Назначение: {c.purpose}
-                        {c.user_id ? ` · User #${c.user_id}` : ''} ·{' '}
-                        {new Date(c.created_at).toLocaleDateString('ru-RU')}
-                      </p>
+                      <div className="text-xs text-text-secondary flex flex-wrap gap-3 shrink-0">
+                        <span>
+                          Получено: <strong className="text-text">{c.received.rubles_str} ₽</strong>
+                        </span>
+                        <span>
+                          Доступно:{' '}
+                          <strong className={c.ledger_mode === 'verified_receipt' ? 'text-green' : 'text-text-muted'}>
+                            {c.available.rubles_str} ₽
+                          </strong>
+                        </span>
+                        <span>Резерв: {c.reserved.rubles_str} ₽</span>
+                        <span>Оплачено: {c.paid.rubles_str} ₽</span>
+                      </div>
                     </div>
-                    <div className="text-xs text-text-secondary flex flex-wrap gap-3 shrink-0">
-                      <span>
-                        Получено: <strong className="text-text">{c.received.rubles_str} ₽</strong>
-                      </span>
-                      <span>
-                        Доступно: <strong className="text-green">{c.available.rubles_str} ₽</strong>
-                      </span>
-                      <span>Резерв: {c.reserved.rubles_str} ₽</span>
-                      <span>Оплачено: {c.paid.rubles_str} ₽</span>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
+              </div>
+            )}
+            {(contribPage > 0 || contribHasMore || contribTotal > LEDGER_PAGE_SIZE) && (
+              <div className="flex items-center justify-between gap-3 pt-4 mt-4 border-t border-border">
+                <span className="text-xs text-text-muted">
+                  Страница {contribPage + 1} · Всего: {contribTotal}
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    disabled={contribPage === 0 || ledgerLoading}
+                    onClick={() => setContribPage((p) => Math.max(0, p - 1))}
+                  >
+                    Назад
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    disabled={!contribHasMore || ledgerLoading}
+                    onClick={() => setContribPage((p) => p + 1)}
+                  >
+                    Вперёд
+                  </Button>
+                </div>
               </div>
             )}
           </Card>

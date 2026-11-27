@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Shield } from 'lucide-react';
 import Card from '@/components/ui/Card';
-import axios from 'axios';
+import api from '@/services/api';
 import { formatDistanceToNow } from 'date-fns';
 import { useDateLocale } from '@/hooks/useDateLocale';
 import { getApiErrorMessage } from '@/lib/utils';
@@ -15,6 +15,7 @@ interface ModAction {
   action_type: string;
   target_user_id?: number;
   target_user_name?: string;
+  user_name?: string;
   target_thread_id?: number;
   target_comment_id?: number;
   reason?: string;
@@ -41,12 +42,11 @@ export function ModLog({ limit = 50, userId, threadId }: ModLogProps) {
       setError(null);
 
       try {
-        const params = new URLSearchParams();
-        params.append('limit', limit.toString());
-        if (userId) params.append('user_id', userId.toString());
-        if (threadId) params.append('thread_id', threadId.toString());
+        const params: Record<string, number> = { limit };
+        if (userId) params.user_id = userId;
+        if (threadId) params.thread_id = threadId;
 
-        const response = await axios.get(`/api/moderation/actions?${params}`);
+        const response = await api.get('/moderation/actions', { params });
         setActions(response.data.actions || []);
       } catch (err: unknown) {
         setError(getApiErrorMessage(err, 'Failed to load moderation log'));
@@ -84,7 +84,9 @@ export function ModLog({ limit = 50, userId, threadId }: ModLogProps) {
 
   return (
     <div className="space-y-2">
-      {actions.map((action) => (
+      {actions.map((action) => {
+        const targetUserName = action.target_user_name || action.user_name;
+        return (
         <Card key={action.id} className="p-4">
           <div className="flex items-start gap-3">
             <div className="mt-1">
@@ -99,11 +101,11 @@ export function ModLog({ limit = 50, userId, threadId }: ModLogProps) {
                 <span className="text-gray-400">
                   {t(`forum.modLog.actions.${action.action_type}`, { defaultValue: action.action_type })}
                 </span>
-                {action.target_user_name && (
+                {targetUserName && (
                   <>
                     <span className="text-gray-600">&rarr;</span>
                     <span className="font-medium text-gray-300">
-                      {action.target_user_name}
+                      {targetUserName}
                     </span>
                   </>
                 )}
@@ -130,7 +132,8 @@ export function ModLog({ limit = 50, userId, threadId }: ModLogProps) {
             </div>
           </div>
         </Card>
-      ))}
+        );
+      })}
     </div>
   );
 }

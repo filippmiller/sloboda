@@ -16,9 +16,18 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint WHERE conname = 'chk_contributions_ledger_mode'
     ) THEN
-        ALTER TABLE contributions
-            ADD CONSTRAINT chk_contributions_ledger_mode
-            CHECK (ledger_mode IN ('verified_receipt', 'pledge', 'legacy_import'));
+        IF EXISTS (
+            SELECT 1 FROM contributions
+            WHERE ledger_mode IS NULL OR ledger_mode NOT IN ('verified_receipt', 'pledge', 'legacy_import')
+        ) THEN
+            ALTER TABLE contributions
+                ADD CONSTRAINT chk_contributions_ledger_mode
+                CHECK (ledger_mode IN ('verified_receipt', 'pledge', 'legacy_import')) NOT VALID;
+        ELSE
+            ALTER TABLE contributions
+                ADD CONSTRAINT chk_contributions_ledger_mode
+                CHECK (ledger_mode IN ('verified_receipt', 'pledge', 'legacy_import'));
+        END IF;
     END IF;
 END $$;
 
@@ -93,11 +102,27 @@ BEGIN
             );
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_ledger_expenses_settlement_milestone') THEN
-        ALTER TABLE ledger_expenses
-            ADD CONSTRAINT fk_ledger_expenses_settlement_milestone
-            FOREIGN KEY (settlement_id, milestone_id)
-            REFERENCES construction_milestones (settlement_id, id)
-            ON DELETE RESTRICT;
+        IF EXISTS (
+            SELECT 1 FROM ledger_expenses e
+            WHERE e.milestone_id IS NOT NULL
+              AND NOT EXISTS (
+                  SELECT 1 FROM construction_milestones m
+                  WHERE m.settlement_id = e.settlement_id AND m.id = e.milestone_id
+              )
+        ) THEN
+            ALTER TABLE ledger_expenses
+                ADD CONSTRAINT fk_ledger_expenses_settlement_milestone
+                FOREIGN KEY (settlement_id, milestone_id)
+                REFERENCES construction_milestones (settlement_id, id)
+                ON DELETE RESTRICT
+                NOT VALID;
+        ELSE
+            ALTER TABLE ledger_expenses
+                ADD CONSTRAINT fk_ledger_expenses_settlement_milestone
+                FOREIGN KEY (settlement_id, milestone_id)
+                REFERENCES construction_milestones (settlement_id, id)
+                ON DELETE RESTRICT;
+        END IF;
     END IF;
 END $$;
 
@@ -194,33 +219,57 @@ BEGIN
     END IF;
 END $$;
 
+ALTER TABLE governance_proposals ADD COLUMN IF NOT EXISTS legacy_r1_unsupported BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE governance_proposals ADD COLUMN IF NOT EXISTS legacy_r1_disposition VARCHAR(64);
+
+-- Mark pre-existing R1 proposals that do not satisfy R2 invariants without altering historical protocol fields
+UPDATE governance_proposals
+SET
+    legacy_r1_unsupported = TRUE,
+    legacy_r1_disposition = CASE
+        WHEN status IN ('closed', 'cancelled') THEN 'archived_historical_r1'
+        ELSE 'frozen_requires_operator_disposition'
+    END
+WHERE (legacy_r1_unsupported = FALSE OR legacy_r1_disposition IS NULL)
+  AND (
+      seats_count IS DISTINCT FROM 1
+      OR NOT (
+          (authoritative_engine = 'native_secret' AND secret_ballot = TRUE)
+          OR (authoritative_engine = 'native_named' AND secret_ballot = FALSE)
+      )
+      OR quorum_members_pct IS NULL OR quorum_members_pct < 1 OR quorum_members_pct > 100
+      OR quorum_capital_pct IS NULL OR quorum_capital_pct < 1 OR quorum_capital_pct > 100
+      OR (abstain_option_index IS NOT NULL AND abstain_option_index < 0)
+  );
+
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_governance_proposals_seats_count') THEN
         ALTER TABLE governance_proposals
             ADD CONSTRAINT chk_governance_proposals_seats_count
-            CHECK (seats_count = 1);
+            CHECK (legacy_r1_unsupported = TRUE OR seats_count = 1);
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_governance_proposals_quorum_members') THEN
         ALTER TABLE governance_proposals
             ADD CONSTRAINT chk_governance_proposals_quorum_members
-            CHECK (quorum_members_pct BETWEEN 1 AND 100);
+            CHECK (legacy_r1_unsupported = TRUE OR (quorum_members_pct BETWEEN 1 AND 100));
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_governance_proposals_quorum_capital') THEN
         ALTER TABLE governance_proposals
             ADD CONSTRAINT chk_governance_proposals_quorum_capital
-            CHECK (quorum_capital_pct BETWEEN 1 AND 100);
+            CHECK (legacy_r1_unsupported = TRUE OR (quorum_capital_pct BETWEEN 1 AND 100));
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_governance_proposals_abstain_index') THEN
         ALTER TABLE governance_proposals
             ADD CONSTRAINT chk_governance_proposals_abstain_index
-            CHECK (abstain_option_index IS NULL OR abstain_option_index >= 0);
+            CHECK (legacy_r1_unsupported = TRUE OR abstain_option_index IS NULL OR abstain_option_index >= 0);
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_governance_proposals_engine_secrecy') THEN
         ALTER TABLE governance_proposals
             ADD CONSTRAINT chk_governance_proposals_engine_secrecy
             CHECK (
-                (authoritative_engine = 'native_secret' AND secret_ballot = TRUE)
+                legacy_r1_unsupported = TRUE
+                OR (authoritative_engine = 'native_secret' AND secret_ballot = TRUE)
                 OR (authoritative_engine = 'native_named' AND secret_ballot = FALSE)
             );
     END IF;

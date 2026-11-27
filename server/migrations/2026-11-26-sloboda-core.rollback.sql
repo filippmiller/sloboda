@@ -1,6 +1,9 @@
 -- Sloboda Core Platform Non-Destructive Rollback (2026-11-26)
 -- Policy: NEVER drop populated application, governance, financial, or construction evidence.
--- On a populated database, roll back application code while preserving schema and records.
+-- IMPORTANT: R1 application code is NOT write-compatible with the R2/R3 schema.
+-- On a populated database, apply 2026-11-26-sloboda-core-r3.fallback-readonly.sql first so core
+-- writes are safely rejected while keeping records readable; once R2/R3 code is restored, apply
+-- 2026-11-26-sloboda-core-r3.restore-writes.sql to re-enable core writes.
 -- On an empty schema, cleanly removes all core tables, trigger function, user columns, and migration records.
 
 BEGIN;
@@ -39,6 +42,7 @@ END $$;
 DROP TRIGGER IF EXISTS trg_ledger_postings_append_only ON ledger_postings;
 DROP FUNCTION IF EXISTS sloboda_guard_ledger_postings_append_only();
 
+DROP TABLE IF EXISTS sloboda_core_gates;
 DROP TABLE IF EXISTS ledger_postings;
 DROP TABLE IF EXISTS expense_allocations;
 DROP TABLE IF EXISTS ledger_expenses;
@@ -57,6 +61,6 @@ ALTER TABLE users DROP COLUMN IF EXISTS membership_status;
 ALTER TABLE users DROP COLUMN IF EXISTS membership_admitted_at;
 ALTER TABLE users DROP COLUMN IF EXISTS settlement_id;
 
-DELETE FROM schema_migrations WHERE version IN ('2026-11-26-sloboda-core', '2026-11-26-sloboda-core-r2');
+DELETE FROM schema_migrations WHERE version IN ('2026-11-26-sloboda-core', '2026-11-26-sloboda-core-r2', '2026-11-26-sloboda-core-r3');
 
 COMMIT;

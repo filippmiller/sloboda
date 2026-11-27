@@ -14,6 +14,9 @@ function setOnLedgerMutated(fn) {
 }
 
 const VALID_EXPENSE_STATUSES = ['reserved', 'paid', 'cancelled', 'disputed'];
+const VALID_FINANCIAL_STATUSES = ['reserved', 'paid', 'cancelled'];
+const VALID_DISPUTE_STATUSES = ['none', 'open', 'resolved'];
+const VALID_LEDGER_MODES = ['verified_receipt', 'pledge', 'legacy_import'];
 
 function parsePaginationQuery(query) {
     let limit = 50;
@@ -63,6 +66,37 @@ router.get('/ledger/my', requireUserAuth, async (req, res) => {
     }
 });
 
+// GET /api/admin/ledger/summary — super_admin financial summary across specific settlement or 'all'
+router.get('/admin/ledger/summary', requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+        const rawSettlement = req.query.settlement_id
+            ? sanitizePlain(req.query.settlement_id, 64)
+            : 'all';
+        const summary = await coreStore.getAdminLedgerSummary(rawSettlement || 'all');
+        res.json({ success: true, ...summary });
+    } catch (err) {
+        res.status(err.status || 500).json({
+            success: false,
+            ...(err.code ? { code: err.code } : {}),
+            error: err.message || 'Не удалось загрузить сводку реестра',
+        });
+    }
+});
+
+// GET /api/admin/ledger/preflight — super_admin ledger integrity & governance preflight report
+router.get('/admin/ledger/preflight', requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+        const report = await coreStore.getLedgerPreflightReport();
+        res.json({ success: true, ...report });
+    } catch (err) {
+        res.status(err.status || 500).json({
+            success: false,
+            ...(err.code ? { code: err.code } : {}),
+            error: err.message || 'Не удалось получить отчёт проверки целостности',
+        });
+    }
+});
+
 // GET /api/admin/ledger/contributions — super_admin lists contributions
 router.get('/admin/ledger/contributions', requireAuth, requireSuperAdmin, async (req, res) => {
     try {
@@ -73,15 +107,26 @@ router.get('/admin/ledger/contributions', requireAuth, requireSuperAdmin, async 
         const settlementId = req.query.settlement_id
             ? sanitizePlain(req.query.settlement_id, 64)
             : undefined;
+        const ledgerMode = req.query.ledger_mode
+            ? sanitizePlain(req.query.ledger_mode, 24)
+            : undefined;
+        if (ledgerMode && !VALID_LEDGER_MODES.includes(ledgerMode)) {
+            return res.status(400).json({ success: false, error: 'Недопустимый ledger_mode' });
+        }
         const data = await coreStore.listAdminContributions({
             settlement_id: settlementId,
+            ledger_mode: ledgerMode,
             limit: pg.limit,
             offset: pg.offset,
         });
         const payload = Array.isArray(data) ? { contributions: data } : (data || {});
         res.json({ success: true, ...payload });
     } catch (err) {
-        res.status(err.status || 500).json({ success: false, error: err.message || 'Не удалось загрузить взносы' });
+        res.status(err.status || 500).json({
+            success: false,
+            ...(err.code ? { code: err.code } : {}),
+            error: err.message || 'Не удалось загрузить взносы',
+        });
     }
 });
 
@@ -99,16 +144,55 @@ router.get('/admin/ledger/expenses', requireAuth, requireSuperAdmin, async (req,
         if (status && !VALID_EXPENSE_STATUSES.includes(status)) {
             return res.status(400).json({ success: false, error: 'Недопустимый статус расхода' });
         }
+        const financialStatus = req.query.financial_status
+            ? sanitizePlain(req.query.financial_status, 24)
+            : undefined;
+        if (financialStatus && !VALID_FINANCIAL_STATUSES.includes(financialStatus)) {
+            return res.status(400).json({ success: false, error: 'Недопустимый financial_status' });
+        }
+        const disputeStatus = req.query.dispute_status
+            ? sanitizePlain(req.query.dispute_status, 24)
+            : undefined;
+        if (disputeStatus && !VALID_DISPUTE_STATUSES.includes(disputeStatus)) {
+            return res.status(400).json({ success: false, error: 'Недопустимый dispute_status' });
+        }
         const data = await coreStore.listAdminExpenses({
             settlement_id: settlementId,
             status,
+            financial_status: financialStatus,
+            dispute_status: disputeStatus,
             limit: pg.limit,
             offset: pg.offset,
         });
         const payload = Array.isArray(data) ? { expenses: data } : (data || {});
         res.json({ success: true, ...payload });
     } catch (err) {
-        res.status(err.status || 500).json({ success: false, error: err.message || 'Не удалось загрузить расходы' });
+        res.status(err.status || 500).json({
+            success: false,
+            ...(err.code ? { code: err.code } : {}),
+            error: err.message || 'Не удалось загрузить расходы',
+        });
+    }
+});
+
+// GET /api/admin/ledger/expenses/:id — super_admin expense detail with allocations
+router.get('/admin/ledger/expenses/:id', requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+        const expenseId = parsePositiveInt(req.params.id);
+        if (!expenseId) {
+            return res.status(400).json({ success: false, error: 'Некорректный ID расхода' });
+        }
+        const expense = await coreStore.getAdminExpenseById(expenseId);
+        if (!expense) {
+            return res.status(404).json({ success: false, error: 'Расход не найден' });
+        }
+        res.json({ success: true, expense });
+    } catch (err) {
+        res.status(err.status || 500).json({
+            success: false,
+            ...(err.code ? { code: err.code } : {}),
+            error: err.message || 'Не удалось загрузить расход',
+        });
     }
 });
 
@@ -129,9 +213,14 @@ router.post('/admin/ledger/contributions', requireAuth, requireSuperAdmin, requi
             ? (req.body.idempotency_key.trim() || null)
             : null;
 
+        const settlementId = sanitizePlain(req.body.settlement_id || 'sloboda-pilot', 64) || 'sloboda-pilot';
+        if (settlementId === 'all') {
+            return res.status(400).json({ success: false, error: 'Укажите конкретное поселение для записи' });
+        }
+
         const result = await coreStore.recordContribution({
             user_id: userId,
-            settlement_id: sanitizePlain(req.body.settlement_id || 'sloboda-pilot', 64) || 'sloboda-pilot',
+            settlement_id: settlementId,
             purpose: sanitizePlain(req.body.purpose || 'general', 64) || 'general',
             contributor_name: sanitizePlain(req.body.contributor_name || 'Участник', 180),
             amount_kopecks: req.body.amount_kopecks,
@@ -147,7 +236,11 @@ router.post('/admin/ledger/contributions', requireAuth, requireSuperAdmin, requi
         onLedgerMutated();
         res.status(result.idempotent_replay ? 200 : 201).json({ success: true, ...result });
     } catch (err) {
-        res.status(err.status || 500).json({ success: false, error: err.message || 'Не удалось записать взнос' });
+        res.status(err.status || 500).json({
+            success: false,
+            ...(err.code ? { code: err.code } : {}),
+            error: err.message || 'Не удалось записать взнос',
+        });
     }
 });
 
@@ -172,8 +265,13 @@ router.post('/admin/ledger/expenses', requireAuth, requireSuperAdmin, requireCsr
             ? (req.body.idempotency_key.trim() || null)
             : null;
 
+        const settlementId = sanitizePlain(req.body.settlement_id || 'sloboda-pilot', 64) || 'sloboda-pilot';
+        if (settlementId === 'all') {
+            return res.status(400).json({ success: false, error: 'Укажите конкретное поселение для записи' });
+        }
+
         const result = await coreStore.createAndAllocateExpense({
-            settlement_id: sanitizePlain(req.body.settlement_id || 'sloboda-pilot', 64) || 'sloboda-pilot',
+            settlement_id: settlementId,
             purpose: sanitizePlain(req.body.purpose || 'general', 64) || 'general',
             title,
             category: sanitizePlain(req.body.category || 'equipment', 64),
@@ -192,7 +290,11 @@ router.post('/admin/ledger/expenses', requireAuth, requireSuperAdmin, requireCsr
         onLedgerMutated();
         res.status(result.idempotent_replay ? 200 : 201).json({ success: true, ...result });
     } catch (err) {
-        res.status(err.status || 500).json({ success: false, error: err.message || 'Не удалось провести расход' });
+        res.status(err.status || 500).json({
+            success: false,
+            ...(err.code ? { code: err.code } : {}),
+            error: err.message || 'Не удалось провести расход',
+        });
     }
 });
 
@@ -217,7 +319,11 @@ async function handleTransitionExpenseStatus(req, res) {
         onLedgerMutated();
         res.json({ success: true, expense });
     } catch (err) {
-        res.status(err.status || 500).json({ success: false, error: err.message || 'Не удалось обновить статус расхода' });
+        res.status(err.status || 500).json({
+            success: false,
+            ...(err.code ? { code: err.code } : {}),
+            error: err.message || 'Не удалось обновить статус расхода',
+        });
     }
 }
 
@@ -241,8 +347,12 @@ router.post('/admin/construction/milestones', requireAuth, requireSuperAdmin, re
                 error: 'planned_qty и actual_qty должны быть конечными неотрицательными числами',
             });
         }
+        const settlementId = sanitizePlain(req.body.settlement_id || 'sloboda-pilot', 64) || 'sloboda-pilot';
+        if (settlementId === 'all') {
+            return res.status(400).json({ success: false, error: 'Укажите конкретное поселение для записи' });
+        }
         const milestone = await coreStore.upsertConstructionMilestone({
-            settlement_id: sanitizePlain(req.body.settlement_id || 'sloboda-pilot', 64) || 'sloboda-pilot',
+            settlement_id: settlementId,
             code,
             title,
             category: sanitizePlain(req.body.category || 'infrastructure', 48),
@@ -256,7 +366,11 @@ router.post('/admin/construction/milestones', requireAuth, requireSuperAdmin, re
         onLedgerMutated();
         res.json({ success: true, milestone });
     } catch (err) {
-        res.status(err.status || 500).json({ success: false, error: err.message || 'Не удалось обновить этап стройки' });
+        res.status(err.status || 500).json({
+            success: false,
+            ...(err.code ? { code: err.code } : {}),
+            error: err.message || 'Не удалось обновить этап стройки',
+        });
     }
 });
 

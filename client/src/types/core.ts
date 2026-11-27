@@ -290,6 +290,7 @@ export interface AdminLedgerExpense {
   version?: number
   paid_at: string | null
   created_at: string
+  allocation_ledger_modes?: string[]
   allocations?: Array<{
     id: number
     contribution_id: number
@@ -300,17 +301,48 @@ export interface AdminLedgerExpense {
   }>
 }
 
-/** Validates same-origin relative redirect paths (must start with '/' and not '//') */
+export interface LedgerModeTotals {
+  received: MoneyValue
+  available?: MoneyValue
+  reserved?: MoneyValue
+  paid?: MoneyValue
+  refunded?: MoneyValue
+  contributions_count: number
+}
+
+export interface AdminLedgerSummary {
+  settlement_id: string
+  settlements?: string[]
+  totals: {
+    received: MoneyValue
+    available: MoneyValue
+    reserved: MoneyValue
+    paid: MoneyValue
+    refunded: MoneyValue
+    contributions_count: number
+  }
+  by_ledger_mode?: Record<string, LedgerModeTotals>
+  milestones?: ConstructionMilestone[]
+  recent_expenses?: PublicLedgerExpenseSummary[]
+}
+
+/** Validates same-origin relative redirect paths (must start with '/' and not '//', no backslashes or control chars) */
 export function getSafeRedirectPath(
   raw: string | null | undefined,
   fallback = '/dashboard',
 ): string {
   if (!raw) return fallback
   const trimmed = raw.trim()
-  if (trimmed.startsWith('/') && !trimmed.startsWith('//')) {
-    return trimmed
+  if (!trimmed.startsWith('/') || trimmed.startsWith('//') || trimmed.includes('\\')) {
+    return fallback
   }
-  return fallback
+  for (let i = 0; i < trimmed.length; i += 1) {
+    const code = trimmed.charCodeAt(i)
+    if (code <= 0x1f || code === 0x7f) {
+      return fallback
+    }
+  }
+  return trimmed
 }
 
 /** Converts a positive decimal ruble string (up to 2 decimal places) to an integer kopeck string */

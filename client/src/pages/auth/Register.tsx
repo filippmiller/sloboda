@@ -1,13 +1,14 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, type FormEvent } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { UserPlus, Loader2, AlertCircle } from 'lucide-react'
+import { UserPlus, Loader2, AlertCircle, KeyRound } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import api from '@/services/api'
+import { getSafeRedirectPath } from '@/types/core'
 import type { InviteInfo } from '@/types'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -16,10 +17,19 @@ export default function Register() {
   const { t } = useTranslation()
   const { token } = useParams<{ token: string }>()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const login = useAuthStore((s) => s.login)
 
+  const redirectTarget = getSafeRedirectPath(searchParams.get('redirect'), '/dashboard')
+  const redirectQuery =
+    redirectTarget !== '/dashboard' ? `?redirect=${encodeURIComponent(redirectTarget)}` : ''
+  const loginPath = `/login${redirectQuery}`
+
+  const isInviteEntryMode = token === 'invite'
+
   const [inviteInfo, setInviteInfo] = useState<InviteInfo | null>(null)
-  const [verifying, setVerifying] = useState(true)
+  const [inviteTokenInput, setInviteTokenInput] = useState('')
+  const [verifying, setVerifying] = useState(!isInviteEntryMode)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -55,6 +65,15 @@ export default function Register() {
         return
       }
 
+      if (token === 'invite') {
+        setError(null)
+        setInviteInfo(null)
+        setVerifying(false)
+        return
+      }
+
+      setVerifying(true)
+      setError(null)
       try {
         const response = await api.get(`/user/auth/invite/${token}`)
         const invite = response.data as InviteInfo
@@ -75,8 +94,18 @@ export default function Register() {
     verifyInvite()
   }, [token, form, t])
 
+  const handleInviteTokenContinue = (e: FormEvent) => {
+    e.preventDefault()
+    const trimmed = inviteTokenInput.trim()
+    if (!trimmed) {
+      toast.error(t('auth.register.inviteMissingToken'))
+      return
+    }
+    navigate(`/register/${encodeURIComponent(trimmed)}${redirectQuery}`)
+  }
+
   const handleSubmit = async (data: RegisterForm) => {
-    if (!token) return
+    if (!token || isInviteEntryMode) return
 
     setIsSubmitting(true)
     try {
@@ -91,14 +120,14 @@ export default function Register() {
       if (inviteInfo?.email) {
         try {
           await login(inviteInfo.email, data.password)
-          navigate('/dashboard')
+          navigate(redirectTarget)
           return
         } catch {
           // If auto-login fails, redirect to login page
         }
       }
 
-      navigate('/login')
+      navigate(loginPath)
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
@@ -120,6 +149,48 @@ export default function Register() {
     )
   }
 
+  if (isInviteEntryMode) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-xl font-semibold font-display mb-1">
+            {t('auth.register.enterTokenTitle', { defaultValue: 'Регистрация по приглашению' })}
+          </h2>
+          <p className="text-text-secondary text-sm">
+            {t('auth.register.enterTokenSubtitle', {
+              defaultValue: 'Введите код приглашения из письма, чтобы продолжить регистрацию.',
+            })}
+          </p>
+        </div>
+
+        <form onSubmit={handleInviteTokenContinue} className="space-y-4">
+          <Input
+            label={t('auth.register.inviteTokenLabel', { defaultValue: 'Код приглашения' })}
+            placeholder={t('auth.register.inviteTokenPlaceholder', { defaultValue: 'Вставьте токен из приглашения' })}
+            icon={<KeyRound size={16} />}
+            value={inviteTokenInput}
+            onChange={(e) => setInviteTokenInput(e.target.value)}
+            required
+          />
+          <Button type="submit" className="w-full">
+            <UserPlus size={16} />
+            {t('auth.register.continueButton', { defaultValue: 'Продолжить' })}
+          </Button>
+        </form>
+
+        <p className="text-center text-xs text-text-muted">
+          {t('auth.register.hasAccount')}{' '}
+          <Link
+            to={loginPath}
+            className="text-accent hover:text-accent-hover transition-colors"
+          >
+            {t('auth.register.loginLink')}
+          </Link>
+        </p>
+      </div>
+    )
+  }
+
   if (error) {
     return (
       <div className="text-center space-y-4 py-4">
@@ -133,7 +204,7 @@ export default function Register() {
           {error}
         </p>
         <Link
-          to="/login"
+          to={loginPath}
           className="inline-block text-sm text-accent hover:text-accent-hover transition-colors"
         >
           {t('common.actions.goToLogin')}
@@ -195,7 +266,7 @@ export default function Register() {
       <p className="text-center text-xs text-text-muted">
         {t('auth.register.hasAccount')}{' '}
         <Link
-          to="/login"
+          to={loginPath}
           className="text-accent hover:text-accent-hover transition-colors"
         >
           {t('auth.register.loginLink')}

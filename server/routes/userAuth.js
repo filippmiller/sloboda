@@ -61,6 +61,33 @@ setInterval(() => {
     }
 }, LOGIN_WINDOW_MS).unref();
 
+function sanitizeInternalRedirect(raw, fallback = '/dashboard') {
+    if (typeof raw !== 'string') return fallback;
+    const trimmed = raw.trim();
+    if (
+        !trimmed
+        || !trimmed.startsWith('/')
+        || trimmed.startsWith('//')
+        || trimmed.includes('\\')
+        || /[\r\n\0]/.test(trimmed)
+        || /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)
+    ) {
+        return fallback;
+    }
+    return trimmed;
+}
+
+function getPublicAppOrigin(req) {
+    const configured = (
+        process.env.PUBLIC_APP_URL
+        || process.env.APP_URL
+        || process.env.FRONTEND_URL
+        || ''
+    ).trim().replace(/\/+$/, '');
+    if (configured) return configured;
+    return `${req.protocol}://${req.get('host')}`;
+}
+
 /**
  * Generate JWT for user (different payload from admin)
  */
@@ -151,7 +178,8 @@ router.post('/login', async (req, res) => {
             user: {
                 id: user.id,
                 email: user.email,
-                name: user.name
+                name: user.name,
+                onboardingCompletedAt: user.onboarding_completed_at || null
             }
         });
     } catch (err) {
@@ -213,9 +241,15 @@ router.post('/magic-link', async (req, res) => {
             magicLinkExpires: expires
         });
 
+        const safeRedirect = sanitizeInternalRedirect(req.body.redirect, '/dashboard');
+
         // Send magic link email
         if (emailService) {
-            const magicLink = `${req.protocol}://${req.get('host')}/api/user/auth/magic-link/verify?token=${magicToken}`;
+            const origin = getPublicAppOrigin(req);
+            const redirectQuery = safeRedirect !== '/dashboard'
+                ? `&redirect=${encodeURIComponent(safeRedirect)}`
+                : '';
+            const magicLink = `${origin}/api/user/auth/magic-link/verify?token=${magicToken}${redirectQuery}`;
             emailService.sendEmail({
                 to: user.email,
                 subject: 'SLOBODA - Login Link',
@@ -287,8 +321,12 @@ router.get('/magic-link/verify', async (req, res) => {
             maxAge: 24 * 60 * 60 * 1000
         });
 
-        // Redirect to dashboard after successful magic link login
-        res.redirect('/dashboard');
+        // Redirect to onboarding if incomplete, otherwise safe internal redirect
+        const safeRedirect = sanitizeInternalRedirect(req.query.redirect, '/dashboard');
+        if (!user.onboarding_completed_at && !safeRedirect.startsWith('/onboarding')) {
+            return res.redirect(`/onboarding?redirect=${encodeURIComponent(safeRedirect)}`);
+        }
+        res.redirect(safeRedirect);
     } catch (err) {
         console.error('Magic link verify error:', err);
         res.status(500).json({ success: false, error: 'Failed to verify magic link' });
@@ -431,7 +469,8 @@ router.post('/accept-invite', async (req, res) => {
             user: {
                 id: user.id,
                 email: user.email,
-                name: user.name
+                name: user.name,
+                onboardingCompletedAt: user.onboarding_completed_at || null
             }
         });
     } catch (err) {
