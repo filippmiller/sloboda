@@ -322,8 +322,8 @@ BEGIN
             );
 
             EXECUTE format(
-                'INSERT INTO forum_moderation_actions (moderator_id, action_type, target_user_id, reason, details, created_at)
-                 SELECT %s, %s, %s, %s, %s, %s
+                'INSERT INTO forum_moderation_actions (moderator_id, action_type, target_user_id, target_comment_id, target_thread_id, reason, details, created_at)
+                 SELECT %s, %s, %s, %s, %s, %s, %s, %s
                  FROM moderation_actions ma
                  WHERE NOT EXISTS (
                      SELECT 1 FROM forum_moderation_actions fma
@@ -334,7 +334,10 @@ BEGIN
                        AND fma.details IS NOT DISTINCT FROM (%s)
                        AND %s
                  )',
-                mod_expr, act_expr, target_user_expr, reason_expr, details_expr, created_expr,
+                mod_expr, act_expr, target_user_expr,
+                CASE WHEN 'target_comment_id' = ANY(ma_cols) THEN 'ma.target_comment_id' ELSE 'NULL::integer' END,
+                CASE WHEN 'target_thread_id' = ANY(ma_cols) THEN 'ma.target_thread_id' ELSE 'NULL::integer' END,
+                reason_expr, details_expr, created_expr,
                 mod_expr, act_expr, target_user_expr, reason_expr, details_expr, created_cmp_expr
             );
         END;

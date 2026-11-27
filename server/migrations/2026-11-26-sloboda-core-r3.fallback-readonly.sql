@@ -1,12 +1,12 @@
 -- Sloboda Core Platform Rollback Read-Only Guard (2026-11-26)
--- Use this BEFORE rolling back application code to R1 on a populated R2/R3 database.
--- R1 application code is NOT write-compatible with the R2/R3 schema; this guard keeps
--- all financial, governance, and membership evidence readable while blocking core mutations
--- (including INSERT, UPDATE, DELETE, and TRUNCATE).
--- IMPORTANT: R1 (c1a02fa7) public ledger summary sums ALL ledger_mode values (including
--- pledge and legacy_import) rather than filtering to verified_receipt; the R1 public
--- ledger summary endpoint must be fenced / not exposed while running in fallback mode.
--- To re-enable writes after restoring R2/R3 application code, run:
+-- Verified rollback target: master (aec59ccdc97f76d5b024333f02dfb0a4ce47175a), which does NOT
+-- mount R1 ledger/governance endpoints, paired with this read-only trigger guard so all R2/R3
+-- financial, governance, and membership records remain preserved and immutable during rollback.
+-- IMPORTANT: R1 (c1a02fa7) is NOT a supported direct fallback binary without fencing its
+-- /api/public/ledger/summary route (R1 sums all ledger_mode rows including pledges/imports)
+-- and all core write routes; this guard blocks INSERT, UPDATE, DELETE, and TRUNCATE on all
+-- 13 core tables with SQLSTATE 55000 (ROLLBACK_READONLY_MODE).
+-- To re-enable writes after restoring R3 application code, run:
 --   2026-11-26-sloboda-core-r3.restore-writes.sql
 
 BEGIN;

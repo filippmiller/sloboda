@@ -71,14 +71,41 @@ function sanitizeInternalRedirect(raw, fallback = '/dashboard') {
         || trimmed.includes('\\')
         || /[\r\n\0]/.test(trimmed)
         || /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)
+        || /%2f|%5c|%00/i.test(trimmed)
     ) {
         return fallback;
     }
-    const pathOnly = trimmed.split(/[?#]/)[0].toLowerCase();
-    if (pathOnly === '/api' || pathOnly.startsWith('/api/')) {
+    try {
+        const parsed = new URL(trimmed, 'http://sloboda.local');
+        if (parsed.origin !== 'http://sloboda.local') {
+            return fallback;
+        }
+        const rawPath = trimmed.split(/[?#]/)[0];
+        if (rawPath.split('/').some((seg) => seg === '..')) {
+            return fallback;
+        }
+        let decodedPath = parsed.pathname;
+        try {
+            decodedPath = decodeURIComponent(parsed.pathname);
+        } catch {
+            return fallback;
+        }
+        const normalizedLower = parsed.pathname.toLowerCase();
+        const decodedLower = decodedPath.toLowerCase();
+        if (
+            normalizedLower === '/api'
+            || normalizedLower.startsWith('/api/')
+            || decodedLower === '/api'
+            || decodedLower.startsWith('/api/')
+            || decodedPath.includes('\\')
+            || decodedPath.split('/').some((seg) => seg === '..')
+        ) {
+            return fallback;
+        }
+        return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    } catch {
         return fallback;
     }
-    return trimmed;
 }
 
 function getPublicAppOrigin(req) {
@@ -227,6 +254,10 @@ router.post('/magic-link', async (req, res) => {
 
         recordLoginAttempt(`magic:${emailLower}`);
 
+        // Fail fast on missing PUBLIC_APP_URL in production BEFORE user lookup/token mutation (prevents account enumeration)
+        const origin = getPublicAppOrigin(req);
+        const safeRedirect = sanitizeInternalRedirect(req.body.redirect, '/dashboard');
+
         const user = await db.getUserByEmail(emailLower);
         if (!user) {
             // Don't reveal whether user exists
@@ -253,15 +284,13 @@ router.post('/magic-link', async (req, res) => {
             magicLinkExpires: expires
         });
 
-        const safeRedirect = sanitizeInternalRedirect(req.body.redirect, '/dashboard');
+        const redirectQuery = safeRedirect !== '/dashboard'
+            ? `&redirect=${encodeURIComponent(safeRedirect)}`
+            : '';
+        const magicLink = `${origin}/api/user/auth/magic-link/verify?token=${magicToken}${redirectQuery}`;
 
         // Send magic link email
         if (emailService) {
-            const origin = getPublicAppOrigin(req);
-            const redirectQuery = safeRedirect !== '/dashboard'
-                ? `&redirect=${encodeURIComponent(safeRedirect)}`
-                : '';
-            const magicLink = `${origin}/api/user/auth/magic-link/verify?token=${magicToken}${redirectQuery}`;
             emailService.sendEmail({
                 to: user.email,
                 subject: 'SLOBODA - Login Link',
@@ -269,10 +298,14 @@ router.post('/magic-link', async (req, res) => {
             }).catch(err => console.error('Magic link email error:', err));
         }
 
-        res.json({
+        const payload = {
             success: true,
             message: 'If an account with that email exists, a magic link has been sent.'
-        });
+        };
+        if (process.env.NODE_ENV === 'test') {
+            payload.debugMagicLink = magicLink;
+        }
+        res.json(payload);
     } catch (err) {
         console.error('Magic link error:', err);
         res.status(500).json({ success: false, error: 'Failed to send magic link' });

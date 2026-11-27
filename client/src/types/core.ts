@@ -326,7 +326,7 @@ export interface AdminLedgerSummary {
   recent_expenses?: PublicLedgerExpenseSummary[]
 }
 
-/** Validates same-origin relative redirect paths (must start with '/' and not '//' or '/api', no backslashes or control chars) */
+/** Validates same-origin relative redirect paths (must start with '/' and not '//' or normalized '/api', no backslashes, '..' traversal, or control chars) */
 export function getSafeRedirectPath(
   raw: string | null | undefined,
   fallback = '/dashboard',
@@ -337,7 +337,7 @@ export function getSafeRedirectPath(
     !trimmed.startsWith('/') ||
     trimmed.startsWith('//') ||
     trimmed.includes('\\') ||
-    /^\/api([/?#]|$)/i.test(trimmed)
+    /%2f|%5c|%00/i.test(trimmed)
   ) {
     return fallback
   }
@@ -347,7 +347,24 @@ export function getSafeRedirectPath(
       return fallback
     }
   }
-  return trimmed
+  try {
+    const parsed = new URL(trimmed, 'http://sloboda.local')
+    if (parsed.origin !== 'http://sloboda.local') return fallback
+    const rawPath = trimmed.split(/[?#]/)[0]
+    if (rawPath.split('/').some((seg) => seg === '..')) return fallback
+    const decodedPath = decodeURIComponent(parsed.pathname)
+    if (
+      /^\/api(\/|$)/i.test(parsed.pathname) ||
+      /^\/api(\/|$)/i.test(decodedPath) ||
+      decodedPath.includes('\\') ||
+      decodedPath.split('/').some((seg) => seg === '..')
+    ) {
+      return fallback
+    }
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`
+  } catch {
+    return fallback
+  }
 }
 
 /** Converts a positive decimal ruble string (up to 2 decimal places) to an integer kopeck string */

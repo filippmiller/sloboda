@@ -333,7 +333,7 @@ async function runFinancialIntegrityCheck(client) {
         });
     }
 
-    // 8b. Expense postings (reserve/pay/release) without a matching expense_allocations row
+    // 8b. Expense postings (reserve/pay/release) without a matching expense_allocations row (including NULL expense_id/contribution_id)
     const orphanPostings = await client.query(`
         SELECT p.id AS posting_id,
                p.posting_type,
@@ -342,12 +342,14 @@ async function runFinancialIntegrityCheck(client) {
                p.amount_kopecks::text AS amount_kopecks
         FROM ledger_postings p
         WHERE p.posting_type IN ('reserve', 'pay', 'release')
-          AND p.expense_id IS NOT NULL
-          AND p.contribution_id IS NOT NULL
-          AND NOT EXISTS (
-              SELECT 1 FROM expense_allocations ea
-              WHERE ea.expense_id = p.expense_id
-                AND ea.contribution_id = p.contribution_id
+          AND (
+              p.expense_id IS NULL
+              OR p.contribution_id IS NULL
+              OR NOT EXISTS (
+                  SELECT 1 FROM expense_allocations ea
+                  WHERE ea.expense_id = p.expense_id
+                    AND ea.contribution_id = p.contribution_id
+              )
           )
         ORDER BY p.id ASC
     `);

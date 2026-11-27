@@ -690,7 +690,6 @@ export default function Applications() {
       setPortfolio((prev) => [res.data.item, ...prev])
       const nextVersion =
         res.data.application_version ?? (typeof prevVersion === 'number' ? prevVersion + 1 : 1)
-      setApplication((prev) => (prev ? { ...prev, version: nextVersion } : prev))
 
       let detectedConcurrentChange = false
       if (application) {
@@ -701,6 +700,7 @@ export default function Applications() {
           nextVersion === prevVersion + 1 &&
           (!existingDraft || existingDraft.baseVersion === prevVersion)
         ) {
+          setApplication((prev) => (prev ? { ...prev, version: nextVersion } : prev))
           if (existingDraft) {
             writeRevisionDraft(revKey, {
               ...existingDraft,
@@ -713,7 +713,18 @@ export default function Applications() {
           typeof prevVersion === 'number' &&
           (nextVersion > prevVersion + 1 || (existingDraft && existingDraft.baseVersion !== prevVersion))
         ) {
+          // Do NOT publish nextVersion onto application before refreshing & reconciling concurrent changes
           detectedConcurrentChange = Boolean(existingDraft)
+          if (existingDraft) {
+            setRevisionConflict({
+              serverVersion: nextVersion,
+              serverStatus: application.status,
+              draftBaseVersion: existingDraft.baseVersion,
+              serverApplication: null,
+              refreshFailed: true,
+            })
+            setRevisionDraftVisible(true)
+          }
           try {
             const freshRes = await api.get<MyApplicationResponse>('/applications/my')
             const freshApp = freshRes.data.application ?? null

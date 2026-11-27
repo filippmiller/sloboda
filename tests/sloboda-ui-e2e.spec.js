@@ -153,8 +153,18 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
 
   test.beforeAll(async () => {
     if (!process.env.DATABASE_URL) return;
+    if (process.env.ALLOW_DESTRUCTIVE_PG_VERIFY !== 'true') {
+      throw new Error('Refusing UI E2E DB mutations without ALLOW_DESTRUCTIVE_PG_VERIFY=true');
+    }
     const { Pool } = require('pg');
     pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    const dbNameRes = await pool.query('SELECT current_database() AS db_name');
+    const dbName = dbNameRes.rows[0]?.db_name || '';
+    if (!/(^|[_-])(test|ci|local|dev)($|[_-])/i.test(dbName)) {
+      await pool.end();
+      pool = null;
+      throw new Error(`Refusing UI E2E DB mutations on non-disposable database "${dbName}"`);
+    }
     // server/index.js RESET_ADMIN_PASSWORD=true marks existing admins must_change_password=TRUE
     await pool.query(
       'UPDATE admins SET must_change_password = FALSE WHERE LOWER(email) = LOWER($1)',
@@ -479,7 +489,7 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
     }
     const dbNameRes = await pool.query('SELECT current_database() AS db_name');
     const dbName = dbNameRes.rows[0]?.db_name || '';
-    if (!/test|ci|local|dev/i.test(dbName)) {
+    if (!/(^|[_-])(test|ci|local|dev)($|[_-])/i.test(dbName)) {
       throw new Error(`Refusing destructive TRUNCATE on non-disposable database "${dbName}"`);
     }
 
@@ -911,19 +921,16 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
       data: { email: mlEmail1, redirect: '/applications' },
     });
     expect(mlIssueRes.status()).toBe(200);
-    const mlRow1 = await pool.query(
-      'SELECT magic_link_token FROM users WHERE LOWER(email) = LOWER($1)',
-      [mlEmail1]
-    );
-    const mlToken1 = mlRow1.rows[0]?.magic_link_token;
-    expect(mlToken1).toBeTruthy();
+    const mlIssueBody = await mlIssueRes.json();
+    expect(typeof mlIssueBody.debugMagicLink).toBe('string');
+    expect(mlIssueBody.debugMagicLink).toContain('redirect=%2Fapplications');
 
     const mlContext1 = await browser.newContext();
     const mlPage1 = await mlContext1.newPage();
     trackPageErrors(mlPage1, pageErrors, 'magic1');
 
     try {
-      await mlPage1.goto(`/api/user/auth/magic-link/verify?token=${encodeURIComponent(mlToken1)}&redirect=%2Fapplications`);
+      await mlPage1.goto(mlIssueBody.debugMagicLink);
       await mlPage1.waitForURL(/\/applications$/, { timeout: 15000 });
     } finally {
       await mlContext1.close();

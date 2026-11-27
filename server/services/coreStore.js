@@ -1776,12 +1776,19 @@ function parseKopecks400(val, fieldName) {
 }
 
 function validateIdempotencyKey(raw) {
-    if (typeof raw !== 'string' || raw.trim().length === 0 || raw.length > 128) {
+    if (typeof raw !== 'string' || raw.trim().length === 0) {
         const err = new Error('idempotency_key is required and must be a non-empty string up to 128 characters');
         err.status = 400;
         throw err;
     }
-    return raw.trim();
+    const trimmed = raw.trim();
+    const collapsed = trimmed.replace(/\s+/g, ' ');
+    if (trimmed.length > 128 && collapsed.length > 128) {
+        const err = new Error('idempotency_key is required and must be a non-empty string up to 128 characters');
+        err.status = 400;
+        throw err;
+    }
+    return trimmed.length <= 128 ? trimmed : collapsed;
 }
 
 function isPositiveInt(val) {
