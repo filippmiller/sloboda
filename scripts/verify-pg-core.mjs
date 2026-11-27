@@ -1559,8 +1559,8 @@ async function run() {
     // Overlength whitespace key replay against a legacy NULL-fingerprint expense -> replays cleanly without duplicating allocations/postings
     const legExpRow = (await pool.query(`
         INSERT INTO ledger_expenses
-            (settlement_id, purpose, title, category, amount_kopecks, allocation_rule, status, financial_status, dispute_status, version, idempotency_key, approved_by)
-        VALUES ('sloboda-pilot', 'r4-replay', 'Legacy R1 Expense', 'equipment', 15000, 'fifo', 'reserved', 'reserved', 'none', 1, 'r1 exp 1', $1)
+            (settlement_id, purpose, title, category, amount_kopecks, asset_name, allocation_rule, status, financial_status, dispute_status, version, idempotency_key, approved_by)
+        VALUES ('sloboda-pilot', 'r4-replay', 'Legacy R1 Expense', 'equipment', 15000, 'Legacy R1 Expense', 'fifo', 'reserved', 'reserved', 'none', 1, 'r1 exp 1', $1)
         RETURNING *
     `, [replayAdminId])).rows[0];
     await pool.query(
