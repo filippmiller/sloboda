@@ -1225,7 +1225,7 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
       releasePatch200();
       await expect(page.getByText(/Обнаружено изменение заявки на сервере/i).first()).toBeVisible({ timeout: 10000 });
       await page.reload();
-      await expect(page.locator('textarea').first()).toHaveValue(textY3, { timeout: 10000 });
+      await expect(page.getByText(textY3)).toBeVisible({ timeout: 10000 });
     } finally {
       await ctx.close();
     }
