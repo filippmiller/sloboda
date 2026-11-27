@@ -6,13 +6,10 @@ if (process.env.DATABASE_URL) {
   if (process.env.ALLOW_DESTRUCTIVE_PG_VERIFY !== 'true') {
     throw new Error('Refusing to start PG UI E2E webServer without ALLOW_DESTRUCTIVE_PG_VERIFY=true');
   }
-  let dbName = '';
-  try {
-    dbName = new URL(process.env.DATABASE_URL).pathname.replace(/^\/+/, '');
-  } catch {
-    throw new Error('Invalid DATABASE_URL for PG UI E2E config');
-  }
-  if (!/(^|[_-])(test|ci|local|dev)($|[_-])/i.test(dbName)) {
+  const { parse: parsePgConnectionString } = require('pg-connection-string');
+  const parsedPg = parsePgConnectionString(process.env.DATABASE_URL);
+  const dbName = typeof parsedPg.database === 'string' ? parsedPg.database : '';
+  if (!dbName || dbName.includes('/') || !/(^|[_-])(test|ci|local|dev)($|[_-])/i.test(dbName)) {
     throw new Error(`Refusing to start PG UI E2E webServer against non-disposable database "${dbName}"`);
   }
 }

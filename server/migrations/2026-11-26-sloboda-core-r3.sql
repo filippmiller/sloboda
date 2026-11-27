@@ -257,6 +257,10 @@ BEGIN
             mod_expr TEXT;
             act_expr TEXT;
             target_user_expr TEXT;
+            target_comment_expr TEXT;
+            target_thread_expr TEXT;
+            comment_fk_table TEXT;
+            thread_fk_table TEXT;
             reason_expr TEXT;
             created_expr TEXT;
             created_cmp_expr TEXT;
@@ -269,6 +273,39 @@ BEGIN
             FROM information_schema.columns
             WHERE table_schema = 'public'
               AND table_name = 'moderation_actions';
+
+            -- Inspect actual FK target tables on forum_moderation_actions (supports forum_comments/comments and forum_threads/threads)
+            SELECT c.confrelid::regclass::text INTO comment_fk_table
+            FROM pg_constraint c
+            JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY(c.conkey)
+            WHERE c.conrelid = 'public.forum_moderation_actions'::regclass
+              AND c.contype = 'f'
+              AND a.attname = 'target_comment_id'
+            LIMIT 1;
+
+            SELECT c.confrelid::regclass::text INTO thread_fk_table
+            FROM pg_constraint c
+            JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY(c.conkey)
+            WHERE c.conrelid = 'public.forum_moderation_actions'::regclass
+              AND c.contype = 'f'
+              AND a.attname = 'target_thread_id'
+            LIMIT 1;
+
+            IF 'target_comment_id' = ANY(ma_cols) AND comment_fk_table IS NOT NULL THEN
+                target_comment_expr := format('CASE WHEN EXISTS (SELECT 1 FROM %s r WHERE r.id = ma.target_comment_id) THEN ma.target_comment_id ELSE NULL END', comment_fk_table);
+            ELSIF 'target_comment_id' = ANY(ma_cols) THEN
+                target_comment_expr := 'ma.target_comment_id';
+            ELSE
+                target_comment_expr := 'NULL::integer';
+            END IF;
+
+            IF 'target_thread_id' = ANY(ma_cols) AND thread_fk_table IS NOT NULL THEN
+                target_thread_expr := format('CASE WHEN EXISTS (SELECT 1 FROM %s r WHERE r.id = ma.target_thread_id) THEN ma.target_thread_id ELSE NULL END', thread_fk_table);
+            ELSIF 'target_thread_id' = ANY(ma_cols) THEN
+                target_thread_expr := 'ma.target_thread_id';
+            ELSE
+                target_thread_expr := 'NULL::integer';
+            END IF;
 
             mod_expr := CASE
                 WHEN 'moderator_id' = ANY(ma_cols)
@@ -335,20 +372,8 @@ BEGIN
                        AND %s
                  )',
                 mod_expr, act_expr, target_user_expr,
-                CASE
-                    WHEN 'target_comment_id' = ANY(ma_cols) AND to_regclass('public.forum_comments') IS NOT NULL
-                        THEN 'CASE WHEN EXISTS (SELECT 1 FROM forum_comments fc WHERE fc.id = ma.target_comment_id) THEN ma.target_comment_id ELSE NULL END'
-                    WHEN 'target_comment_id' = ANY(ma_cols)
-                        THEN 'ma.target_comment_id'
-                    ELSE 'NULL::integer'
-                END,
-                CASE
-                    WHEN 'target_thread_id' = ANY(ma_cols) AND to_regclass('public.forum_threads') IS NOT NULL
-                        THEN 'CASE WHEN EXISTS (SELECT 1 FROM forum_threads ft WHERE ft.id = ma.target_thread_id) THEN ma.target_thread_id ELSE NULL END'
-                    WHEN 'target_thread_id' = ANY(ma_cols)
-                        THEN 'ma.target_thread_id'
-                    ELSE 'NULL::integer'
-                END,
+                target_comment_expr,
+                target_thread_expr,
                 reason_expr, details_expr, created_expr,
                 mod_expr, act_expr, target_user_expr, reason_expr, details_expr, created_cmp_expr
             );
