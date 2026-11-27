@@ -1415,7 +1415,7 @@ async function run() {
         assert.equal(postRow.legacy_r1_disposition, preItem.legacy_r1_disposition, `Disposition mismatch for proposal ${preItem.id}`);
     }
 
-    // Verify already-applied R3 DB (with legacy unsafe R3 constraint) upgrades cleanly to R4
+    // Verify already-applied R3 DB (with legacy unsafe R3 constraint and unflagged malformed options with NULL abstain) upgrades cleanly to R4
     await pool.query("DELETE FROM public.schema_migrations WHERE version = '2026-11-26-sloboda-core-r4'");
     await pool.query('ALTER TABLE public.governance_proposals DROP CONSTRAINT IF EXISTS chk_governance_proposals_abstain_index');
     await pool.query(`
@@ -1423,6 +1423,10 @@ async function run() {
         ADD CONSTRAINT chk_governance_proposals_abstain_index
         CHECK (legacy_r1_unsupported = TRUE OR abstain_option_index IS NULL OR (abstain_option_index >= 0 AND jsonb_typeof(options) = 'array' AND abstain_option_index < jsonb_array_length(options)))
     `);
+    await pool.query(
+        'UPDATE public.governance_proposals SET legacy_r1_unsupported = FALSE, legacy_r1_disposition = NULL WHERE id = $1',
+        [pNonArrNoAbstain]
+    );
     const r3Cli = runPreflightCli();
     assert.equal(r3Cli.exitCode, 0);
     assert.equal(r3Cli.json.schema.schema_state, 'INSTALLED_R3');
@@ -1430,6 +1434,12 @@ async function run() {
     const r4Cli = runPreflightCli();
     assert.equal(r4Cli.exitCode, 0);
     assert.equal(r4Cli.json.schema.schema_state, 'INSTALLED_R4');
+    const reflaggedRow = (await pool.query(
+        'SELECT legacy_r1_unsupported, legacy_r1_disposition FROM public.governance_proposals WHERE id = $1',
+        [pNonArrNoAbstain]
+    )).rows[0];
+    assert.equal(reflaggedRow.legacy_r1_unsupported, true, 'R3->R4 upgrade must flag previously unflagged non-array proposal with NULL abstain');
+    assert.equal(reflaggedRow.legacy_r1_disposition, 'frozen_requires_operator_disposition');
 
     // Verify malformed options are safely serialized as [] on read path
     const readProps = await coreStore.listProposals(null);
@@ -1437,7 +1447,13 @@ async function run() {
         assert.ok(Array.isArray(rp.options), `Proposal ${rp.id} options must be serialized as array`);
     }
 
-    // Drift fixture: intact migration markers + missing users.membership_status MUST classify PARTIAL_OR_INCONSISTENT (exit 2)
+    // Drift fixtures: missing unique index and missing users.membership_status MUST classify PARTIAL_OR_INCONSISTENT (exit 2)
+    await pool.query('DROP INDEX public.uq_member_applications_one_active_per_user_settlement');
+    const driftIdxCli = runPreflightCli();
+    assert.equal(driftIdxCli.exitCode, 2, 'Missing active-application unique index must fail-closed with exit 2');
+    assert.equal(driftIdxCli.json.schema.schema_state, 'PARTIAL_OR_INCONSISTENT');
+    assert.ok(driftIdxCli.json.schema.missing_indexes.includes('uq_member_applications_one_active_per_user_settlement'));
+
     await pool.query('ALTER TABLE public.users DROP COLUMN membership_status');
     const driftCli = runPreflightCli();
     assert.equal(driftCli.exitCode, 2, 'Intact markers with missing users.membership_status must fail-closed with exit 2');

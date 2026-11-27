@@ -659,15 +659,16 @@ export default function Applications() {
         return
       }
       const updatedApp = res.data.application
-      if (!applyApplicationMonotonic(updatedApp)) {
-        return
-      }
       const draftKey = getRevisionDraftKey(userIdAtStart, appId)
+      const appliedNewerSnapshot = applyApplicationMonotonic(updatedApp)
       if (revisionEditSeqRef.current === editSeqAtStart) {
+        // Submitted draft had zero subsequent local edits: reconcile/clear even if a newer version arrived concurrently
         removeRevisionDraft(draftKey)
-        setRevisionConflict(null)
+        setRevisionConflict((prev) => (prev && prev.draftBaseVersion === baseVer ? null : prev))
         setRevisionDraftVisible(false)
-        syncRevisionFields(updatedApp)
+        if (appliedNewerSnapshot) {
+          syncRevisionFields(updatedApp)
+        }
         toast.success('Доработанная заявка отправлена на повторное рассмотрение')
       } else {
         // User typed newer edits while PATCH was in flight: preserve newer edits in durable draft
@@ -678,13 +679,15 @@ export default function Applications() {
           updatedAt: new Date().toISOString(),
         })
         setRevisionDraftVisible(true)
-        setRevisionConflict({
-          serverVersion: updatedApp.version,
-          serverStatus: updatedApp.status,
-          draftBaseVersion: baseVer,
-          serverApplication: updatedApp,
-          refreshFailed: false,
-        })
+        if (appliedNewerSnapshot) {
+          setRevisionConflict({
+            serverVersion: updatedApp.version,
+            serverStatus: updatedApp.status,
+            draftBaseVersion: baseVer,
+            serverApplication: updatedApp,
+            refreshFailed: false,
+          })
+        }
         toast.warning('Заявка отправлена, но ваши более новые правки сохранены в черновике')
       }
     } catch (err: unknown) {

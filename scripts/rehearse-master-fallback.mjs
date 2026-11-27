@@ -24,6 +24,7 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawn } from 'node:child_process';
@@ -47,23 +48,42 @@ function git(args, cwd = rootDir) {
     return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
 }
 
-async function waitForHealth(baseUrl, child, labelName, timeoutMs = 30000) {
+function getFreePort() {
+    return new Promise((resolve, reject) => {
+        const srv = net.createServer();
+        srv.unref();
+        srv.on('error', reject);
+        srv.listen(0, '127.0.0.1', () => {
+            const addr = srv.address();
+            const port = typeof addr === 'object' && addr ? addr.port : 0;
+            srv.close(() => resolve(port));
+        });
+    });
+}
+
+async function waitForHealth(baseUrl, child, logs, labelName, timeoutMs = 30000) {
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
         if (child.exitCode !== null) {
-            throw new Error(`${labelName} exited prematurely with code ${child.exitCode}`);
+            throw new Error(`${labelName} exited prematurely with code ${child.exitCode}: ${logs.join('')}`);
         }
-        try {
-            const res = await fetch(`${baseUrl}/api/health`);
-            if (res.status === 200) {
-                return await res.json();
+        const combined = logs.join('');
+        if (/EADDRINUSE/i.test(combined)) {
+            throw new Error(`${labelName} hit EADDRINUSE: ${combined}`);
+        }
+        if (/listening|running on|Server running|SLOBODA/i.test(combined)) {
+            try {
+                const res = await fetch(`${baseUrl}/api/health`);
+                if (res.status === 200 && child.exitCode === null) {
+                    return await res.json();
+                }
+            } catch {
+                // retry
             }
-        } catch {
-            // retry
         }
-        await new Promise((r) => setTimeout(r, 300));
+        await new Promise((r) => setTimeout(r, 250));
     }
-    throw new Error(`Timed out waiting for ${labelName} health at ${baseUrl}/api/health`);
+    throw new Error(`Timed out waiting for ${labelName} health at ${baseUrl}/api/health; logs=${logs.join('').slice(-400)}`);
 }
 
 function startServer(cwd, port, extraEnv = {}) {
@@ -173,10 +193,10 @@ try {
     console.log(`[rehearsal] CANDIDATE_HEAD=${candidateHead} TREE=${candidateTree}`);
 
     // Step 1: Boot exact master@aec59cc against clean DB to initialize exact master schema
-    const masterPort1 = 3311;
+    const masterPort1 = await getFreePort();
     const m1 = startServer(worktreeDir, masterPort1);
     masterProc = m1.child;
-    const h1 = await waitForHealth(`http://127.0.0.1:${masterPort1}`, masterProc, 'master@aec59cc (clean init)');
+    const h1 = await waitForHealth(`http://127.0.0.1:${masterPort1}`, masterProc, m1.logs, 'master@aec59cc (clean init)');
     assert.equal(h1.status, 'ok');
     await stopServer(masterProc);
     masterProc = null;
@@ -269,10 +289,10 @@ try {
     await pool.query(sqlFallbackReadonly);
 
     // Step 4: Boot actual master@aec59cc against fenced populated R4 DB
-    const masterPort2 = 3312;
+    const masterPort2 = await getFreePort();
     const m2 = startServer(worktreeDir, masterPort2);
     masterProc = m2.child;
-    const h2 = await waitForHealth(`http://127.0.0.1:${masterPort2}`, masterProc, 'master@aec59cc (fenced R4 DB)');
+    const h2 = await waitForHealth(`http://127.0.0.1:${masterPort2}`, masterProc, m2.logs, 'master@aec59cc (fenced R4 DB)');
     assert.equal(h2.status, 'ok');
 
     // Verify new core API endpoints do NOT serve core JSON API on master@aec59cc
@@ -303,10 +323,10 @@ try {
 
     // Step 6: Restore writes, boot candidate server, verify public read + real candidate writes + integrity gate
     await pool.query(sqlRestoreWrites);
-    const candPort = 3313;
+    const candPort = await getFreePort();
     const c1 = startServer(rootDir, candPort);
     candidateProc = c1.child;
-    const hc = await waitForHealth(`http://127.0.0.1:${candPort}`, candidateProc, 'candidate R4 server');
+    const hc = await waitForHealth(`http://127.0.0.1:${candPort}`, candidateProc, c1.logs, 'candidate R4 server');
     assert.equal(hc.status, 'ok');
 
     const pubLedgerRes = await fetch(`http://127.0.0.1:${candPort}/api/public/ledger/summary?settlement_id=sloboda-pilot`);

@@ -28,10 +28,17 @@ const CORE_MIGRATION_VERSIONS = [
     '2026-11-26-sloboda-core-r4',
 ];
 
-const R1_REQUIRED_USER_COLUMNS = [
-    'membership_status',
-    'membership_admitted_at',
-    'settlement_id',
+const R1_REQUIRED_COLUMNS = [
+    { table: 'users', column: 'membership_status' },
+    { table: 'users', column: 'membership_admitted_at' },
+    { table: 'users', column: 'settlement_id' },
+    { table: 'member_applications', column: 'user_id' },
+    { table: 'member_applications', column: 'settlement_id' },
+    { table: 'member_applications', column: 'status' },
+    { table: 'member_applications', column: 'version' },
+    { table: 'portfolio_items', column: 'application_id' },
+    { table: 'portfolio_items', column: 'title' },
+    { table: 'portfolio_items', column: 'domain_code' },
 ];
 
 const R2_REQUIRED_COLUMNS = [
@@ -42,6 +49,11 @@ const R2_REQUIRED_COLUMNS = [
     { table: 'ledger_expenses', column: 'version' },
     { table: 'governance_proposals', column: 'legacy_r1_unsupported' },
     { table: 'governance_proposals', column: 'legacy_r1_disposition' },
+];
+
+const R2_REQUIRED_INDEXES = [
+    'uq_member_applications_claim_token_hash',
+    'uq_member_applications_one_active_per_user_settlement',
 ];
 
 async function getColumnSet(client, tableName) {
@@ -109,10 +121,12 @@ async function inspectCoreSchemaState(client) {
     const hasM4 = migSet.has('2026-11-26-sloboda-core-r4');
 
     const userCols = await getColumnSet(client, 'users');
-    const missingR1UserColumns = R1_REQUIRED_USER_COLUMNS
-        .filter((col) => !userCols.has(col))
-        .map((col) => `users.${col}`);
-
+    const appCols = presentSet.has('member_applications')
+        ? await getColumnSet(client, 'member_applications')
+        : new Set();
+    const portfolioCols = presentSet.has('portfolio_items')
+        ? await getColumnSet(client, 'portfolio_items')
+        : new Set();
     const contribCols = presentSet.has('contributions')
         ? await getColumnSet(client, 'contributions')
         : new Set();
@@ -124,10 +138,20 @@ async function inspectCoreSchemaState(client) {
         : new Set();
 
     const colMap = {
+        users: userCols,
+        member_applications: appCols,
+        portfolio_items: portfolioCols,
         contributions: contribCols,
         ledger_expenses: expenseCols,
         governance_proposals: proposalCols,
     };
+    const missingR1Columns = [];
+    for (const reqCol of R1_REQUIRED_COLUMNS) {
+        const cols = colMap[reqCol.table] || new Set();
+        if (!cols.has(reqCol.column)) {
+            missingR1Columns.push(`${reqCol.table}.${reqCol.column}`);
+        }
+    }
     const missingR2Columns = [];
     for (const reqCol of R2_REQUIRED_COLUMNS) {
         const cols = colMap[reqCol.table] || new Set();
@@ -137,6 +161,18 @@ async function inspectCoreSchemaState(client) {
     }
     const hasAllR2Columns = missingR2Columns.length === 0;
     const hasAnyR2Columns = missingR2Columns.length < R2_REQUIRED_COLUMNS.length;
+
+    const idxRes = await client.query(
+        `SELECT c.relname AS index_name
+         FROM pg_catalog.pg_class c
+         JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+         WHERE n.nspname = 'public'
+           AND c.relkind = 'i'
+           AND c.relname = ANY($1::text[])`,
+        [R2_REQUIRED_INDEXES]
+    );
+    const presentIdxSet = new Set(idxRes.rows.map((r) => r.index_name));
+    const missingR2Indexes = R2_REQUIRED_INDEXES.filter((idx) => !presentIdxSet.has(idx));
 
     let hasSafeR4AbstainConstraint = false;
     if (presentSet.has('governance_proposals')) {
@@ -167,8 +203,8 @@ async function inspectCoreSchemaState(client) {
         schemaState = 'NOT_INSTALLED';
     } else if (missingCoreTables.length > 0) {
         reasons.push(`missing_core_tables:${missingCoreTables.join(',')}`);
-    } else if (missingR1UserColumns.length > 0) {
-        reasons.push(`missing_r1_user_columns:${missingR1UserColumns.join(',')}`);
+    } else if (missingR1Columns.length > 0) {
+        reasons.push(`missing_r1_columns:${missingR1Columns.join(',')}`);
     } else if (hasM1 && !hasM2 && !hasM3 && !hasM4) {
         if (hasGatesTable) reasons.push('unexpected_sloboda_core_gates_on_r1');
         if (hasAnyR2Columns) reasons.push('unexpected_r2_columns_on_r1');
@@ -176,14 +212,17 @@ async function inspectCoreSchemaState(client) {
     } else if (hasM1 && hasM2 && !hasM3 && !hasM4) {
         if (hasGatesTable) reasons.push('unexpected_sloboda_core_gates_on_r2');
         if (!hasAllR2Columns) reasons.push(`missing_r2_columns:${missingR2Columns.join(',')}`);
+        if (missingR2Indexes.length > 0) reasons.push(`missing_r2_indexes:${missingR2Indexes.join(',')}`);
         if (reasons.length === 0) schemaState = 'INSTALLED_R2';
     } else if (hasM1 && hasM2 && hasM3 && !hasM4) {
         if (!hasGatesTable) reasons.push('missing_sloboda_core_gates_on_r3');
         if (!hasAllR2Columns) reasons.push(`missing_r2_columns:${missingR2Columns.join(',')}`);
+        if (missingR2Indexes.length > 0) reasons.push(`missing_r2_indexes:${missingR2Indexes.join(',')}`);
         if (reasons.length === 0) schemaState = 'INSTALLED_R3';
     } else if (hasM1 && hasM2 && hasM3 && hasM4) {
         if (!hasGatesTable) reasons.push('missing_sloboda_core_gates_on_r4');
         if (!hasAllR2Columns) reasons.push(`missing_r2_columns:${missingR2Columns.join(',')}`);
+        if (missingR2Indexes.length > 0) reasons.push(`missing_r2_indexes:${missingR2Indexes.join(',')}`);
         if (!hasSafeR4AbstainConstraint) reasons.push('missing_r4_safe_abstain_constraint');
         if (reasons.length === 0) schemaState = 'INSTALLED_R4';
     } else {
@@ -195,7 +234,8 @@ async function inspectCoreSchemaState(client) {
         present_tables: hasGatesTable ? [...presentCoreTables, 'sloboda_core_gates'] : presentCoreTables,
         missing_tables: missingCoreTables,
         has_gates_table: hasGatesTable,
-        missing_columns: [...missingR1UserColumns, ...missingR2Columns],
+        missing_columns: [...missingR1Columns, ...missingR2Columns],
+        missing_indexes: missingR2Indexes,
         applied_core_migrations: appliedCoreMigrations,
         reasons,
     };
