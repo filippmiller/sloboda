@@ -9,7 +9,12 @@ if (process.env.DATABASE_URL) {
   const { parse: parsePgConnectionString } = require('pg-connection-string');
   const parsedPg = parsePgConnectionString(process.env.DATABASE_URL);
   const dbName = typeof parsedPg.database === 'string' ? parsedPg.database : '';
-  if (!dbName || dbName.includes('/') || !/(^|[_-])(test|ci|local|dev)($|[_-])/i.test(dbName)) {
+  if (
+    !dbName ||
+    Buffer.byteLength(dbName, 'utf8') > 63 ||
+    dbName.includes('/') ||
+    !/(^|[_-])(test|ci|local|dev)($|[_-])/i.test(dbName)
+  ) {
     throw new Error(`Refusing to start PG UI E2E webServer against non-disposable database "${dbName}"`);
   }
 }
