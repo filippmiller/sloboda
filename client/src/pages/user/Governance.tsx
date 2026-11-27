@@ -524,7 +524,7 @@ export default function Governance() {
                         <p className="text-xs text-text-muted">Варианты голосования:</p>
                         <ul className="list-disc list-inside text-sm text-text-secondary space-y-1">
                           {(Array.isArray(proposal.options) ? proposal.options : []).map((opt, idx) => (
-                            <li key={idx}>{opt}</li>
+                            <li key={idx}>{typeof opt === 'string' ? opt : JSON.stringify(opt)}</li>
                           ))}
                         </ul>
                       </div>

@@ -1614,7 +1614,9 @@ async function listProposals(userId) {
 function sanitizeProposalForRead(prop, mySnapshot) {
     return {
         ...prop,
-        options: Array.isArray(prop.options) ? prop.options : [],
+        options: Array.isArray(prop.options)
+            ? prop.options.map((o) => (typeof o === 'string' ? o : JSON.stringify(o)))
+            : [],
         // Never leak intermediate secret ballot tallies while open
         protocol_json: prop.status === 'closed' ? prop.protocol_json : null,
         my_eligibility: mySnapshot

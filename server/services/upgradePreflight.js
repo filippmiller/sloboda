@@ -166,8 +166,12 @@ async function inspectCoreSchemaState(client) {
         `SELECT c.relname AS index_name
          FROM pg_catalog.pg_class c
          JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+         JOIN pg_catalog.pg_index i ON i.indexrelid = c.oid
          WHERE n.nspname = 'public'
            AND c.relkind = 'i'
+           AND i.indisunique = TRUE
+           AND i.indisvalid = TRUE
+           AND i.indisready = TRUE
            AND c.relname = ANY($1::text[])`,
         [R2_REQUIRED_INDEXES]
     );

@@ -815,7 +815,6 @@ export default function Applications() {
           if (latestDraft) {
             writeRevisionDraft(revKey, {
               ...latestDraft,
-              ...revisionFieldsRef.current,
               baseVersion: nextVersion,
               updatedAt: new Date().toISOString(),
             })
