@@ -787,7 +787,9 @@ export default function Applications() {
       ) {
         return
       }
-      setPortfolio((prev) => [res.data.item, ...prev])
+      setPortfolio((prev) =>
+        prev.some((p) => p.id === res.data.item.id) ? prev : [res.data.item, ...prev],
+      )
       const nextVersion =
         res.data.application_version ?? (typeof prevVersion === 'number' ? prevVersion + 1 : 1)
 

@@ -23,6 +23,8 @@ WHERE (legacy_r1_unsupported = FALSE OR legacy_r1_disposition IS NULL)
       )
       OR quorum_members_pct IS NULL OR quorum_members_pct < 1 OR quorum_members_pct > 100
       OR quorum_capital_pct IS NULL OR quorum_capital_pct < 1 OR quorum_capital_pct > 100
+      OR options IS NULL
+      OR jsonb_typeof(options) <> 'array'
       OR (
           abstain_option_index IS NOT NULL
           AND (

@@ -28,6 +28,12 @@ const CORE_MIGRATION_VERSIONS = [
     '2026-11-26-sloboda-core-r4',
 ];
 
+const R1_REQUIRED_USER_COLUMNS = [
+    'membership_status',
+    'membership_admitted_at',
+    'settlement_id',
+];
+
 const R2_REQUIRED_COLUMNS = [
     { table: 'contributions', column: 'request_fingerprint' },
     { table: 'ledger_expenses', column: 'request_fingerprint' },
@@ -81,6 +87,11 @@ async function inspectCoreSchemaState(client) {
     const hasM2 = migSet.has('2026-11-26-sloboda-core-r2');
     const hasM3 = migSet.has('2026-11-26-sloboda-core-r3');
     const hasM4 = migSet.has('2026-11-26-sloboda-core-r4');
+
+    const userCols = await getColumnSet(client, 'users');
+    const missingR1UserColumns = R1_REQUIRED_USER_COLUMNS
+        .filter((col) => !userCols.has(col))
+        .map((col) => `users.${col}`);
 
     const contribCols = presentSet.has('contributions')
         ? await getColumnSet(client, 'contributions')
@@ -136,6 +147,8 @@ async function inspectCoreSchemaState(client) {
         schemaState = 'NOT_INSTALLED';
     } else if (missingCoreTables.length > 0) {
         reasons.push(`missing_core_tables:${missingCoreTables.join(',')}`);
+    } else if (missingR1UserColumns.length > 0) {
+        reasons.push(`missing_r1_user_columns:${missingR1UserColumns.join(',')}`);
     } else if (hasM1 && !hasM2 && !hasM3 && !hasM4) {
         if (hasGatesTable) reasons.push('unexpected_sloboda_core_gates_on_r1');
         if (hasAnyR2Columns) reasons.push('unexpected_r2_columns_on_r1');
@@ -162,7 +175,7 @@ async function inspectCoreSchemaState(client) {
         present_tables: hasGatesTable ? [...presentCoreTables, 'sloboda_core_gates'] : presentCoreTables,
         missing_tables: missingCoreTables,
         has_gates_table: hasGatesTable,
-        missing_columns: missingR2Columns,
+        missing_columns: [...missingR1UserColumns, ...missingR2Columns],
         applied_core_migrations: appliedCoreMigrations,
         reasons,
     };
@@ -565,6 +578,7 @@ async function runGovernancePreflight(client) {
     const cols = await getColumnSet(client, 'governance_proposals');
     const hasLegacyCols = cols.has('legacy_r1_unsupported') && cols.has('legacy_r1_disposition');
 
+    const badOptionsShapeExpr = `(options IS NULL OR jsonb_typeof(options) <> 'array')`;
     const badAbstainExpr = `(
         abstain_option_index IS NOT NULL
         AND (
@@ -585,6 +599,7 @@ async function runGovernancePreflight(client) {
         )
         OR quorum_members_pct IS NULL OR quorum_members_pct < 1 OR quorum_members_pct > 100
         OR quorum_capital_pct IS NULL OR quorum_capital_pct < 1 OR quorum_capital_pct > 100
+        OR ${badOptionsShapeExpr}
         OR ${badAbstainExpr}
     `;
 
@@ -625,6 +640,7 @@ async function runGovernancePreflight(client) {
                )) AS bad_engine,
                (quorum_members_pct IS NULL OR quorum_members_pct < 1 OR quorum_members_pct > 100) AS bad_quorum_members,
                (quorum_capital_pct IS NULL OR quorum_capital_pct < 1 OR quorum_capital_pct > 100) AS bad_quorum_capital,
+               ${badOptionsShapeExpr} AS bad_options_shape,
                ${badAbstainExpr} AS bad_abstain
         FROM public.governance_proposals
         WHERE ${unsupportedFilter}
@@ -646,6 +662,7 @@ async function runGovernancePreflight(client) {
         if (r.bad_engine) reasons.push('engine_secret_ballot_mismatch');
         if (r.bad_quorum_members) reasons.push('invalid_quorum_members_pct');
         if (r.bad_quorum_capital) reasons.push('invalid_quorum_capital_pct');
+        if (r.bad_options_shape) reasons.push('invalid_options_shape');
         if (r.bad_abstain) reasons.push('invalid_abstain_option_index');
         return {
             id: Number(r.id),

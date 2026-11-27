@@ -1362,6 +1362,10 @@ async function run() {
         INSERT INTO governance_proposals (title, vote_type, settlement_id, authoritative_engine, secret_ballot, seats_count, options, abstain_option_index, status, created_by)
         VALUES ('R4 Non-Array Options', 'council_election', 'sloboda-pilot', 'native_secret', TRUE, 1, '{}'::jsonb, 0, 'open', $1) RETURNING id
     `, [r4AdminId])).rows[0].id;
+    const pNonArrNoAbstain = (await pool.query(`
+        INSERT INTO governance_proposals (title, vote_type, settlement_id, authoritative_engine, secret_ballot, seats_count, options, abstain_option_index, status, created_by)
+        VALUES ('R4 Non-Array Options No Abstain', 'council_election', 'sloboda-pilot', 'native_secret', TRUE, 1, '{}'::jsonb, NULL, 'open', $1) RETURNING id
+    `, [r4AdminId])).rows[0].id;
     const pJsonNull = (await pool.query(`
         INSERT INTO governance_proposals (title, vote_type, settlement_id, authoritative_engine, secret_ballot, seats_count, options, abstain_option_index, status, created_by)
         VALUES ('R4 JSON Null Options', 'council_election', 'sloboda-pilot', 'native_secret', TRUE, 1, 'null'::jsonb, 0, 'open', $1) RETURNING id
@@ -1395,7 +1399,7 @@ async function run() {
     assert.equal(preDdlR1Cli.exitCode, 0, 'Healthy R1 pre-DDL preflight must exit 0');
     assert.equal(preDdlR1Cli.json.schema.schema_state, 'INSTALLED_R1');
     const preIds = preDdlR1Cli.json.governance.unsupported_proposals.map((p) => p.id).sort((a, b) => a - b);
-    const expectedUnsupportedIds = [pOob, pNonArr, pJsonNull, pClosedSeats].sort((a, b) => a - b);
+    const expectedUnsupportedIds = [pOob, pNonArr, pNonArrNoAbstain, pJsonNull, pClosedSeats].sort((a, b) => a - b);
     assert.deepEqual(preIds, expectedUnsupportedIds, 'Pre-DDL governance inventory must flag exact unsupported IDs and NOT valid boundary 0/1');
     assert.ok(!preIds.includes(pValid0) && !preIds.includes(pValid1), 'Valid boundary indices 0 and 1 must NOT be flagged');
 
@@ -1426,6 +1430,19 @@ async function run() {
     const r4Cli = runPreflightCli();
     assert.equal(r4Cli.exitCode, 0);
     assert.equal(r4Cli.json.schema.schema_state, 'INSTALLED_R4');
+
+    // Verify malformed options are safely serialized as [] on read path
+    const readProps = await coreStore.listProposals('sloboda-pilot', null);
+    for (const rp of readProps) {
+        assert.ok(Array.isArray(rp.options), `Proposal ${rp.id} options must be serialized as array`);
+    }
+
+    // Drift fixture: intact migration markers + missing users.membership_status MUST classify PARTIAL_OR_INCONSISTENT (exit 2)
+    await pool.query('ALTER TABLE public.users DROP COLUMN membership_status');
+    const driftCli = runPreflightCli();
+    assert.equal(driftCli.exitCode, 2, 'Intact markers with missing users.membership_status must fail-closed with exit 2');
+    assert.equal(driftCli.json.schema.schema_state, 'PARTIAL_OR_INCONSISTENT');
+    assert.ok(driftCli.json.schema.missing_columns.includes('users.membership_status'));
 
     // Verify empty rollback removes R4 marker too, preflight reports NOT_INSTALLED, and reinstall reaches INSTALLED_R4
     await resetBaseSchema();

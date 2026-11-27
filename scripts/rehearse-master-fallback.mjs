@@ -34,6 +34,7 @@ const { Pool } = require('pg');
 const { assertSafeDisposablePgConfig, assertConnectedDisposablePg } = require('../server/utils/pgTestGuard');
 
 const PINNED_MASTER_SHA = 'aec59ccdc97f76d5b024333f02dfb0a4ce47175a';
+const REHEARSAL_JWT_SECRET = process.env.JWT_SECRET || 'rehearsal-secret-32-chars-minimum';
 const label = 'actual-master fallback rehearsal (scripts/rehearse-master-fallback.mjs)';
 const { dbName } = assertSafeDisposablePgConfig(process.env.DATABASE_URL, process.env, label);
 process.env.TEST_NO_DB = 'false';
@@ -76,7 +77,7 @@ function startServer(cwd, port, extraEnv = {}) {
             DISABLE_CLIENT_BUILD: 'true',
             TEST_NO_DB: 'false',
             DATABASE_URL: process.env.DATABASE_URL,
-            JWT_SECRET: process.env.JWT_SECRET || 'rehearsal-secret-32-chars-minimum',
+            JWT_SECRET: REHEARSAL_JWT_SECRET,
             ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'admin@sloboda.land',
             ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || 'testpassword123',
             ...extraEnv,
@@ -297,10 +298,9 @@ try {
     // Perform real candidate writes via the candidate server's authenticated HTTP endpoints
     // to prove the SQL write fence was lifted end-to-end (HTTP -> route -> coreStore -> PG)
     const jwt = require('jsonwebtoken');
-    const { JWT_SECRET } = require('../server/utils/tokens');
     const adminJwt = jwt.sign(
         { id: adminId, email: 'rehearsal.admin@sloboda.land', role: 'super_admin' },
-        JWT_SECRET,
+        REHEARSAL_JWT_SECRET,
         { expiresIn: '1h' }
     );
 

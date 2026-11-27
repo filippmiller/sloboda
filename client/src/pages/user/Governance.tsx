@@ -523,7 +523,7 @@ export default function Governance() {
                       <div className="space-y-2">
                         <p className="text-xs text-text-muted">Варианты голосования:</p>
                         <ul className="list-disc list-inside text-sm text-text-secondary space-y-1">
-                          {proposal.options.map((opt, idx) => (
+                          {(Array.isArray(proposal.options) ? proposal.options : []).map((opt, idx) => (
                             <li key={idx}>{opt}</li>
                           ))}
                         </ul>

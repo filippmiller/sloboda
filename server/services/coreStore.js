@@ -1614,6 +1614,7 @@ async function listProposals(userId) {
 function sanitizeProposalForRead(prop, mySnapshot) {
     return {
         ...prop,
+        options: Array.isArray(prop.options) ? prop.options : [],
         // Never leak intermediate secret ballot tallies while open
         protocol_json: prop.status === 'closed' ? prop.protocol_json : null,
         my_eligibility: mySnapshot
@@ -1940,7 +1941,12 @@ async function recordContribution(data, adminId) {
         try {
             await client.query('BEGIN');
             await assertLedgerWriteGateOpen(client);
-            await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`contrib_idem:${collapsedKey}`]);
+            const lockKeys = (!isOverlengthRaw && collapsedKey !== idempKey)
+                ? [`contrib_idem:${collapsedKey}`, `contrib_idem:${idempKey}`].sort()
+                : [`contrib_idem:${collapsedKey}`];
+            for (const lk of lockKeys) {
+                await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [lk]);
+            }
 
             let dupRow = null;
             if (isOverlengthRaw) {
@@ -2149,7 +2155,12 @@ async function createAndAllocateExpense(data, adminId) {
         try {
             await client.query('BEGIN');
             await assertLedgerWriteGateOpen(client);
-            await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`expense_idem:${collapsedKey}`]);
+            const expLockKeys = (!isOverlengthRaw && collapsedKey !== idempKey)
+                ? [`expense_idem:${collapsedKey}`, `expense_idem:${idempKey}`].sort()
+                : [`expense_idem:${collapsedKey}`];
+            for (const lk of expLockKeys) {
+                await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [lk]);
+            }
 
             let dupRow = null;
             if (isOverlengthRaw) {

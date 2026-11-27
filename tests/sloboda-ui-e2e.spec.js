@@ -1073,20 +1073,22 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
       await ctxMl.close();
     }
 
-    // 6C: Malicious nested redirect (external / /api / duplicate) rejected by server magic-link issuer -> falls back to /dashboard
+    // 6C: Malicious nested redirect (external / /api / duplicate) rejected by server magic-link issuer -> falls back to default /dashboard (omits redirect param)
     const mlBadRes = await request.post('/api/user/auth/magic-link', {
       data: { email: emailMl, redirect: '/onboarding?redirect=https%3A%2F%2Fevil.example' },
     });
     expect(mlBadRes.status()).toBe(200);
     const mlBadBody = await mlBadRes.json();
-    expect(mlBadBody.debugMagicLink).toContain('redirect=%2Fdashboard');
+    expect(new URL(mlBadBody.debugMagicLink).searchParams.get('redirect')).toBeNull();
+    expect(mlBadBody.debugMagicLink).not.toContain('evil.example');
 
     const mlBadApiRes = await request.post('/api/user/auth/magic-link', {
       data: { email: emailMl, redirect: '/onboarding?redirect=%2Fapi%2Fadmin' },
     });
     expect(mlBadApiRes.status()).toBe(200);
     const mlBadApiBody = await mlBadApiRes.json();
-    expect(mlBadApiBody.debugMagicLink).toContain('redirect=%2Fdashboard');
+    expect(new URL(mlBadApiBody.debugMagicLink).searchParams.get('redirect')).toBeNull();
+    expect(mlBadApiBody.debugMagicLink).not.toContain('admin');
 
     expect(pageErrors).toEqual([]);
   });
@@ -1197,7 +1199,7 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
       await expect(page.getByText(/Обнаружено изменение заявки на сервере/i).first()).toBeVisible({ timeout: 10000 });
 
       // 7C: Resolve conflict keeping draft, then delayed PATCH 200 — type Y3 while PATCH 200 is in flight, release 200, reload -> Y3 preserved
-      await page.getByRole('button', { name: /Оставить мои правки/i }).click();
+      await page.getByRole('button', { name: /Сохранить мои правки для версии/i }).click();
       let releasePatch200;
       let notifyPatch200Arrived;
       const patch200Arrived = new Promise((resolve) => { notifyPatch200Arrived = resolve; });
