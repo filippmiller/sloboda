@@ -1365,9 +1365,15 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
       await expect(pageA.getByText(portTitle)).toBeVisible({ timeout: 10000 });
 
       await pageB.reload();
+      // Both Tab A's rebased draft (base v4) and Tab B's concurrent draft (base v3) are preserved!
+      await expect(pageB.getByText(/Сохранено несколько версий черновика \(2\)/i)).toBeVisible({ timeout: 10000 });
+      await expect(pageB.getByText(aSkillsPort).first()).toBeVisible({ timeout: 10000 });
+      await expect(pageB.getByText(ySkillsPort).first()).toBeVisible({ timeout: 10000 });
+      await expect(pageB.getByText(yMotPort).first()).toBeVisible({ timeout: 10000 });
+      // Opening Tab B's preserved draft restores BOTH skills and motivation fields verbatim
+      await pageB.getByRole('button', { name: 'Открыть' }).nth(1).click();
       await expect(pageB.locator('textarea').nth(0)).toHaveValue(ySkillsPort, { timeout: 10000 });
       await expect(pageB.locator('textarea').nth(1)).toHaveValue(yMotPort, { timeout: 10000 });
-      await expect(pageB.getByText(aSkillsPort).first()).toBeVisible({ timeout: 10000 });
       await expect(pageB.getByText(portTitle)).toHaveCount(1, { timeout: 10000 });
 
       // Clear drafts so 8C starts cleanly at version 4
