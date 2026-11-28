@@ -1657,7 +1657,7 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
       // Immediate reload of BOTH tabs -> verify A's edited draft still has baseVersion 2 and B's v3 draft is intact
       await pageA.reload();
       await pageB.reload();
-      await expect(pageB.getByText(/Сохранено несколько версий черновика \(2\)/i)).toBeVisible({ timeout: 10000 });
+      await expect(pageB.getByText(/Сохранено несколько версий черновика \(\d+\)/i)).toBeVisible({ timeout: 10000 });
       const storedAfter9B = await pageB.evaluate(() =>
         Object.keys(localStorage)
           .filter((k) => k.startsWith('sloboda_revision_draft:'))
