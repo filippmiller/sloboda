@@ -1769,8 +1769,18 @@ async function run() {
         () => pool.query('ALTER TABLE public.forum_roles DROP COLUMN role'),
         (j) => assert.ok(j.schema.missing_columns.includes('forum_roles.role'))
     );
+    await assertSchemaDriftRejected(
+        'pro01_missing_forum_bans_is_active',
+        () => pool.query('ALTER TABLE public.forum_bans DROP COLUMN is_active'),
+        (j) => assert.ok(j.schema.missing_columns.includes('forum_bans.is_active'))
+    );
 
-    // PRO-01: Wrong type, both-side nullability, missing default, and schema_migrations shape/arbiter
+    // PRO-01: Wrong type, both-side nullability, missing default, privilege-changing default, and schema_migrations shape/arbiter
+    await assertSchemaDriftRejected(
+        'pro01_privilege_changing_default_membership_status',
+        () => pool.query("ALTER TABLE public.users ALTER COLUMN membership_status SET DEFAULT 'accepted'"),
+        (j) => assert.ok(j.schema.reasons.some((r) => r.includes('column_default_mismatch:users.membership_status')))
+    );
     await assertSchemaDriftRejected(
         'pro01_wrong_type_protocol_json_text',
         () => pool.query('ALTER TABLE public.governance_proposals ALTER COLUMN protocol_json TYPE TEXT'),
@@ -1812,6 +1822,11 @@ async function run() {
         'pro03_actual_qty_numeric_12_0',
         () => pool.query('ALTER TABLE public.construction_milestones ALTER COLUMN actual_qty TYPE NUMERIC(12,0)'),
         (j) => assert.ok(j.schema.reasons.some((r) => r.includes('column_type_mismatch:construction_milestones.actual_qty')))
+    );
+    await assertSchemaDriftRejected(
+        'pro03_planned_qty_capacity_boundary_numeric_11_2',
+        () => pool.query('ALTER TABLE public.construction_milestones ALTER COLUMN planned_qty TYPE NUMERIC(11,2)'),
+        (j) => assert.ok(j.schema.reasons.some((r) => r.includes('column_type_mismatch:construction_milestones.planned_qty')))
     );
     await assertSchemaDriftRejected(
         'pro03_planned_qty_small_capacity_numeric_1_0',
@@ -1909,6 +1924,18 @@ async function run() {
         () => pool.query('CREATE UNIQUE INDEX idx_bad_dupkey_nnd_contrib ON public.contributions(idempotency_key, idempotency_key) NULLS NOT DISTINCT'),
         (j) => assert.ok(j.schema.reasons.some((r) => r.includes('nulls_not_distinct_companion_present:contributions_idempotency_key_unique')))
     );
+    await assertSchemaDriftRejected(
+        'pro04_multicolumn_nnd_companion_rejected',
+        () => pool.query('CREATE UNIQUE INDEX idx_bad_multicol_nnd_claim ON public.member_applications(claim_token_hash, settlement_id) NULLS NOT DISTINCT'),
+        (j) => assert.ok(j.schema.reasons.some((r) => r.includes('nulls_not_distinct_companion_present:uq_member_applications_claim_token_hash')))
+    );
+    // Gate B #3: NOT_INSTALLED shortcut must reject existing schema_migrations lacking unique arbiter on version
+    await resetBaseSchema();
+    await pool.query('CREATE TABLE public.schema_migrations (version VARCHAR(64) NOT NULL, applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)');
+    const badSmPreInstallCli = runPreflightCli();
+    assert.equal(badSmPreInstallCli.exitCode, 2, 'Pre-install schema_migrations without unique(version) must fail-closed with exit 2');
+    assert.equal(badSmPreInstallCli.json.schema.schema_state, 'PARTIAL_OR_INCONSISTENT');
+    assert.ok(badSmPreInstallCli.json.schema.missing_indexes.includes('schema_migrations_version_unique'));
     console.log('PASS [R5/R6] All PG17 schema drift negative controls, PRO-01/PRO-03/PRO-04 & healthy runtime controls verified');
 
     // Verify empty rollback removes R4 marker too, preflight reports NOT_INSTALLED, and reinstall reaches INSTALLED_R4

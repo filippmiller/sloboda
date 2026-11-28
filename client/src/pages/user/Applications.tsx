@@ -338,6 +338,7 @@ export default function Applications() {
   const activeDraftKeyRef = useRef<string | null>(null)
   const lastDraftRevIdRef = useRef<string | null>(null)
   const displayedBaseVersionRef = useRef<number | null>(null)
+  const hasUnsavedLocalEditsRef = useRef(false)
   const ownDraftKeyRef = useRef<string | null>(null)
   const ownDraftRevIdRef = useRef<string | null>(null)
   const activeAppIdRef = useRef<number | null>(null)
@@ -422,6 +423,7 @@ export default function Applications() {
     (app: MemberApplication | null) => {
       if (!app) return
       displayedBaseVersionRef.current = app.version
+      hasUnsavedLocalEditsRef.current = false
       applyRevisionFieldsState({
         revFullName: app.full_name || '',
         revCity: app.city || '',
@@ -485,6 +487,7 @@ export default function Applications() {
           updatedAt: new Date().toISOString(),
         })
         if (wrote) {
+          hasUnsavedLocalEditsRef.current = false
           // Only retire prevOwnKey when this tab was actively editing its OWN draft (never erase
           // Tab A's own saved draft when Tab A selected and edited Tab B's recovered draft!).
           // Only retire a single recovered `:rev:` key on reload; never auto-delete legacy mutable keys.
@@ -503,6 +506,8 @@ export default function Applications() {
           ownDraftRevIdRef.current = nextRevId
           activeDraftKeyRef.current = nextKey
           lastDraftRevIdRef.current = nextRevId
+        } else {
+          hasUnsavedLocalEditsRef.current = true
         }
         setRecoverableDrafts(readAllRevisionDrafts(effectiveUserId, application.id))
         setRevisionDraftVisible(true)
@@ -529,7 +534,7 @@ export default function Applications() {
         const resolvedUserId = res.data.membership?.id ?? authUser?.id ?? app.user_id
         const allDrafts = readAllRevisionDrafts(resolvedUserId, app.id)
         setRecoverableDrafts(allDrafts)
-        const noLocalEdits = revisionEditSeqRef.current === editSeqAtStart
+        const noLocalEdits = revisionEditSeqRef.current === editSeqAtStart && !hasUnsavedLocalEditsRef.current
 
         if (allDrafts.length > 0) {
           const resolved = resolveActiveDraftForConflict(
@@ -816,6 +821,7 @@ export default function Applications() {
     activeDraftKeyRef.current = entry.key
     lastDraftRevIdRef.current = fresh.draftRevId
     displayedBaseVersionRef.current = fresh.baseVersion
+    hasUnsavedLocalEditsRef.current = false
     setRevisionDraftVisible(true)
     if (application) {
       setRevisionConflict((prev) =>
@@ -911,6 +917,7 @@ export default function Applications() {
     activeDraftKeyRef.current = nextKey
     lastDraftRevIdRef.current = nextRevId
     displayedBaseVersionRef.current = targetApp.version
+    hasUnsavedLocalEditsRef.current = false
     const remaining = readAllRevisionDrafts(effectiveUserId, targetApp.id)
     setRecoverableDrafts(remaining)
     const hasOtherUnresolved = remaining.some(
@@ -1130,6 +1137,8 @@ export default function Applications() {
           applyRevisionFieldsState(newest.draft)
           activeDraftKeyRef.current = newest.key
           lastDraftRevIdRef.current = newest.draft.draftRevId
+          displayedBaseVersionRef.current = newest.draft.baseVersion
+          hasUnsavedLocalEditsRef.current = false
         }
         setRevisionDraftVisible(true)
         toast.warning(
@@ -1152,7 +1161,11 @@ export default function Applications() {
             setMembership(freshRes.data.membership ?? null)
             const latestDrafts = readAllRevisionDrafts(userIdAtStart, appId)
             setRecoverableDrafts(latestDrafts)
-            const resolved = resolveActiveDraftForConflict(latestDrafts, baseVer, !hasLocalEdits)
+            const resolved = resolveActiveDraftForConflict(
+              latestDrafts,
+              displayedBaseVersionRef.current ?? baseVer,
+              !hasLocalEdits && !hasUnsavedLocalEditsRef.current,
+            )
             setRevisionConflict({
               serverVersion: freshApp.version,
               serverStatus: freshApp.status,
@@ -1164,7 +1177,7 @@ export default function Applications() {
             setRevisionConflict({
               serverVersion: baseVer,
               serverStatus: appStatusAtStart,
-              draftBaseVersion: baseVer,
+              draftBaseVersion: displayedBaseVersionRef.current ?? baseVer,
               serverApplication: null,
               refreshFailed: true,
             })
@@ -1176,7 +1189,7 @@ export default function Applications() {
           setRevisionConflict({
             serverVersion: baseVer,
             serverStatus: appStatusAtStart,
-            draftBaseVersion: baseVer,
+            draftBaseVersion: displayedBaseVersionRef.current ?? baseVer,
             serverApplication: null,
             refreshFailed: true,
           })
@@ -1200,6 +1213,7 @@ export default function Applications() {
     const prevVersion = application?.version
     const appStatusAtStart = application?.status
     const userIdAtStart = effectiveUserId
+    const editSeqAtStart = revisionEditSeqRef.current
     setSubmittingPortfolio(true)
     try {
       const res = await api.post<{
@@ -1228,7 +1242,6 @@ export default function Applications() {
 
       let detectedConcurrentChange = false
       if (appId !== null && appStatusAtStart) {
-        const editSeqAtStart = revisionEditSeqRef.current
         const activeKey = activeDraftKeyRef.current ?? ownDraftKeyRef.current
         const activeRevId = activeDraftKeyRef.current
           ? lastDraftRevIdRef.current
@@ -1315,10 +1328,10 @@ export default function Applications() {
           const preResolved = resolveActiveDraftForConflict(
             allDrafts,
             currentDisplayedBase,
-            !activeKey && revisionEditSeqRef.current === editSeqAtStart,
+            !activeKey && revisionEditSeqRef.current === editSeqAtStart && !hasUnsavedLocalEditsRef.current,
           )
           const hasTabDraftOrEdits = Boolean(
-            preResolved.entry || revisionEditSeqRef.current > 0 || revisionConflict,
+            preResolved.entry || revisionEditSeqRef.current > 0 || hasUnsavedLocalEditsRef.current || revisionConflict,
           )
           detectedConcurrentChange = hasTabDraftOrEdits
           if (hasTabDraftOrEdits && nextVersion >= latestAppVersionRef.current) {
@@ -1339,7 +1352,7 @@ export default function Applications() {
             const freshApp = freshRes.data.application ?? null
             const postRefreshDrafts = readAllRevisionDrafts(userIdAtStart, appId)
             setRecoverableDrafts(postRefreshDrafts)
-            const hadLocalEdits = revisionEditSeqRef.current !== editSeqAtStart
+            const hadLocalEdits = revisionEditSeqRef.current !== editSeqAtStart || hasUnsavedLocalEditsRef.current
             const postResolved = resolveActiveDraftForConflict(
               postRefreshDrafts,
               preResolved.baseVersion,
@@ -1382,7 +1395,7 @@ export default function Applications() {
             }
             const postRefreshDrafts = readAllRevisionDrafts(userIdAtStart, appId)
             setRecoverableDrafts(postRefreshDrafts)
-            const hadLocalEdits = revisionEditSeqRef.current !== editSeqAtStart
+            const hadLocalEdits = revisionEditSeqRef.current !== editSeqAtStart || hasUnsavedLocalEditsRef.current
             const postResolved = resolveActiveDraftForConflict(
               postRefreshDrafts,
               preResolved.baseVersion,

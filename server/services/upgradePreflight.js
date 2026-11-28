@@ -57,9 +57,9 @@ const R1_REQUIRED_COLUMNS = [
     { table: 'users', column: 'email', type: 'varchar_min', minLen: 255, notNull: true },
     { table: 'users', column: 'name', type: 'varchar_min', minLen: 200, notNull: 'any' },
     { table: 'users', column: 'status', type: 'varchar_min', minLen: 24, notNull: 'any' },
-    { table: 'users', column: 'membership_status', type: 'varchar_min', minLen: 24, notNull: true, requiresDefault: true },
+    { table: 'users', column: 'membership_status', type: 'varchar_min', minLen: 24, notNull: true, requiresDefault: true, expectedDefault: "'observer'" },
     { table: 'users', column: 'membership_admitted_at', type: 'timestamp_any', notNull: false },
-    { table: 'users', column: 'settlement_id', type: 'varchar_min', minLen: 64, notNull: true, requiresDefault: true },
+    { table: 'users', column: 'settlement_id', type: 'varchar_min', minLen: 64, notNull: true, requiresDefault: true, expectedDefault: "'sloboda-pilot'" },
     // member_applications (all runtime-read/written fields including skills & motivation)
     { table: 'member_applications', column: 'id', type: 'integer', notNull: true },
     { table: 'member_applications', column: 'user_id', type: 'integer', notNull: false },
@@ -74,7 +74,7 @@ const R1_REQUIRED_COLUMNS = [
     { table: 'member_applications', column: 'trial_task_url', type: 'text', notNull: false },
     { table: 'member_applications', column: 'claim_token_hash', type: 'varchar_min', minLen: 64, notNull: false },
     { table: 'member_applications', column: 'claim_token_used_at', type: 'timestamp_any', notNull: false },
-    { table: 'member_applications', column: 'status', type: 'varchar_min', minLen: 24, notNull: true, requiresDefault: true },
+    { table: 'member_applications', column: 'status', type: 'varchar_min', minLen: 24, notNull: true, requiresDefault: true, expectedDefault: "'pending'" },
     { table: 'member_applications', column: 'version', type: 'integer', notNull: true, requiresDefault: true },
     { table: 'member_applications', column: 'reviewer_id', type: 'integer', notNull: false },
     { table: 'member_applications', column: 'review_note', type: 'text', notNull: false },
@@ -238,21 +238,30 @@ const R1_REQUIRED_COLUMNS = [
 const R2_REQUIRED_COLUMNS = [
     { table: 'contributions', column: 'request_fingerprint', type: 'varchar_min', minLen: 64, notNull: false },
     { table: 'ledger_expenses', column: 'request_fingerprint', type: 'varchar_min', minLen: 64, notNull: false },
-    { table: 'ledger_expenses', column: 'financial_status', type: 'varchar_min', minLen: 24, notNull: true, requiresDefault: true },
-    { table: 'ledger_expenses', column: 'dispute_status', type: 'varchar_min', minLen: 24, notNull: true, requiresDefault: true },
+    { table: 'ledger_expenses', column: 'financial_status', type: 'varchar_min', minLen: 24, notNull: true, requiresDefault: true, expectedDefault: "'reserved'" },
+    { table: 'ledger_expenses', column: 'dispute_status', type: 'varchar_min', minLen: 24, notNull: true, requiresDefault: true, expectedDefault: "'none'" },
     { table: 'ledger_expenses', column: 'version', type: 'integer', notNull: true, requiresDefault: true },
-    { table: 'governance_proposals', column: 'legacy_r1_unsupported', type: 'boolean', notNull: true, requiresDefault: true },
+    { table: 'governance_proposals', column: 'legacy_r1_unsupported', type: 'boolean', notNull: true, requiresDefault: true, expectedDefault: 'false' },
     { table: 'governance_proposals', column: 'legacy_r1_disposition', type: 'varchar_min', minLen: 64, notNull: false },
     { table: 'governance_proposals', column: 'closes_at', type: 'timestamptz', notNull: false },
 ];
 
 const R3_REQUIRED_COLUMNS = [
     { table: 'sloboda_core_gates', column: 'gate_key', type: 'varchar_min', minLen: 64, notNull: true },
-    { table: 'sloboda_core_gates', column: 'is_blocked', type: 'boolean', notNull: true, requiresDefault: true },
+    { table: 'sloboda_core_gates', column: 'is_blocked', type: 'boolean', notNull: true, requiresDefault: true, expectedDefault: 'false' },
     { table: 'sloboda_core_gates', column: 'report_json', type: 'jsonb', notNull: true, requiresDefault: true },
     { table: 'sloboda_core_gates', column: 'checked_at', type: 'timestamptz', notNull: true, requiresDefault: true },
+    { table: 'forum_roles', column: 'id', type: 'integer', notNull: true },
     { table: 'forum_roles', column: 'user_id', type: 'integer', notNull: true },
-    { table: 'forum_roles', column: 'role', type: 'varchar_min', minLen: 50, notNull: true, requiresDefault: true },
+    { table: 'forum_roles', column: 'role', type: 'varchar_min', minLen: 50, notNull: true, requiresDefault: true, expectedDefault: "'new_user'" },
+    { table: 'forum_bans', column: 'id', type: 'integer', notNull: true },
+    { table: 'forum_bans', column: 'user_id', type: 'integer', notNull: true },
+    { table: 'forum_bans', column: 'ban_type', type: 'varchar_min', minLen: 50, notNull: true },
+    { table: 'forum_bans', column: 'reason', type: 'text', notNull: true },
+    { table: 'forum_bans', column: 'is_active', type: 'boolean', notNull: 'any', requiresDefault: true, expectedDefault: 'true' },
+    { table: 'forum_bans', column: 'expires_at', type: 'timestamp_any', notNull: false },
+    { table: 'forum_bans', column: 'lifted_at', type: 'timestamp_any', notNull: false },
+    { table: 'forum_bans', column: 'lifted_by', type: 'integer', notNull: false },
     { table: 'forum_bans', column: 'lifted_by_user_id', type: 'integer', notNull: false },
 ];
 
@@ -729,9 +738,11 @@ function evaluateUniqueContracts(contracts, allIndexes) {
         ));
 
         // If multiple NULLs must be allowed (e.g. optional idempotency_key / claim_token_hash),
-        // reject ANY ready+live companion unique index (even if !indisvalid or duplicate-keyed like (col, col))
-        // that enforces NULLS NOT DISTINCT — EXCEPT a provably benign single-column partial index
-        // `WHERE <col> IS NOT NULL` that matches the healthy enforcing index's collation & operator class.
+        // reject ANY ready+live companion unique index (including invalid concurrent builds,
+        // duplicate-keyed `(col, col)`, or multi-column `(col, settlement_id)`) that includes
+        // all contract columns and enforces NULLS NOT DISTINCT — EXCEPT a provably benign
+        // single-column partial index `WHERE <col> IS NOT NULL` matching the healthy enforcing
+        // index's collation & operator class.
         const hasNullsNotDistinctCompanion = contract.allowMultipleNulls && allIndexes.some((idx) => {
             if (
                 idx.table_name !== contract.table
@@ -739,7 +750,8 @@ function evaluateUniqueContracts(contracts, allIndexes) {
                 || idx.indisready !== true
                 || idx.indislive !== true
                 || idx.indnullsnotdistinct !== true
-                || !columnsSetEqual(idx.key_columns, contract.columns)
+                || !Array.isArray(idx.key_columns)
+                || !contract.columns.every((col) => idx.key_columns.includes(col))
             ) {
                 return false;
             }
@@ -786,6 +798,14 @@ async function getColumnSet(client, tableName) {
     return new Set(res.rows.map((r) => r.column_name));
 }
 
+function matchesExpectedDefault(defaultExpr, expected) {
+    if (defaultExpr === null || defaultExpr === undefined) return false;
+    let norm = stripBalancedOuterParens(collapseWsOutsideQuotes(defaultExpr)).toLowerCase();
+    norm = norm.replace(/::(?:character varying|varchar|text|boolean|integer|bigint)(\(\d+\))?$/i, '').trim();
+    norm = stripBalancedOuterParens(norm);
+    return norm === String(expected).trim().toLowerCase();
+}
+
 async function getTableColumnCatalog(client, tableNames) {
     const res = await client.query(
         `SELECT c.relname::text AS table_name,
@@ -793,6 +813,7 @@ async function getTableColumnCatalog(client, tableNames) {
                 pg_catalog.format_type(a.atttypid, a.atttypmod) AS formatted_type,
                 a.attnotnull AS not_null,
                 (a.attidentity <> '' OR a.atthasdef) AS has_any_default,
+                CASE WHEN a.atthasdef THEN pg_catalog.pg_get_expr(ad.adbin, ad.adrelid) ELSE NULL END AS default_expr,
                 (
                     a.attidentity <> ''
                     OR (
@@ -820,6 +841,7 @@ async function getTableColumnCatalog(client, tableNames) {
             formatted_type: row.formatted_type,
             not_null: row.not_null === true,
             has_any_default: row.has_any_default === true,
+            default_expr: row.default_expr === undefined ? null : row.default_expr,
             has_default: row.has_sequence_default === true,
         });
     }
@@ -851,6 +873,10 @@ function evaluateColumnContracts(contracts, columnCatalog) {
         }
         if (reqCol.requiresDefault === true && !info.has_any_default) {
             violations.push(`column_missing_default:${reqCol.table}.${reqCol.column}`);
+        } else if (reqCol.expectedDefault !== undefined && !matchesExpectedDefault(info.default_expr, reqCol.expectedDefault)) {
+            violations.push(
+                `column_default_mismatch:${reqCol.table}.${reqCol.column}:expected_${reqCol.expectedDefault}:got_${info.default_expr}`
+            );
         }
     }
     return { missing, violations };
@@ -1072,10 +1098,20 @@ async function inspectCoreSchemaState(client) {
     const presentUsersCoreCols = USERS_CORE_MEMBERSHIP_COLUMNS.filter((col) => Boolean(usersCatalog && usersCatalog.has(col)));
 
     if (presentCoreTables.length === 0 && !hasGatesTable && appliedCoreMigrations.length === 0) {
+        const smIdxEval = hasSchemaMigrationsTable
+            ? evaluateUniqueContracts(
+                R1_UNIQUE_CONTRACTS.filter((c) => c.table === 'schema_migrations'),
+                allIndexes
+            )
+            : { missing: [], violations: [] };
         if (presentUsersCoreCols.length > 0) {
             reasons.push(`unexpected_partial_users_core_columns:${presentUsersCoreCols.join(',')}`);
             effectiveMissingColumns = [];
             effectiveMissingIndexes = [];
+        } else if (smIdxEval.missing.length > 0) {
+            reasons.push(...smIdxEval.violations);
+            effectiveMissingColumns = [];
+            effectiveMissingIndexes = [...smIdxEval.missing];
         } else {
             schemaState = 'NOT_INSTALLED';
             effectiveMissingColumns = [];
