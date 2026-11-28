@@ -1602,6 +1602,11 @@ async function run() {
         (j) => assert.ok(j.schema.reasons.some((r) => r.includes('column_type_mismatch:contributions.request_fingerprint')))
     );
     await assertSchemaDriftRejected(
+        'missing_id_default_governance_proposals',
+        () => pool.query('ALTER TABLE public.governance_proposals ALTER COLUMN id DROP DEFAULT'),
+        (j) => assert.ok(j.schema.reasons.some((r) => r.includes('column_missing_id_default:governance_proposals.id')))
+    );
+    await assertSchemaDriftRejected(
         'wrong_nullability_contributions_received',
         () => pool.query('ALTER TABLE public.contributions ALTER COLUMN received_kopecks DROP NOT NULL'),
         (j) => assert.ok(j.schema.reasons.some((r) => r.includes('column_nullable_mismatch:contributions.received_kopecks')))

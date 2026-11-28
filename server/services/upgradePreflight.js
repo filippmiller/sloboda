@@ -657,10 +657,11 @@ async function getColumnSet(client, tableName) {
 
 async function getTableColumnCatalog(client, tableNames) {
     const res = await client.query(
-        `SELECT c.relname AS table_name,
-                a.attname AS column_name,
+        `SELECT c.relname::text AS table_name,
+                a.attname::text AS column_name,
                 pg_catalog.format_type(a.atttypid, a.atttypmod) AS formatted_type,
-                a.attnotnull AS not_null
+                a.attnotnull AS not_null,
+                (a.atthasdef OR a.attidentity <> '') AS has_default
          FROM pg_catalog.pg_attribute a
          JOIN pg_catalog.pg_class c ON c.oid = a.attrelid
          JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
@@ -679,6 +680,7 @@ async function getTableColumnCatalog(client, tableNames) {
         catalog.get(row.table_name).set(row.column_name, {
             formatted_type: row.formatted_type,
             not_null: row.not_null === true,
+            has_default: row.has_default === true,
         });
     }
     return catalog;
@@ -703,6 +705,9 @@ function evaluateColumnContracts(contracts, columnCatalog) {
             violations.push(
                 `column_nullable_mismatch:${reqCol.table}.${reqCol.column}:expected_${reqCol.notNull ? 'not_null' : 'nullable'}`
             );
+        }
+        if (reqCol.column === 'id' && reqCol.type === 'integer' && !info.has_default) {
+            violations.push(`column_missing_id_default:${reqCol.table}.id`);
         }
     }
     return { missing, violations };

@@ -1397,13 +1397,40 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
         await expect(pageA.getByText(`Draft3A ${suffix}`).first()).toBeVisible({ timeout: 10000 });
         await expect(pageA.getByText(`Draft3B ${suffix}`).first()).toBeVisible({ timeout: 10000 });
         await expect(pageA.getByText(`Draft3C ${suffix}`).first()).toBeVisible({ timeout: 10000 });
-        // Open all 3 entries in turn and verify each restores its exact skills value
+        // Open all 3 entries in turn and verify each restores its exact skills value and base version
         const openedValues = [];
         for (let idx = 0; idx < 3; idx += 1) {
           await pageA.getByRole('button', { name: 'Открыть' }).nth(idx).click();
           openedValues.push(await pageA.locator('textarea').nth(0).inputValue());
+          await expect(pageA.getByText(/создавался для версии #4/i).first()).toBeVisible({ timeout: 10000 });
         }
         expect(openedValues.sort()).toEqual([`Draft3A ${suffix}`, `Draft3B ${suffix}`, `Draft3C ${suffix}`].sort());
+        // Inject a newer immutable `:rev:` draft into localStorage AFTER pageA rendered its discard snapshot
+        // (simulating a concurrent cross-tab write before pageA's storage listener runs): explicit discard MUST preserve it!
+        const concurrentNewRevSkills = `ConcurrentAfterSnapshot ${suffix}`;
+        await pageA.evaluate(({ appId, userId, skillsText }) => {
+          const revId = `rev-concurrent-${Date.now()}`;
+          localStorage.setItem(
+            `sloboda_revision_draft:${userId}:${appId}:rev:${revId}`,
+            JSON.stringify({
+              applicationId: appId,
+              baseVersion: 4,
+              draftRevId: revId,
+              editorTabId: 'tab-concurrent-sim',
+              revFullName: 'Concurrent User',
+              revCity: 'Казань',
+              revPrimaryDomain: 'ENG',
+              revSkills: skillsText,
+              revMotivation: 'Concurrent motivation',
+              revTrialTaskTitle: '',
+              revTrialTaskUrl: '',
+              updatedAt: new Date(Date.now() + 5000).toISOString(),
+            })
+          );
+        }, { appId: appRow.id, userId: seeded.id, skillsText: concurrentNewRevSkills });
+        await pageA.getByRole('button', { name: /Загрузить серверную версию/i }).click();
+        await expect(pageA.locator('textarea').nth(0)).toHaveValue(concurrentNewRevSkills, { timeout: 10000 });
+        // Now discard the remaining draft cleanly and verify 0 keys remain
         await pageA.getByRole('button', { name: /Загрузить серверную версию/i }).click();
         await expect(pageA.getByText(/Сохранено несколько версий черновика/i)).toHaveCount(0, { timeout: 10000 });
         const remainingKeys = await pageA.evaluate(() =>

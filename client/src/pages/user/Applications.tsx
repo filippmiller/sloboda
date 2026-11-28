@@ -1072,14 +1072,23 @@ export default function Applications() {
             setMembership(freshRes.data.membership ?? null)
             const latestDrafts = readAllRevisionDrafts(userIdAtStart, appId)
             setRecoverableDrafts(latestDrafts)
-            const activeEntry =
-              latestDrafts.find((entry) => entry.key === activeDraftKeyRef.current) ??
-              latestDrafts[0] ??
-              null
+            const matchedActive = latestDrafts.find((entry) => entry.key === activeDraftKeyRef.current) ?? null
+            let resolvedBaseVersion = baseVer
+            if (matchedActive) {
+              resolvedBaseVersion = matchedActive.draft.baseVersion
+            } else if (!hasLocalEdits && latestDrafts.length > 0) {
+              // Active draft was discarded in another tab during refresh: switch UI & key together
+              // so displayed fields and draftBaseVersion always belong to the same draft.
+              const fallback = latestDrafts[0]
+              applyRevisionFieldsState(fallback.draft)
+              activeDraftKeyRef.current = fallback.key
+              lastDraftRevIdRef.current = fallback.draft.draftRevId
+              resolvedBaseVersion = fallback.draft.baseVersion
+            }
             setRevisionConflict({
               serverVersion: freshApp.version,
               serverStatus: freshApp.status,
-              draftBaseVersion: activeEntry?.draft.baseVersion ?? baseVer,
+              draftBaseVersion: resolvedBaseVersion,
               serverApplication: freshApp,
               refreshFailed: false,
             })
@@ -1182,7 +1191,7 @@ export default function Applications() {
               updatedAt: new Date().toISOString(),
             })
             if (wroteRebase) {
-              if (activeKey === ownDraftKeyRef.current || allDrafts.length === 1) {
+              if (activeKey.includes(':rev:') && (activeKey === ownDraftKeyRef.current || allDrafts.length === 1)) {
                 removeExactRevisionDraft(activeKey, activeDraft.draftRevId)
               }
               ownDraftKeyRef.current = rebasedKey
