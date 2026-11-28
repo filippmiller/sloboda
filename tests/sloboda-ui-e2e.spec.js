@@ -1370,10 +1370,15 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
       await expect(pageB.getByText(aSkillsPort).first()).toBeVisible({ timeout: 10000 });
       await expect(pageB.getByText(ySkillsPort).first()).toBeVisible({ timeout: 10000 });
       await expect(pageB.getByText(yMotPort).first()).toBeVisible({ timeout: 10000 });
-      // Opening Tab B's preserved draft restores BOTH skills and motivation fields verbatim
+      // Opening Tab B's preserved draft restores BOTH skills and motivation fields verbatim and shows base v3
       await pageB.getByRole('button', { name: 'Открыть' }).nth(1).click();
       await expect(pageB.locator('textarea').nth(0)).toHaveValue(ySkillsPort, { timeout: 10000 });
       await expect(pageB.locator('textarea').nth(1)).toHaveValue(yMotPort, { timeout: 10000 });
+      await expect(pageB.getByText(/создавался для версии #3/i).first()).toBeVisible({ timeout: 10000 });
+      // Switching back to Tab A's rebased draft restores aSkillsPort and shows base v4
+      await pageB.getByRole('button', { name: 'Открыть' }).nth(0).click();
+      await expect(pageB.locator('textarea').nth(0)).toHaveValue(aSkillsPort, { timeout: 10000 });
+      await expect(pageB.getByText(/создавался для версии #4/i).first()).toBeVisible({ timeout: 10000 });
       await expect(pageB.getByText(portTitle)).toHaveCount(1, { timeout: 10000 });
 
       // Clear drafts so 8C starts cleanly at version 4

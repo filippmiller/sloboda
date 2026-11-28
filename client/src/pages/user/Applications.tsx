@@ -1072,7 +1072,12 @@ export default function Applications() {
             setMembership(freshRes.data.membership ?? null)
             const latestDrafts = readAllRevisionDrafts(userIdAtStart, appId)
             setRecoverableDrafts(latestDrafts)
-            const matchedActive = latestDrafts.find((entry) => entry.key === activeDraftKeyRef.current) ?? null
+            const matchedActive =
+              latestDrafts.find(
+                (entry) =>
+                  entry.key === activeDraftKeyRef.current &&
+                  entry.draft.draftRevId === lastDraftRevIdRef.current,
+              ) ?? null
             let resolvedBaseVersion = baseVer
             if (matchedActive) {
               resolvedBaseVersion = matchedActive.draft.baseVersion

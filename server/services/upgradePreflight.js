@@ -628,9 +628,22 @@ function evaluateUniqueContracts(contracts, allIndexes) {
             && predicateMatches(idx)
         ));
 
+        // If multiple NULLs must be allowed (e.g. optional idempotency_key / claim_token_hash),
+        // reject if ANY companion unique index on the same columns enforces NULLS NOT DISTINCT.
+        const hasNullsNotDistinctCompanion = contract.allowMultipleNulls && sameTargetIndexes.some((idx) => (
+            idx.indisvalid === true
+            && idx.indisready === true
+            && idx.indislive === true
+            && idx.indnullsnotdistinct === true
+            && predicateMatches(idx)
+        ));
+
         if (enforcing.length === 0) {
             missing.push(contract.id);
             violations.push(`missing_or_invalid_unique_contract:${contract.id}`);
+        } else if (hasNullsNotDistinctCompanion) {
+            missing.push(contract.id);
+            violations.push(`nulls_not_distinct_companion_present:${contract.id}`);
         } else if (hasDeferrableArbiter) {
             missing.push(contract.id);
             violations.push(`deferrable_conflict_arbiter_present:${contract.id}`);
@@ -661,10 +674,17 @@ async function getTableColumnCatalog(client, tableNames) {
                 a.attname::text AS column_name,
                 pg_catalog.format_type(a.atttypid, a.atttypmod) AS formatted_type,
                 a.attnotnull AS not_null,
-                (a.atthasdef OR a.attidentity <> '') AS has_default
+                (
+                    a.attidentity <> ''
+                    OR (
+                        a.atthasdef
+                        AND pg_catalog.pg_get_expr(ad.adbin, ad.adrelid) ~* '^nextval\\('
+                    )
+                ) AS has_sequence_default
          FROM pg_catalog.pg_attribute a
          JOIN pg_catalog.pg_class c ON c.oid = a.attrelid
          JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+         LEFT JOIN pg_catalog.pg_attrdef ad ON ad.adrelid = a.attrelid AND ad.adnum = a.attnum
          WHERE n.nspname = 'public'
            AND c.relkind IN ('r', 'p')
            AND c.relname = ANY($1::text[])
@@ -680,7 +700,7 @@ async function getTableColumnCatalog(client, tableNames) {
         catalog.get(row.table_name).set(row.column_name, {
             formatted_type: row.formatted_type,
             not_null: row.not_null === true,
-            has_default: row.has_default === true,
+            has_default: row.has_sequence_default === true,
         });
     }
     return catalog;
