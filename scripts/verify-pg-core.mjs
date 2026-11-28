@@ -1770,16 +1770,31 @@ async function run() {
         (j) => assert.ok(j.schema.missing_columns.includes('forum_roles.role'))
     );
     await assertSchemaDriftRejected(
+        'pro01_missing_forum_roles_can_post',
+        () => pool.query('ALTER TABLE public.forum_roles DROP COLUMN can_post'),
+        (j) => assert.ok(j.schema.missing_columns.includes('forum_roles.can_post'))
+    );
+    await assertSchemaDriftRejected(
         'pro01_missing_forum_bans_is_active',
         () => pool.query('ALTER TABLE public.forum_bans DROP COLUMN is_active'),
         (j) => assert.ok(j.schema.missing_columns.includes('forum_bans.is_active'))
     );
 
-    // PRO-01: Wrong type, both-side nullability, missing default, privilege-changing default, and schema_migrations shape/arbiter
+    // PRO-01: Wrong type, both-side nullability, missing default, privilege-changing/case-mismatched/NULL default, and schema_migrations shape/arbiter
     await assertSchemaDriftRejected(
         'pro01_privilege_changing_default_membership_status',
         () => pool.query("ALTER TABLE public.users ALTER COLUMN membership_status SET DEFAULT 'accepted'"),
         (j) => assert.ok(j.schema.reasons.some((r) => r.includes('column_default_mismatch:users.membership_status')))
+    );
+    await assertSchemaDriftRejected(
+        'pro01_case_mismatched_default_membership_status',
+        () => pool.query("ALTER TABLE public.users ALTER COLUMN membership_status SET DEFAULT 'OBSERVER'"),
+        (j) => assert.ok(j.schema.reasons.some((r) => r.includes('column_default_mismatch:users.membership_status')))
+    );
+    await assertSchemaDriftRejected(
+        'pro01_null_default_schema_migrations_applied_at',
+        () => pool.query('ALTER TABLE public.schema_migrations ALTER COLUMN applied_at SET DEFAULT NULL'),
+        (j) => assert.ok(j.schema.reasons.some((r) => r.includes('column_missing_default:schema_migrations.applied_at')))
     );
     await assertSchemaDriftRejected(
         'pro01_wrong_type_protocol_json_text',

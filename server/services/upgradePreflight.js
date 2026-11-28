@@ -246,6 +246,42 @@ const R2_REQUIRED_COLUMNS = [
     { table: 'governance_proposals', column: 'closes_at', type: 'timestamptz', notNull: false },
 ];
 
+const R3_FORUM_ROLE_BOOL_COLUMNS = [
+    'can_post',
+    'can_comment',
+    'can_upload_images',
+    'can_create_threads',
+    'can_edit_own_posts',
+    'can_delete_own_posts',
+    'can_pin_threads',
+    'can_lock_threads',
+    'can_delete_others_content',
+    'can_ban_users',
+    'can_warn_users',
+    'can_ban_users_temporary',
+    'can_ban_users_permanent',
+    'can_appoint_moderators',
+    'can_remove_moderators',
+    'can_view_mod_log',
+    'can_view_user_history',
+    'can_view_ip_info',
+    'can_access_admin_panel',
+    'can_manage_categories',
+    'can_move_threads',
+    'can_edit_thread_tags',
+    'can_merge_threads',
+    'can_view_reports',
+    'can_resolve_reports',
+    'can_edit_wiki',
+    'can_suggest_categories',
+    'can_bookmark',
+    'can_report',
+    'can_upvote',
+    'can_downvote',
+    'can_see_vote_counts',
+    'can_see_deleted_indicator',
+];
+
 const R3_REQUIRED_COLUMNS = [
     { table: 'sloboda_core_gates', column: 'gate_key', type: 'varchar_min', minLen: 64, notNull: true },
     { table: 'sloboda_core_gates', column: 'is_blocked', type: 'boolean', notNull: true, requiresDefault: true, expectedDefault: 'false' },
@@ -254,6 +290,12 @@ const R3_REQUIRED_COLUMNS = [
     { table: 'forum_roles', column: 'id', type: 'integer', notNull: true },
     { table: 'forum_roles', column: 'user_id', type: 'integer', notNull: true },
     { table: 'forum_roles', column: 'role', type: 'varchar_min', minLen: 50, notNull: true, requiresDefault: true, expectedDefault: "'new_user'" },
+    ...R3_FORUM_ROLE_BOOL_COLUMNS.map((col) => ({
+        table: 'forum_roles',
+        column: col,
+        type: 'boolean',
+        notNull: 'any',
+    })),
     { table: 'forum_bans', column: 'id', type: 'integer', notNull: true },
     { table: 'forum_bans', column: 'user_id', type: 'integer', notNull: true },
     { table: 'forum_bans', column: 'ban_type', type: 'varchar_min', minLen: 50, notNull: true },
@@ -263,6 +305,32 @@ const R3_REQUIRED_COLUMNS = [
     { table: 'forum_bans', column: 'lifted_at', type: 'timestamp_any', notNull: false },
     { table: 'forum_bans', column: 'lifted_by', type: 'integer', notNull: false },
     { table: 'forum_bans', column: 'lifted_by_user_id', type: 'integer', notNull: false },
+    { table: 'forum_warnings', column: 'id', type: 'integer', notNull: true },
+    { table: 'forum_warnings', column: 'user_id', type: 'integer', notNull: true },
+    { table: 'forum_warnings', column: 'issued_by', type: 'integer', notNull: false },
+    { table: 'forum_warnings', column: 'severity', type: 'varchar_min', minLen: 50, notNull: 'any' },
+    { table: 'forum_warnings', column: 'reason', type: 'text', notNull: true },
+    { table: 'forum_warnings', column: 'created_at', type: 'timestamp_any', notNull: 'any' },
+    { table: 'forum_moderation_actions', column: 'id', type: 'integer', notNull: true },
+    { table: 'forum_moderation_actions', column: 'moderator_id', type: 'integer', notNull: false },
+    { table: 'forum_moderation_actions', column: 'action_type', type: 'varchar_min', minLen: 50, notNull: true },
+    { table: 'forum_moderation_actions', column: 'target_user_id', type: 'integer', notNull: false },
+    { table: 'forum_moderation_actions', column: 'target_comment_id', type: 'integer', notNull: false },
+    { table: 'forum_moderation_actions', column: 'target_thread_id', type: 'integer', notNull: false },
+    { table: 'forum_moderation_actions', column: 'reason', type: 'text', notNull: false },
+    { table: 'forum_moderation_actions', column: 'details', type: 'jsonb', notNull: false },
+    { table: 'forum_moderation_actions', column: 'created_at', type: 'timestamp_any', notNull: 'any' },
+    { table: 'forum_reputation', column: 'id', type: 'integer', notNull: true },
+    { table: 'forum_reputation', column: 'user_id', type: 'integer', notNull: true },
+    { table: 'forum_reputation', column: 'total_points', type: 'integer', notNull: 'any' },
+    { table: 'forum_reputation', column: 'posts_created', type: 'integer', notNull: 'any' },
+    { table: 'forum_reputation', column: 'threads_created', type: 'integer', notNull: 'any' },
+    { table: 'forum_reputation', column: 'comments_made', type: 'integer', notNull: 'any' },
+    { table: 'forum_reputation', column: 'upvotes_received', type: 'integer', notNull: 'any' },
+    { table: 'forum_reputation', column: 'downvotes_received', type: 'integer', notNull: 'any' },
+    { table: 'forum_reputation', column: 'days_since_registration', type: 'integer', notNull: 'any' },
+    { table: 'forum_reputation', column: 'last_activity_at', type: 'timestamp_any', notNull: 'any' },
+    { table: 'forum_reputation', column: 'updated_at', type: 'timestamp_any', notNull: 'any' },
 ];
 
 const R1_UNIQUE_CONTRACTS = [
@@ -798,12 +866,24 @@ async function getColumnSet(client, tableName) {
     return new Set(res.rows.map((r) => r.column_name));
 }
 
+function isNullDefaultExpr(defaultExpr) {
+    if (defaultExpr === null || defaultExpr === undefined) return true;
+    const norm = stripBalancedOuterParens(collapseWsOutsideQuotes(defaultExpr));
+    return /^null(?:::[a-z0-9_ ()[\]]+)?$/i.test(norm);
+}
+
 function matchesExpectedDefault(defaultExpr, expected) {
     if (defaultExpr === null || defaultExpr === undefined) return false;
-    let norm = stripBalancedOuterParens(collapseWsOutsideQuotes(defaultExpr)).toLowerCase();
+    let norm = stripBalancedOuterParens(collapseWsOutsideQuotes(defaultExpr));
     norm = norm.replace(/::(?:character varying|varchar|text|boolean|integer|bigint)(\(\d+\))?$/i, '').trim();
     norm = stripBalancedOuterParens(norm);
-    return norm === String(expected).trim().toLowerCase();
+    const exp = String(expected).trim();
+    // Preserve exact case for single-quoted string literals (e.g. 'observer' !== 'OBSERVER');
+    // compare unquoted SQL keywords/booleans case-insensitively.
+    if (exp.startsWith("'") && exp.endsWith("'")) {
+        return norm === exp;
+    }
+    return norm.toLowerCase() === exp.toLowerCase();
 }
 
 async function getTableColumnCatalog(client, tableNames) {
@@ -871,7 +951,7 @@ function evaluateColumnContracts(contracts, columnCatalog) {
         if (reqCol.column === 'id' && reqCol.type === 'integer' && !info.has_default) {
             violations.push(`column_missing_id_default:${reqCol.table}.id`);
         }
-        if (reqCol.requiresDefault === true && !info.has_any_default) {
+        if (reqCol.requiresDefault === true && (!info.has_any_default || (reqCol.notNull === true && isNullDefaultExpr(info.default_expr)))) {
             violations.push(`column_missing_default:${reqCol.table}.${reqCol.column}`);
         } else if (reqCol.expectedDefault !== undefined && !matchesExpectedDefault(info.default_expr, reqCol.expectedDefault)) {
             violations.push(
@@ -946,6 +1026,9 @@ async function inspectCoreSchemaState(client) {
         'users',
         'forum_roles',
         'forum_bans',
+        'forum_warnings',
+        'forum_moderation_actions',
+        'forum_reputation',
         ...presentCoreTables,
         ...(hasGatesTable ? ['sloboda_core_gates'] : []),
         ...(hasSchemaMigrationsTable ? ['schema_migrations'] : []),
