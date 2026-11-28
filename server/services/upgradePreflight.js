@@ -48,21 +48,21 @@ const R1_REQUIRED_COLUMNS = [
     // member_applications (all runtime-read/written fields including skills & motivation)
     { table: 'member_applications', column: 'id', type: 'integer', notNull: true },
     { table: 'member_applications', column: 'user_id', type: 'integer', notNull: false },
-    { table: 'member_applications', column: 'settlement_id', type: 'text_like', notNull: true },
-    { table: 'member_applications', column: 'full_name', type: 'text_like', notNull: true },
-    { table: 'member_applications', column: 'email', type: 'text_like', notNull: true },
-    { table: 'member_applications', column: 'city', type: 'text_like', notNull: false },
-    { table: 'member_applications', column: 'primary_domain', type: 'text_like', notNull: true },
-    { table: 'member_applications', column: 'skills', type: 'text_like', notNull: false },
-    { table: 'member_applications', column: 'motivation', type: 'text_like', notNull: false },
-    { table: 'member_applications', column: 'trial_task_title', type: 'text_like', notNull: false },
-    { table: 'member_applications', column: 'trial_task_url', type: 'text_like', notNull: false },
-    { table: 'member_applications', column: 'claim_token_hash', type: 'text_like', notNull: false },
+    { table: 'member_applications', column: 'settlement_id', type: 'varchar_min', minLen: 64, notNull: true },
+    { table: 'member_applications', column: 'full_name', type: 'varchar_min', minLen: 200, notNull: true },
+    { table: 'member_applications', column: 'email', type: 'varchar_min', minLen: 255, notNull: true },
+    { table: 'member_applications', column: 'city', type: 'varchar_min', minLen: 120, notNull: false },
+    { table: 'member_applications', column: 'primary_domain', type: 'varchar_min', minLen: 16, notNull: true },
+    { table: 'member_applications', column: 'skills', type: 'text', notNull: false },
+    { table: 'member_applications', column: 'motivation', type: 'text', notNull: false },
+    { table: 'member_applications', column: 'trial_task_title', type: 'varchar_min', minLen: 255, notNull: false },
+    { table: 'member_applications', column: 'trial_task_url', type: 'text', notNull: false },
+    { table: 'member_applications', column: 'claim_token_hash', type: 'varchar_min', minLen: 64, notNull: false },
     { table: 'member_applications', column: 'claim_token_used_at', type: 'timestamp_any', notNull: false },
-    { table: 'member_applications', column: 'status', type: 'text_like', notNull: true },
+    { table: 'member_applications', column: 'status', type: 'varchar_min', minLen: 24, notNull: true },
     { table: 'member_applications', column: 'version', type: 'integer', notNull: true },
     { table: 'member_applications', column: 'reviewer_id', type: 'integer', notNull: false },
-    { table: 'member_applications', column: 'review_note', type: 'text_like', notNull: false },
+    { table: 'member_applications', column: 'review_note', type: 'text', notNull: false },
     { table: 'member_applications', column: 'reviewed_at', type: 'timestamp_any', notNull: false },
     { table: 'member_applications', column: 'created_at', type: 'timestamp_any', notNull: true },
     { table: 'member_applications', column: 'updated_at', type: 'timestamp_any', notNull: true },
@@ -129,52 +129,71 @@ const R1_REQUIRED_COLUMNS = [
     { table: 'council_delegations', column: 'active', type: 'boolean', notNull: true },
     // contributions
     { table: 'contributions', column: 'id', type: 'integer', notNull: true },
-    { table: 'contributions', column: 'settlement_id', type: 'text_like', notNull: true },
-    { table: 'contributions', column: 'purpose', type: 'text_like', notNull: true },
-    { table: 'contributions', column: 'contributor_name', type: 'text_like', notNull: true },
+    { table: 'contributions', column: 'user_id', type: 'integer', notNull: false },
+    { table: 'contributions', column: 'settlement_id', type: 'varchar_min', minLen: 64, notNull: true },
+    { table: 'contributions', column: 'purpose', type: 'varchar_min', minLen: 64, notNull: true },
+    { table: 'contributions', column: 'contributor_name', type: 'varchar_min', minLen: 200, notNull: true },
     { table: 'contributions', column: 'received_kopecks', type: 'bigint', notNull: true },
     { table: 'contributions', column: 'available_kopecks', type: 'bigint', notNull: true },
     { table: 'contributions', column: 'reserved_kopecks', type: 'bigint', notNull: true },
     { table: 'contributions', column: 'paid_kopecks', type: 'bigint', notNull: true },
     { table: 'contributions', column: 'refunded_kopecks', type: 'bigint', notNull: true },
-    { table: 'contributions', column: 'status', type: 'text_like', notNull: true },
-    { table: 'contributions', column: 'ledger_mode', type: 'text_like', notNull: true },
-    { table: 'contributions', column: 'idempotency_key', type: 'text_like', notNull: false },
+    { table: 'contributions', column: 'share_class', type: 'varchar_min', minLen: 32, notNull: false },
+    { table: 'contributions', column: 'terms_version', type: 'varchar_min', minLen: 32, notNull: false },
+    { table: 'contributions', column: 'legal_right_type', type: 'varchar_min', minLen: 32, notNull: true },
+    { table: 'contributions', column: 'status', type: 'varchar_min', minLen: 24, notNull: true },
+    { table: 'contributions', column: 'ledger_mode', type: 'varchar_min', minLen: 24, notNull: true },
+    { table: 'contributions', column: 'payment_ref', type: 'varchar_min', minLen: 120, notNull: false },
+    { table: 'contributions', column: 'idempotency_key', type: 'varchar_min', minLen: 128, notNull: false },
+    { table: 'contributions', column: 'note', type: 'text', notNull: false },
+    { table: 'contributions', column: 'verified_by', type: 'integer', notNull: false },
+    { table: 'contributions', column: 'created_at', type: 'timestamp_any', notNull: true },
     // construction_milestones
     { table: 'construction_milestones', column: 'id', type: 'integer', notNull: true },
-    { table: 'construction_milestones', column: 'settlement_id', type: 'text_like', notNull: true },
-    { table: 'construction_milestones', column: 'code', type: 'text_like', notNull: true },
-    { table: 'construction_milestones', column: 'title', type: 'text_like', notNull: true },
-    { table: 'construction_milestones', column: 'category', type: 'text_like', notNull: true },
-    { table: 'construction_milestones', column: 'unit', type: 'text_like', notNull: true },
+    { table: 'construction_milestones', column: 'settlement_id', type: 'varchar_min', minLen: 64, notNull: true },
+    { table: 'construction_milestones', column: 'code', type: 'varchar_min', minLen: 64, notNull: true },
+    { table: 'construction_milestones', column: 'title', type: 'varchar_min', minLen: 255, notNull: true },
+    { table: 'construction_milestones', column: 'category', type: 'varchar_min', minLen: 48, notNull: true },
+    { table: 'construction_milestones', column: 'unit', type: 'varchar_min', minLen: 32, notNull: true },
     { table: 'construction_milestones', column: 'planned_qty', type: 'numeric', notNull: true },
     { table: 'construction_milestones', column: 'actual_qty', type: 'numeric', notNull: true },
     { table: 'construction_milestones', column: 'budget_kopecks', type: 'bigint', notNull: true },
-    { table: 'construction_milestones', column: 'status', type: 'text_like', notNull: true },
+    { table: 'construction_milestones', column: 'status', type: 'varchar_min', minLen: 24, notNull: true },
     // ledger_expenses
     { table: 'ledger_expenses', column: 'id', type: 'integer', notNull: true },
-    { table: 'ledger_expenses', column: 'settlement_id', type: 'text_like', notNull: true },
-    { table: 'ledger_expenses', column: 'purpose', type: 'text_like', notNull: true },
-    { table: 'ledger_expenses', column: 'title', type: 'text_like', notNull: true },
-    { table: 'ledger_expenses', column: 'category', type: 'text_like', notNull: true },
+    { table: 'ledger_expenses', column: 'settlement_id', type: 'varchar_min', minLen: 64, notNull: true },
+    { table: 'ledger_expenses', column: 'purpose', type: 'varchar_min', minLen: 64, notNull: true },
+    { table: 'ledger_expenses', column: 'title', type: 'varchar_min', minLen: 255, notNull: true },
+    { table: 'ledger_expenses', column: 'category', type: 'varchar_min', minLen: 64, notNull: true },
     { table: 'ledger_expenses', column: 'amount_kopecks', type: 'bigint', notNull: true },
     { table: 'ledger_expenses', column: 'milestone_id', type: 'integer', notNull: false },
-    { table: 'ledger_expenses', column: 'allocation_rule', type: 'text_like', notNull: true },
-    { table: 'ledger_expenses', column: 'status', type: 'text_like', notNull: true },
-    { table: 'ledger_expenses', column: 'idempotency_key', type: 'text_like', notNull: false },
+    { table: 'ledger_expenses', column: 'asset_name', type: 'varchar_min', minLen: 255, notNull: false },
+    { table: 'ledger_expenses', column: 'asset_location', type: 'varchar_min', minLen: 255, notNull: false },
+    { table: 'ledger_expenses', column: 'receipt_url', type: 'text', notNull: false },
+    { table: 'ledger_expenses', column: 'photo_url', type: 'text', notNull: false },
+    { table: 'ledger_expenses', column: 'allocation_rule', type: 'varchar_min', minLen: 32, notNull: true },
+    { table: 'ledger_expenses', column: 'status', type: 'varchar_min', minLen: 24, notNull: true },
+    { table: 'ledger_expenses', column: 'idempotency_key', type: 'varchar_min', minLen: 128, notNull: false },
+    { table: 'ledger_expenses', column: 'approved_by', type: 'integer', notNull: false },
+    { table: 'ledger_expenses', column: 'paid_at', type: 'timestamp_any', notNull: false },
+    { table: 'ledger_expenses', column: 'created_at', type: 'timestamp_any', notNull: true },
     // expense_allocations
     { table: 'expense_allocations', column: 'id', type: 'integer', notNull: true },
     { table: 'expense_allocations', column: 'expense_id', type: 'integer', notNull: true },
     { table: 'expense_allocations', column: 'contribution_id', type: 'integer', notNull: true },
     { table: 'expense_allocations', column: 'amount_kopecks', type: 'bigint', notNull: true },
-    { table: 'expense_allocations', column: 'allocation_rule', type: 'text_like', notNull: true },
+    { table: 'expense_allocations', column: 'allocation_rule', type: 'varchar_min', minLen: 32, notNull: true },
+    { table: 'expense_allocations', column: 'financing_share_label', type: 'varchar_min', minLen: 160, notNull: false },
+    { table: 'expense_allocations', column: 'legal_right_type', type: 'varchar_min', minLen: 32, notNull: true },
+    { table: 'expense_allocations', column: 'created_at', type: 'timestamp_any', notNull: true },
     // ledger_postings
     { table: 'ledger_postings', column: 'id', type: 'integer', notNull: true },
-    { table: 'ledger_postings', column: 'posting_type', type: 'text_like', notNull: true },
+    { table: 'ledger_postings', column: 'posting_type', type: 'varchar_min', minLen: 24, notNull: true },
     { table: 'ledger_postings', column: 'contribution_id', type: 'integer', notNull: false },
     { table: 'ledger_postings', column: 'expense_id', type: 'integer', notNull: false },
     { table: 'ledger_postings', column: 'amount_kopecks', type: 'bigint', notNull: true },
     { table: 'ledger_postings', column: 'actor_admin_id', type: 'integer', notNull: false },
+    { table: 'ledger_postings', column: 'note', type: 'text', notNull: false },
     { table: 'ledger_postings', column: 'created_at', type: 'timestamp_any', notNull: true },
 ];
 
@@ -300,8 +319,17 @@ const REQUIRED_ACTIVE_APPLICATION_STATUSES = [
     'revision_requested',
 ];
 
-function matchesColumnType(formattedType, expectedKind) {
+function matchesColumnType(formattedType, reqCol) {
     const t = String(formattedType || '').trim().toLowerCase();
+    const expectedKind = reqCol.type;
+    if (expectedKind === 'text') {
+        return t === 'text' || t === 'character varying';
+    }
+    if (expectedKind === 'varchar_min') {
+        if (t === 'text' || t === 'character varying') return true;
+        const m = t.match(/^character varying\((\d+)\)$/);
+        return Boolean(m && Number(m[1]) >= Number(reqCol.minLen || 1));
+    }
     if (expectedKind === 'text_like') {
         return t === 'text' || t === 'character varying' || /^character varying\(\d+\)$/.test(t);
     }
@@ -546,6 +574,18 @@ function columnsEqual(actualCols, expectedCols) {
     return true;
 }
 
+function columnsEqualUnordered(actualCols, expectedCols) {
+    if (!Array.isArray(actualCols) || actualCols.length !== expectedCols.length) {
+        return false;
+    }
+    const a = [...actualCols].sort();
+    const b = [...expectedCols].sort();
+    for (let i = 0; i < b.length; i += 1) {
+        if (a[i] !== b[i]) return false;
+    }
+    return true;
+}
+
 function evaluateUniqueContracts(contracts, allIndexes) {
     const missing = [];
     const violations = [];
@@ -578,8 +618,14 @@ function evaluateUniqueContracts(contracts, allIndexes) {
             && predicateMatches(idx)
         ));
 
-        const hasDeferrableArbiter = contract.conflictArbiter && sameTargetIndexes.some((idx) => (
-            idx.indimmediate === false && predicateMatches(idx)
+        // PostgreSQL infers ON CONFLICT arbiters without regard to column order and rejects
+        // deferrable unique indexes, so check ALL same-column-set indexes regardless of order.
+        const hasDeferrableArbiter = contract.conflictArbiter && allIndexes.some((idx) => (
+            idx.table_name === contract.table
+            && idx.indisunique === true
+            && idx.indimmediate === false
+            && columnsEqualUnordered(idx.key_columns, contract.columns)
+            && predicateMatches(idx)
         ));
 
         if (enforcing.length === 0) {
@@ -648,13 +694,15 @@ function evaluateColumnContracts(contracts, columnCatalog) {
             missing.push(`${reqCol.table}.${reqCol.column}`);
             continue;
         }
-        if (!matchesColumnType(info.formatted_type, reqCol.type)) {
+        if (!matchesColumnType(info.formatted_type, reqCol)) {
             violations.push(
                 `column_type_mismatch:${reqCol.table}.${reqCol.column}:expected_${reqCol.type}:got_${info.formatted_type}`
             );
         }
-        if (reqCol.notNull && !info.not_null) {
-            violations.push(`column_nullable_mismatch:${reqCol.table}.${reqCol.column}:expected_not_null`);
+        if (Boolean(info.not_null) !== Boolean(reqCol.notNull)) {
+            violations.push(
+                `column_nullable_mismatch:${reqCol.table}.${reqCol.column}:expected_${reqCol.notNull ? 'not_null' : 'nullable'}`
+            );
         }
     }
     return { missing, violations };

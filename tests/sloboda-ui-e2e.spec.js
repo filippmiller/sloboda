@@ -1368,7 +1368,8 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
       await pageB.getByRole('button', { name: /Загрузить серверную версию/i }).click();
       await expect(pageB.getByText(/Обнаружено изменение заявки на сервере/i)).toHaveCount(0, { timeout: 10000 });
 
-      // 8C: Three divergent drafts across 3 tabs preserved after reload
+      // 8C: Three divergent drafts across 3 tabs preserved after reload — verify all 3 texts,
+      // switch between them via UI, and confirm explicit discard leaves 0 stored draft keys
       const pageC = await ctx.newPage();
       trackPageErrors(pageC, pageErrors, 'xtab-C');
       try {
@@ -1381,8 +1382,18 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
         await pageC.locator('textarea').nth(0).fill(`Draft3C ${suffix}`);
         await pageA.reload();
         await expect(pageA.getByText(/Сохранено несколько версий черновика \(3\)/i)).toBeVisible({ timeout: 10000 });
+        await expect(pageA.getByText(`Draft3A ${suffix}`)).toBeVisible({ timeout: 10000 });
+        await expect(pageA.getByText(`Draft3B ${suffix}`)).toBeVisible({ timeout: 10000 });
+        await expect(pageA.getByText(`Draft3C ${suffix}`)).toBeVisible({ timeout: 10000 });
+        // Open the third entry in the recovery list and verify editor updates to its text
+        await pageA.getByRole('button', { name: 'Открыть' }).nth(2).click();
+        await expect(pageA.locator('textarea').nth(0)).toHaveValue(`Draft3A ${suffix}`, { timeout: 10000 });
         await pageA.getByRole('button', { name: /Загрузить серверную версию/i }).click();
         await expect(pageA.getByText(/Сохранено несколько версий черновика/i)).toHaveCount(0, { timeout: 10000 });
+        const remainingKeys = await pageA.evaluate(() =>
+          Object.keys(localStorage).filter((k) => k.startsWith('sloboda_revision_draft:'))
+        );
+        expect(remainingKeys).toEqual([]);
       } finally {
         await pageC.close();
       }

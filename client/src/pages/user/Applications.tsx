@@ -226,11 +226,12 @@ function readAllRevisionDrafts(
   return entries
 }
 
-function writeRevisionDraft(key: string, draft: RevisionDraft): void {
+function writeRevisionDraft(key: string, draft: RevisionDraft): boolean {
   try {
     localStorage.setItem(key, JSON.stringify(draft))
+    return true
   } catch {
-    // Ignore storage quota errors
+    return false
   }
 }
 
@@ -391,11 +392,12 @@ export default function Applications() {
 
       if (application && application.status === 'revision_requested') {
         const myKey = getTabRevisionDraftKey(effectiveUserId, application.id, tabIdRef.current)
+        const legacyKey = getLegacyRevisionDraftKey(effectiveUserId, application.id)
         const nextRevId = generateClientToken(`rev-${revisionEditSeqRef.current}`)
         const prevKey = activeDraftKeyRef.current
         const prevRevId = lastDraftRevIdRef.current
 
-        writeRevisionDraft(myKey, {
+        const wrote = writeRevisionDraft(myKey, {
           applicationId: application.id,
           baseVersion: revisionConflict?.draftBaseVersion ?? application.version,
           draftRevId: nextRevId,
@@ -403,13 +405,15 @@ export default function Applications() {
           ...nextFields,
           updatedAt: new Date().toISOString(),
         })
-        // If this tab adopted a recovered draft key from a prior session/reload, remove that old
-        // key ONLY if its draftRevId is still unchanged (never deletes a newer cross-tab write).
-        if (prevKey && prevKey !== myKey && prevRevId) {
+        // Only migrate away the un-tabbed legacy key after a confirmed write; NEVER delete
+        // another tab's `:tab:*` key on edit so live tabs never lose their independent drafts.
+        if (wrote && prevKey === legacyKey && prevRevId) {
           removeRevisionDraftIfRevMatches(prevKey, prevRevId)
         }
-        activeDraftKeyRef.current = myKey
-        lastDraftRevIdRef.current = nextRevId
+        if (wrote) {
+          activeDraftKeyRef.current = myKey
+          lastDraftRevIdRef.current = nextRevId
+        }
         setRecoverableDrafts(readAllRevisionDrafts(effectiveUserId, application.id))
         setRevisionDraftVisible(true)
       }
@@ -750,6 +754,21 @@ export default function Applications() {
       applyRevisionFieldsState(next.draft)
       activeDraftKeyRef.current = next.key
       lastDraftRevIdRef.current = next.draft.draftRevId
+      const serverApp = revisionConflict?.serverApplication ?? application
+      if (
+        remaining.length === 1 &&
+        next.draft.baseVersion === serverApp.version &&
+        serverApp.status === 'revision_requested'
+      ) {
+        setRevisionConflict(null)
+      } else {
+        setRevisionConflict({
+          serverVersion: serverApp.version,
+          serverStatus: serverApp.status,
+          draftBaseVersion: next.draft.baseVersion,
+          serverApplication: serverApp,
+        })
+      }
     }
   }
 
@@ -757,10 +776,11 @@ export default function Applications() {
     if (!application || revisionConflict?.refreshFailed) return
     const targetApp = revisionConflict?.serverApplication ?? application
     const myKey = getTabRevisionDraftKey(effectiveUserId, targetApp.id, tabIdRef.current)
+    const legacyKey = getLegacyRevisionDraftKey(effectiveUserId, targetApp.id)
     const prevKey = activeDraftKeyRef.current
     const prevRevId = lastDraftRevIdRef.current
     const nextRevId = generateClientToken('rev-keep')
-    writeRevisionDraft(myKey, {
+    const wrote = writeRevisionDraft(myKey, {
       applicationId: targetApp.id,
       baseVersion: targetApp.version,
       draftRevId: nextRevId,
@@ -768,7 +788,12 @@ export default function Applications() {
       ...revisionFieldsRef.current,
       updatedAt: new Date().toISOString(),
     })
-    if (prevKey && prevKey !== myKey && prevRevId) {
+    if (!wrote) {
+      toast.error('Не удалось сохранить черновик в локальном хранилище')
+      return
+    }
+    // Only remove un-tabbed legacy key after confirmed write; never silently erase another tab's key.
+    if (prevKey === legacyKey && prevRevId) {
       removeRevisionDraftIfRevMatches(prevKey, prevRevId)
     }
     activeDraftKeyRef.current = myKey
@@ -1098,13 +1123,23 @@ export default function Applications() {
               ? { ...prev, version: Math.max(prev.version, nextVersion) }
               : prev,
           )
-          // Only rebase THIS tab's own draft when version advanced by +1; never mutate another tab's key.
-          if (myDraft) {
-            writeRevisionDraft(myTabKey, {
-              ...myDraft,
+          // Rebase THIS tab's own draft (or copy-on-write a recovered active draft into this tab's key)
+          // with a FRESH draftRevId so a stale discard snapshot can never delete the rebased draft.
+          const activeKey = activeDraftKeyRef.current
+          const activeDraft = myDraft ?? (activeKey ? readRevisionDraft(activeKey) : null)
+          if (activeDraft && activeDraft.baseVersion === prevVersion) {
+            const rebasedRevId = generateClientToken('rev-rebase')
+            const wroteRebase = writeRevisionDraft(myTabKey, {
+              ...activeDraft,
               baseVersion: nextVersion,
+              draftRevId: rebasedRevId,
+              editorTabId: tabIdRef.current,
               updatedAt: new Date().toISOString(),
             })
+            if (wroteRebase) {
+              activeDraftKeyRef.current = myTabKey
+              lastDraftRevIdRef.current = rebasedRevId
+            }
             setRecoverableDrafts(readAllRevisionDrafts(userIdAtStart, appId))
           }
           // If another tab holds a draft at prevVersion, keep its original baseVersion untouched

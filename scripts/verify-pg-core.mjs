@@ -1584,16 +1584,27 @@ async function run() {
         (j) => assert.ok(j.schema.missing_columns.includes('users.membership_status'))
     );
 
-    // Drift 7: wrong column type (closes_at downgraded to timestamp without time zone) and wrong nullability
+    // Drift 7: wrong column type (closes_at downgraded to timestamp without time zone, skills narrowed to varchar(1))
+    // and wrong nullability (both NOT NULL->nullable AND nullable->NOT NULL on idempotency_key)
     await assertSchemaDriftRejected(
         'wrong_type_closes_at_without_tz',
         () => pool.query('ALTER TABLE public.governance_proposals ALTER COLUMN closes_at TYPE TIMESTAMP'),
         (j) => assert.ok(j.schema.reasons.some((r) => r.includes('column_type_mismatch:governance_proposals.closes_at')))
     );
     await assertSchemaDriftRejected(
+        'wrong_type_skills_narrow_varchar1',
+        () => pool.query('ALTER TABLE public.member_applications ALTER COLUMN skills TYPE VARCHAR(1)'),
+        (j) => assert.ok(j.schema.reasons.some((r) => r.includes('column_type_mismatch:member_applications.skills')))
+    );
+    await assertSchemaDriftRejected(
         'wrong_nullability_contributions_received',
         () => pool.query('ALTER TABLE public.contributions ALTER COLUMN received_kopecks DROP NOT NULL'),
         (j) => assert.ok(j.schema.reasons.some((r) => r.includes('column_nullable_mismatch:contributions.received_kopecks')))
+    );
+    await assertSchemaDriftRejected(
+        'wrong_nullability_idempotency_key_not_null',
+        () => pool.query('ALTER TABLE public.contributions ALTER COLUMN idempotency_key SET NOT NULL'),
+        (j) => assert.ok(j.schema.reasons.some((r) => r.includes('column_nullable_mismatch:contributions.idempotency_key')))
     );
 
     // Drift 8: missing contributions.idempotency_key uniqueness; separately ledger_expenses.idempotency_key uniqueness
@@ -1618,7 +1629,7 @@ async function run() {
         (j) => assert.ok(j.schema.missing_indexes.includes('uq_member_applications_claim_token_hash'))
     );
 
-    // Drift 10: deferrable unique constraint on ON CONFLICT arbiter (construction_milestones(settlement_id, code))
+    // Drift 10: deferrable unique constraint on ON CONFLICT arbiter (both replacing AND reversed-key alongside healthy index)
     await assertSchemaDriftRejected(
         'deferrable_conflict_arbiter',
         async () => {
@@ -1626,6 +1637,13 @@ async function run() {
             await pool.query('ALTER TABLE public.construction_milestones ADD CONSTRAINT construction_milestones_settlement_id_code_key UNIQUE (settlement_id, code) DEFERRABLE INITIALLY DEFERRED');
         },
         (j) => assert.ok(j.schema.missing_indexes.includes('construction_milestones_settlement_code_unique'))
+    );
+    await assertSchemaDriftRejected(
+        'deferrable_reversed_key_conflict_arbiter',
+        async () => {
+            await pool.query('ALTER TABLE public.construction_milestones ADD CONSTRAINT uq_milestones_code_settlement_def UNIQUE (code, settlement_id) DEFERRABLE INITIALLY DEFERRED');
+        },
+        (j) => assert.ok(j.schema.reasons.some((r) => r.includes('deferrable_conflict_arbiter_present:construction_milestones_settlement_code_unique')))
     );
 
     // Drift 11: R4 abstain CHECK without >= 0 lower bound
@@ -1800,15 +1818,26 @@ async function run() {
              FROM ledger_postings WHERE contribution_id = $1 OR expense_id = $2 ORDER BY id ASC`,
             [r1Baseline.contribId, r1Baseline.expenseId]
         )).rows;
-        return { c, allocs, postings };
+        const totals = (await pool.query(`
+            SELECT
+                (SELECT COUNT(*)::int FROM contributions) AS contributions_count,
+                (SELECT COUNT(*)::int FROM ledger_expenses) AS expenses_count,
+                (SELECT COUNT(*)::int FROM expense_allocations) AS allocations_count,
+                (SELECT COUNT(*)::int FROM ledger_postings) AS postings_count
+        `)).rows[0];
+        return { c, allocs, postings, totals };
     };
     const postUpgradeSnap = await snapshotState();
     assert.equal(postUpgradeSnap.c.received_kopecks, r1Baseline.received);
     assert.equal(postUpgradeSnap.c.available_kopecks, r1Baseline.available);
     assert.equal(postUpgradeSnap.c.reserved_kopecks, r1Baseline.reserved);
+    assert.equal(postUpgradeSnap.c.paid_kopecks, r1Baseline.paid);
+    assert.equal(postUpgradeSnap.c.refunded_kopecks, r1Baseline.refunded);
     assert.equal(postUpgradeSnap.allocs.length, 1);
     assert.equal(Number(postUpgradeSnap.allocs[0].id), r1Baseline.allocId);
     assert.equal(postUpgradeSnap.postings.length, 2);
+    assert.ok(postUpgradeSnap.postings.some((p) => Number(p.id) === r1Baseline.reservePostId && p.posting_type === 'reserve'));
+    assert.deepEqual(postUpgradeSnap.totals, { contributions_count: 1, expenses_count: 1, allocations_count: 1, postings_count: 2 });
 
     const replayAdminId = r4AdminId2;
     const replayContribRow = r1LegContrib2;
@@ -1886,7 +1915,8 @@ async function run() {
         (err) => err.status === 400
     );
 
-    // Deterministic advisory-lock contention proof using distinct PG sessions & pg_locks inspection
+    // Deterministic advisory-lock contention proof using distinct PG sessions & pg_locks inspection:
+    // synchronize BOTH compact and multi-space legacy expense replay contenders behind the canonical lock!
     const lockHolder = await pool.connect();
     try {
         await lockHolder.query('BEGIN');
@@ -1898,17 +1928,17 @@ async function run() {
         `)).rows[0];
         assert.ok(holderLock, 'Lock holder must hold the canonical expense advisory lock');
 
-        let contenderResolved = false;
-        const contenderPromise = coreStore.createAndAllocateExpense(
+        let resolvedCount = 0;
+        const contenderMulti = coreStore.createAndAllocateExpense(
             { ...legExpBasePayload, idempotency_key: 'r1   exp   1' },
             replayAdminId
-        ).then((res) => {
-            contenderResolved = true;
-            return res;
-        });
+        ).then((res) => { resolvedCount += 1; return res; });
+        const contenderCompact = coreStore.createAndAllocateExpense(
+            { ...legExpBasePayload, idempotency_key: 'r1 exp 1' },
+            replayAdminId
+        ).then((res) => { resolvedCount += 1; return res; });
 
-        // Poll pg_locks with bounded timeout to verify contender is actively blocked on the exact same advisory lock
-        let observedWaiting = false;
+        let observedBothWaiting = false;
         const deadline = Date.now() + 5000;
         while (Date.now() < deadline) {
             const waitRows = (await pool.query(
@@ -1918,19 +1948,21 @@ async function run() {
                    AND granted = FALSE`,
                 [holderLock.classid, holderLock.objid, holderLock.objsubid]
             )).rows;
-            if (waitRows.length >= 1) {
-                observedWaiting = true;
+            if (waitRows.length >= 2) {
+                observedBothWaiting = true;
                 break;
             }
             await new Promise((r) => setTimeout(r, 25));
         }
-        assert.equal(observedWaiting, true, 'Contender must be observed waiting in pg_locks on the exact canonical advisory lock');
-        assert.equal(contenderResolved, false, 'Contender must not resolve while advisory lock is held');
+        assert.equal(observedBothWaiting, true, 'Both compact and multi-space contenders must be observed waiting in pg_locks on the exact canonical advisory lock');
+        assert.equal(resolvedCount, 0, 'Neither contender may resolve while advisory lock is held');
 
         await lockHolder.query('COMMIT');
-        const contendedRes = await contenderPromise;
-        assert.equal(contendedRes.idempotent_replay, true);
-        assert.equal(contendedRes.expense.id, r1Baseline.expenseId);
+        const [resMulti, resCompact] = await Promise.all([contenderMulti, contenderCompact]);
+        assert.equal(resMulti.idempotent_replay, true);
+        assert.equal(resCompact.idempotent_replay, true);
+        assert.equal(resMulti.expense.id, r1Baseline.expenseId);
+        assert.equal(resCompact.expense.id, r1Baseline.expenseId);
     } finally {
         await lockHolder.query('ROLLBACK').catch(() => {});
         lockHolder.release();
@@ -1999,7 +2031,15 @@ async function run() {
     assert.equal((await pool.query('SELECT COUNT(*)::int AS cnt FROM expense_allocations')).rows[0].cnt, allocsBeforeOverExp);
     assert.equal((await pool.query('SELECT COUNT(*)::int AS cnt FROM ledger_postings')).rows[0].cnt, postingsBeforeOverExp);
 
-    // Synchronized concurrent first-write race on a fresh modern expense key
+    // Synchronized concurrent first-write race on a fresh modern expense key with exact persisted delta proof
+    const beforeRaceTotals = (await pool.query(`
+        SELECT
+            (SELECT COUNT(*)::int FROM ledger_expenses) AS expenses_count,
+            (SELECT COUNT(*)::int FROM expense_allocations) AS allocations_count,
+            (SELECT COUNT(*)::int FROM ledger_postings) AS postings_count,
+            (SELECT COALESCE(SUM(available_kopecks), 0)::bigint::text FROM contributions) AS sum_avail,
+            (SELECT COALESCE(SUM(reserved_kopecks), 0)::bigint::text FROM contributions) AS sum_resv
+    `)).rows[0];
     const raceHolder = await pool.connect();
     try {
         await raceHolder.query('BEGIN');
@@ -2045,6 +2085,19 @@ async function run() {
         await raceHolder.query('ROLLBACK').catch(() => {});
         raceHolder.release();
     }
+    const afterRaceTotals = (await pool.query(`
+        SELECT
+            (SELECT COUNT(*)::int FROM ledger_expenses) AS expenses_count,
+            (SELECT COUNT(*)::int FROM expense_allocations) AS allocations_count,
+            (SELECT COUNT(*)::int FROM ledger_postings) AS postings_count,
+            (SELECT COALESCE(SUM(available_kopecks), 0)::bigint::text FROM contributions) AS sum_avail,
+            (SELECT COALESCE(SUM(reserved_kopecks), 0)::bigint::text FROM contributions) AS sum_resv
+    `)).rows[0];
+    assert.equal(afterRaceTotals.expenses_count, beforeRaceTotals.expenses_count + 1, 'Exactly one persisted expense row must be created');
+    assert.equal(afterRaceTotals.allocations_count, beforeRaceTotals.allocations_count + 1, 'Exactly one allocation row must be created');
+    assert.equal(afterRaceTotals.postings_count, beforeRaceTotals.postings_count + 1, 'Exactly one reserve posting row must be created');
+    assert.equal(BigInt(afterRaceTotals.sum_avail), BigInt(beforeRaceTotals.sum_avail) - 10000n, 'Available balance must decrease by exactly 10000');
+    assert.equal(BigInt(afterRaceTotals.sum_resv), BigInt(beforeRaceTotals.sum_resv) + 10000n, 'Reserved balance must increase by exactly 10000');
 
     // Final read-only preflight reconciliation BEFORE any gate-refresh write
     const finalReadOnlyCli = runPreflightCli();
