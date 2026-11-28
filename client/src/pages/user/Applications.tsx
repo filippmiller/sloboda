@@ -131,6 +131,19 @@ function generateClientToken(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 }
 
+function getOrCreateTabId(): string {
+  const storageKey = 'sloboda_applications_tab_id'
+  try {
+    const existing = sessionStorage.getItem(storageKey)
+    if (existing && existing.length > 0) return existing
+    const created = generateClientToken('tab')
+    sessionStorage.setItem(storageKey, created)
+    return created
+  } catch {
+    return generateClientToken('tab')
+  }
+}
+
 function getDraftStorageKey(userId?: string | number | null): string {
   return `sloboda_application_draft:${userId || 'anon'}`
 }
@@ -316,7 +329,7 @@ export default function Applications() {
     revTrialTaskUrl: '',
   })
   const revisionEditSeqRef = useRef(0)
-  const tabIdRef = useRef<string>(generateClientToken('tab'))
+  const tabIdRef = useRef<string>(getOrCreateTabId())
   const activeDraftKeyRef = useRef<string | null>(null)
   const lastDraftRevIdRef = useRef<string | null>(null)
   const activeAppIdRef = useRef<number | null>(null)

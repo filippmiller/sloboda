@@ -1382,9 +1382,9 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
         await pageC.locator('textarea').nth(0).fill(`Draft3C ${suffix}`);
         await pageA.reload();
         await expect(pageA.getByText(/Сохранено несколько версий черновика \(3\)/i)).toBeVisible({ timeout: 10000 });
-        await expect(pageA.getByText(`Draft3A ${suffix}`)).toBeVisible({ timeout: 10000 });
-        await expect(pageA.getByText(`Draft3B ${suffix}`)).toBeVisible({ timeout: 10000 });
-        await expect(pageA.getByText(`Draft3C ${suffix}`)).toBeVisible({ timeout: 10000 });
+        await expect(pageA.getByText(`Draft3A ${suffix}`).first()).toBeVisible({ timeout: 10000 });
+        await expect(pageA.getByText(`Draft3B ${suffix}`).first()).toBeVisible({ timeout: 10000 });
+        await expect(pageA.getByText(`Draft3C ${suffix}`).first()).toBeVisible({ timeout: 10000 });
         // Open the third entry in the recovery list and verify editor updates to its text
         await pageA.getByRole('button', { name: 'Открыть' }).nth(2).click();
         await expect(pageA.locator('textarea').nth(0)).toHaveValue(`Draft3A ${suffix}`, { timeout: 10000 });
