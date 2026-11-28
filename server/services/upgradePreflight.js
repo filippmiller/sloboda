@@ -450,13 +450,17 @@ function matchesActiveApplicationPredicate(predicateExpr) {
         // ((status)::text = ANY ((ARRAY['pending'::character varying, ...])::text[]))
         // or status = ANY (ARRAY['pending', ...])
         const anyMatch = part.match(
-            /^(?:\(status\)|status)(?:::text)?\s*=\s*ANY\s*\(\s*\(?\s*ARRAY\[([^\]]+)\]\s*\)?(?:::text\[\])?\s*\)$/i
+            /^(?:\(status\)|status)(?:::text)?\s*=\s*ANY\s*\(([\s\S]+)\)$/i
         );
         if (anyMatch) {
-            const rawItems = anyMatch[1].split(',').map((item) => item.trim());
+            let rhs = stripBalancedOuterParens(anyMatch[1]);
+            rhs = rhs.replace(/::text\[\]$/i, '').trim();
+            rhs = stripBalancedOuterParens(rhs);
+            const arrMatch = rhs.match(/^ARRAY\[([^\]]+)\]$/i);
+            const rawItems = arrMatch ? arrMatch[1].split(',').map((item) => item.trim()) : null;
             const parsedStatuses = [];
-            let allValidLiterals = true;
-            for (const item of rawItems) {
+            let allValidLiterals = Boolean(rawItems && rawItems.length > 0);
+            for (const item of rawItems || []) {
                 const m = item.match(/^'([^']*)'(?:::(?:character varying|text))?$/i);
                 if (!m) {
                     allValidLiterals = false;
@@ -750,8 +754,8 @@ async function inspectCoreSchemaState(client) {
     let allIndexes = [];
     if (idxTables.length > 0) {
         const idxRes = await client.query(
-            `SELECT t.relname AS table_name,
-                    ic.relname AS index_name,
+            `SELECT t.relname::text AS table_name,
+                    ic.relname::text AS index_name,
                     i.indisunique,
                     i.indisvalid,
                     i.indisready,
@@ -761,7 +765,7 @@ async function inspectCoreSchemaState(client) {
                     pg_catalog.pg_get_expr(i.indpred, i.indrelid) AS predicate_expr,
                     (
                         SELECT ARRAY_AGG(
-                            CASE WHEN k.attnum = 0 THEN '__expr__' ELSE a.attname END
+                            CASE WHEN k.attnum = 0 THEN '__expr__'::text ELSE a.attname::text END
                             ORDER BY k.ord
                         )
                         FROM unnest(i.indkey::int2[]) WITH ORDINALITY AS k(attnum, ord)
