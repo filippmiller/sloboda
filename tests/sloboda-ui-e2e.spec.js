@@ -1324,10 +1324,15 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
       await pageA.getByRole('button', { name: /Загрузить серверную версию/i }).click();
       await expect(pageA.getByText(/Обнаружено изменение заявки на сервере/i)).toHaveCount(0, { timeout: 10000 });
 
-      // 8B: Cross-tab delayed portfolio POST — pageA adds portfolio item (delayed),
-      // pageB edits BOTH skills and motivation, release POST, reload -> Y preserved, item not duplicated
+      // 8B: Cross-tab delayed portfolio POST — pageA ALSO has its own active draft to rebase,
+      // pageB edits BOTH skills and motivation while POST is pending, release POST, reload -> both preserved, item not duplicated
+      await pageA.reload();
       await pageB.reload();
+      await expect(pageA.locator('textarea').nth(0)).toBeVisible({ timeout: 10000 });
       await expect(pageB.locator('textarea').nth(0)).toBeVisible({ timeout: 10000 });
+      const aSkillsPort = `TabA own draft before portfolio ${suffix}`;
+      await pageA.locator('textarea').nth(0).fill(aSkillsPort);
+
       let releasePort;
       let notifyPortArrived;
       const arrivedPort = new Promise((resolve) => { notifyPortArrived = resolve; });
@@ -1362,14 +1367,15 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
       await pageB.reload();
       await expect(pageB.locator('textarea').nth(0)).toHaveValue(ySkillsPort, { timeout: 10000 });
       await expect(pageB.locator('textarea').nth(1)).toHaveValue(yMotPort, { timeout: 10000 });
+      await expect(pageB.getByText(aSkillsPort).first()).toBeVisible({ timeout: 10000 });
       await expect(pageB.getByText(portTitle)).toHaveCount(1, { timeout: 10000 });
 
-      // Clear draft so 8C starts cleanly at version 4
+      // Clear drafts so 8C starts cleanly at version 4
       await pageB.getByRole('button', { name: /Загрузить серверную версию/i }).click();
       await expect(pageB.getByText(/Обнаружено изменение заявки на сервере/i)).toHaveCount(0, { timeout: 10000 });
 
       // 8C: Three divergent drafts across 3 tabs preserved after reload — verify all 3 texts,
-      // switch between them via UI, and confirm explicit discard leaves 0 stored draft keys
+      // open EVERY recovered entry and verify its fields, then confirm bulk discard leaves 0 keys
       const pageC = await ctx.newPage();
       trackPageErrors(pageC, pageErrors, 'xtab-C');
       try {
@@ -1385,9 +1391,13 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
         await expect(pageA.getByText(`Draft3A ${suffix}`).first()).toBeVisible({ timeout: 10000 });
         await expect(pageA.getByText(`Draft3B ${suffix}`).first()).toBeVisible({ timeout: 10000 });
         await expect(pageA.getByText(`Draft3C ${suffix}`).first()).toBeVisible({ timeout: 10000 });
-        // Open the third entry in the recovery list and verify editor updates to its text
-        await pageA.getByRole('button', { name: 'Открыть' }).nth(2).click();
-        await expect(pageA.locator('textarea').nth(0)).toHaveValue(`Draft3A ${suffix}`, { timeout: 10000 });
+        // Open all 3 entries in turn and verify each restores its exact skills value
+        const openedValues = [];
+        for (let idx = 0; idx < 3; idx += 1) {
+          await pageA.getByRole('button', { name: 'Открыть' }).nth(idx).click();
+          openedValues.push(await pageA.locator('textarea').nth(0).inputValue());
+        }
+        expect(openedValues.sort()).toEqual([`Draft3A ${suffix}`, `Draft3B ${suffix}`, `Draft3C ${suffix}`].sort());
         await pageA.getByRole('button', { name: /Загрузить серверную версию/i }).click();
         await expect(pageA.getByText(/Сохранено несколько версий черновика/i)).toHaveCount(0, { timeout: 10000 });
         const remainingKeys = await pageA.evaluate(() =>

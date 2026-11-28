@@ -198,18 +198,18 @@ const R1_REQUIRED_COLUMNS = [
 ];
 
 const R2_REQUIRED_COLUMNS = [
-    { table: 'contributions', column: 'request_fingerprint', type: 'text_like', notNull: false },
-    { table: 'ledger_expenses', column: 'request_fingerprint', type: 'text_like', notNull: false },
-    { table: 'ledger_expenses', column: 'financial_status', type: 'text_like', notNull: true },
-    { table: 'ledger_expenses', column: 'dispute_status', type: 'text_like', notNull: true },
+    { table: 'contributions', column: 'request_fingerprint', type: 'varchar_min', minLen: 64, notNull: false },
+    { table: 'ledger_expenses', column: 'request_fingerprint', type: 'varchar_min', minLen: 64, notNull: false },
+    { table: 'ledger_expenses', column: 'financial_status', type: 'varchar_min', minLen: 24, notNull: true },
+    { table: 'ledger_expenses', column: 'dispute_status', type: 'varchar_min', minLen: 24, notNull: true },
     { table: 'ledger_expenses', column: 'version', type: 'integer', notNull: true },
     { table: 'governance_proposals', column: 'legacy_r1_unsupported', type: 'boolean', notNull: true },
-    { table: 'governance_proposals', column: 'legacy_r1_disposition', type: 'text_like', notNull: false },
+    { table: 'governance_proposals', column: 'legacy_r1_disposition', type: 'varchar_min', minLen: 64, notNull: false },
     { table: 'governance_proposals', column: 'closes_at', type: 'timestamptz', notNull: false },
 ];
 
 const R3_REQUIRED_COLUMNS = [
-    { table: 'sloboda_core_gates', column: 'gate_key', type: 'text_like', notNull: true },
+    { table: 'sloboda_core_gates', column: 'gate_key', type: 'varchar_min', minLen: 64, notNull: true },
     { table: 'sloboda_core_gates', column: 'is_blocked', type: 'boolean', notNull: true },
     { table: 'sloboda_core_gates', column: 'report_json', type: 'jsonb', notNull: true },
     { table: 'sloboda_core_gates', column: 'checked_at', type: 'timestamptz', notNull: true },

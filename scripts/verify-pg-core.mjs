@@ -1597,6 +1597,11 @@ async function run() {
         (j) => assert.ok(j.schema.reasons.some((r) => r.includes('column_type_mismatch:member_applications.skills')))
     );
     await assertSchemaDriftRejected(
+        'wrong_type_fingerprint_narrow_varchar1',
+        () => pool.query('ALTER TABLE public.contributions ALTER COLUMN request_fingerprint TYPE VARCHAR(1)'),
+        (j) => assert.ok(j.schema.reasons.some((r) => r.includes('column_type_mismatch:contributions.request_fingerprint')))
+    );
+    await assertSchemaDriftRejected(
         'wrong_nullability_contributions_received',
         () => pool.query('ALTER TABLE public.contributions ALTER COLUMN received_kopecks DROP NOT NULL'),
         (j) => assert.ok(j.schema.reasons.some((r) => r.includes('column_nullable_mismatch:contributions.received_kopecks')))

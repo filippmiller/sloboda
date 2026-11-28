@@ -131,19 +131,6 @@ function generateClientToken(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 }
 
-function getOrCreateTabId(): string {
-  const storageKey = 'sloboda_applications_tab_id'
-  try {
-    const existing = sessionStorage.getItem(storageKey)
-    if (existing && existing.length > 0) return existing
-    const created = generateClientToken('tab')
-    sessionStorage.setItem(storageKey, created)
-    return created
-  } catch {
-    return generateClientToken('tab')
-  }
-}
-
 function getDraftStorageKey(userId?: string | number | null): string {
   return `sloboda_application_draft:${userId || 'anon'}`
 }
@@ -155,12 +142,21 @@ function getLegacyRevisionDraftKey(
   return `sloboda_revision_draft:${userId || 'anon'}:${appId}`
 }
 
-function getTabRevisionDraftKey(
+function getImmutableRevisionDraftKey(
   userId: string | number | null | undefined,
   appId: number,
-  tabId: string,
+  draftRevId: string,
 ): string {
-  return `${getLegacyRevisionDraftKey(userId, appId)}:tab:${tabId}`
+  return `${getLegacyRevisionDraftKey(userId, appId)}:rev:${draftRevId}`
+}
+
+function isRevisionDraftKeyForApp(
+  key: string,
+  userId: string | number | null | undefined,
+  appId: number,
+): boolean {
+  const base = getLegacyRevisionDraftKey(userId, appId)
+  return key === base || key.startsWith(`${base}:rev:`) || key.startsWith(`${base}:tab:`)
 }
 
 function readDraft(key: string): Partial<ApplicationDraft> | null {
@@ -215,14 +211,11 @@ function readAllRevisionDrafts(
   userId: string | number | null | undefined,
   appId: number,
 ): StoredRevisionDraftEntry[] {
-  const basePrefix = getLegacyRevisionDraftKey(userId, appId)
-  const tabPrefix = `${basePrefix}:tab:`
   const entries: StoredRevisionDraftEntry[] = []
   try {
     for (let i = 0; i < localStorage.length; i += 1) {
       const key = localStorage.key(i)
-      if (!key) continue
-      if (key !== basePrefix && !key.startsWith(tabPrefix)) continue
+      if (!key || !isRevisionDraftKeyForApp(key, userId, appId)) continue
       const draft = readRevisionDraft(key)
       if (draft && draft.applicationId === appId) {
         entries.push({ key, draft })
@@ -248,8 +241,20 @@ function writeRevisionDraft(key: string, draft: RevisionDraft): boolean {
   }
 }
 
-function removeRevisionDraftIfRevMatches(key: string, expectedDraftRevId: string): boolean {
+/**
+ * Atomic removal for immutable `:rev:<draftRevId>` keys: since each revision key is uniquely
+ * named by its immutable `draftRevId` and never overwritten by another tab, `removeItem(key)`
+ * cannot race with or delete a newer revision. For legacy/mutable keys, checks `draftRevId` first.
+ */
+function removeExactRevisionDraft(key: string, expectedDraftRevId: string): boolean {
   try {
+    if (key.includes(':rev:')) {
+      if (!key.endsWith(`:rev:${expectedDraftRevId}`)) {
+        return false
+      }
+      localStorage.removeItem(key)
+      return true
+    }
     const current = readRevisionDraft(key)
     if (!current || current.draftRevId !== expectedDraftRevId) {
       return false
@@ -329,9 +334,11 @@ export default function Applications() {
     revTrialTaskUrl: '',
   })
   const revisionEditSeqRef = useRef(0)
-  const tabIdRef = useRef<string>(getOrCreateTabId())
+  const tabIdRef = useRef<string>(generateClientToken('tab'))
   const activeDraftKeyRef = useRef<string | null>(null)
   const lastDraftRevIdRef = useRef<string | null>(null)
+  const ownDraftKeyRef = useRef<string | null>(null)
+  const ownDraftRevIdRef = useRef<string | null>(null)
   const activeAppIdRef = useRef<number | null>(null)
   const latestAppVersionRef = useRef<number>(0)
   const requestGenRef = useRef(0)
@@ -404,13 +411,16 @@ export default function Applications() {
       else if (field === 'revTrialTaskUrl') setRevTrialTaskUrl(value)
 
       if (application && application.status === 'revision_requested') {
-        const myKey = getTabRevisionDraftKey(effectiveUserId, application.id, tabIdRef.current)
         const legacyKey = getLegacyRevisionDraftKey(effectiveUserId, application.id)
         const nextRevId = generateClientToken(`rev-${revisionEditSeqRef.current}`)
-        const prevKey = activeDraftKeyRef.current
-        const prevRevId = lastDraftRevIdRef.current
+        const nextKey = getImmutableRevisionDraftKey(effectiveUserId, application.id, nextRevId)
+        const prevOwnKey = ownDraftKeyRef.current
+        const prevOwnRevId = ownDraftRevIdRef.current
+        const prevActiveKey = activeDraftKeyRef.current
+        const prevActiveRevId = lastDraftRevIdRef.current
+        const existingBefore = readAllRevisionDrafts(effectiveUserId, application.id)
 
-        const wrote = writeRevisionDraft(myKey, {
+        const wrote = writeRevisionDraft(nextKey, {
           applicationId: application.id,
           baseVersion: revisionConflict?.draftBaseVersion ?? application.version,
           draftRevId: nextRevId,
@@ -418,13 +428,23 @@ export default function Applications() {
           ...nextFields,
           updatedAt: new Date().toISOString(),
         })
-        // Only migrate away the un-tabbed legacy key after a confirmed write; NEVER delete
-        // another tab's `:tab:*` key on edit so live tabs never lose their independent drafts.
-        if (wrote && prevKey === legacyKey && prevRevId) {
-          removeRevisionDraftIfRevMatches(prevKey, prevRevId)
-        }
         if (wrote) {
-          activeDraftKeyRef.current = myKey
+          // Atomically retire only this tab's own previous immutable revision key.
+          // If this tab recovered the sole draft after reload (or a legacy un-tabbed key),
+          // retire that exact revision key too; NEVER delete another tab's key when 2+ drafts exist.
+          if (prevOwnKey && prevOwnRevId && prevOwnKey !== nextKey) {
+            removeExactRevisionDraft(prevOwnKey, prevOwnRevId)
+          } else if (
+            prevActiveKey &&
+            prevActiveRevId &&
+            prevActiveKey !== nextKey &&
+            (prevActiveKey === legacyKey || existingBefore.length === 1)
+          ) {
+            removeExactRevisionDraft(prevActiveKey, prevActiveRevId)
+          }
+          ownDraftKeyRef.current = nextKey
+          ownDraftRevIdRef.current = nextRevId
+          activeDraftKeyRef.current = nextKey
           lastDraftRevIdRef.current = nextRevId
         }
         setRecoverableDrafts(readAllRevisionDrafts(effectiveUserId, application.id))
@@ -545,9 +565,8 @@ export default function Applications() {
   // Keep recoverableDrafts synchronized when another tab edits or resolves drafts
   useEffect(() => {
     if (!application) return
-    const prefix = getLegacyRevisionDraftKey(effectiveUserId, application.id)
     const onStorage = (ev: StorageEvent) => {
-      if (ev.key && ev.key !== prefix && !ev.key.startsWith(`${prefix}:tab:`)) return
+      if (ev.key && !isRevisionDraftKeyForApp(ev.key, effectiveUserId, application.id)) return
       const allDrafts = readAllRevisionDrafts(effectiveUserId, application.id)
       setRecoverableDrafts(allDrafts)
       if (allDrafts.length > 0) {
@@ -753,7 +772,11 @@ export default function Applications() {
 
   const handleDiscardSingleDraft = (entry: StoredRevisionDraftEntry) => {
     if (!application) return
-    removeRevisionDraftIfRevMatches(entry.key, entry.draft.draftRevId)
+    removeExactRevisionDraft(entry.key, entry.draft.draftRevId)
+    if (ownDraftKeyRef.current === entry.key) {
+      ownDraftKeyRef.current = null
+      ownDraftRevIdRef.current = null
+    }
     const remaining = readAllRevisionDrafts(effectiveUserId, application.id)
     setRecoverableDrafts(remaining)
     if (remaining.length === 0) {
@@ -788,12 +811,16 @@ export default function Applications() {
   const handleKeepRevisionDraftForNewVersion = () => {
     if (!application || revisionConflict?.refreshFailed) return
     const targetApp = revisionConflict?.serverApplication ?? application
-    const myKey = getTabRevisionDraftKey(effectiveUserId, targetApp.id, tabIdRef.current)
     const legacyKey = getLegacyRevisionDraftKey(effectiveUserId, targetApp.id)
-    const prevKey = activeDraftKeyRef.current
-    const prevRevId = lastDraftRevIdRef.current
+    const prevOwnKey = ownDraftKeyRef.current
+    const prevOwnRevId = ownDraftRevIdRef.current
+    const prevActiveKey = activeDraftKeyRef.current
+    const prevActiveRevId = lastDraftRevIdRef.current
+    const existingBefore = readAllRevisionDrafts(effectiveUserId, targetApp.id)
+
     const nextRevId = generateClientToken('rev-keep')
-    const wrote = writeRevisionDraft(myKey, {
+    const nextKey = getImmutableRevisionDraftKey(effectiveUserId, targetApp.id, nextRevId)
+    const wrote = writeRevisionDraft(nextKey, {
       applicationId: targetApp.id,
       baseVersion: targetApp.version,
       draftRevId: nextRevId,
@@ -805,16 +832,24 @@ export default function Applications() {
       toast.error('Не удалось сохранить черновик в локальном хранилище')
       return
     }
-    // Only remove un-tabbed legacy key after confirmed write; never silently erase another tab's key.
-    if (prevKey === legacyKey && prevRevId) {
-      removeRevisionDraftIfRevMatches(prevKey, prevRevId)
+    if (prevOwnKey && prevOwnRevId && prevOwnKey !== nextKey) {
+      removeExactRevisionDraft(prevOwnKey, prevOwnRevId)
+    } else if (
+      prevActiveKey &&
+      prevActiveRevId &&
+      prevActiveKey !== nextKey &&
+      (prevActiveKey === legacyKey || existingBefore.length === 1)
+    ) {
+      removeExactRevisionDraft(prevActiveKey, prevActiveRevId)
     }
-    activeDraftKeyRef.current = myKey
+    ownDraftKeyRef.current = nextKey
+    ownDraftRevIdRef.current = nextRevId
+    activeDraftKeyRef.current = nextKey
     lastDraftRevIdRef.current = nextRevId
     const remaining = readAllRevisionDrafts(effectiveUserId, targetApp.id)
     setRecoverableDrafts(remaining)
     const hasOtherUnresolved = remaining.some(
-      (entry) => entry.key !== myKey && entry.draft.baseVersion !== targetApp.version,
+      (entry) => entry.key !== nextKey && entry.draft.baseVersion !== targetApp.version,
     )
     if (hasOtherUnresolved) {
       setRevisionConflict({
@@ -833,16 +868,18 @@ export default function Applications() {
   const handleLoadServerRevisionVersion = () => {
     if (!application || revisionConflict?.refreshFailed) return
     const targetApp = revisionConflict?.serverApplication ?? application
-    // Exact-revision cleanup: only remove the revisions that were visible in this snapshot,
-    // so a concurrent newer write from another tab is never silently deleted.
+    // Atomic exact-revision cleanup: each immutable `:rev:<revId>` key can only delete that exact
+    // revision, so any concurrent newer revision written by another tab survives intact.
     const snapshotToDiscard = recoverableDrafts.length > 0
       ? recoverableDrafts
       : activeDraftKeyRef.current && lastDraftRevIdRef.current
         ? [{ key: activeDraftKeyRef.current, draft: { draftRevId: lastDraftRevIdRef.current } as RevisionDraft }]
         : []
     for (const entry of snapshotToDiscard) {
-      removeRevisionDraftIfRevMatches(entry.key, entry.draft.draftRevId)
+      removeExactRevisionDraft(entry.key, entry.draft.draftRevId)
     }
+    ownDraftKeyRef.current = null
+    ownDraftRevIdRef.current = null
     const remaining = readAllRevisionDrafts(effectiveUserId, targetApp.id)
     setRecoverableDrafts(remaining)
     if (remaining.length > 0) {
@@ -893,7 +930,8 @@ export default function Applications() {
     const editSeqAtStart = revisionEditSeqRef.current
     const submittedDraftKey = activeDraftKeyRef.current
     const submittedDraftRevId = lastDraftRevIdRef.current
-    const myTabKey = getTabRevisionDraftKey(userIdAtStart, appId, tabIdRef.current)
+    const submittedOwnKey = ownDraftKeyRef.current
+    const submittedOwnRevId = ownDraftRevIdRef.current
 
     setSubmittingRevision(true)
     try {
@@ -918,13 +956,17 @@ export default function Applications() {
       const appliedNewerSnapshot = applyApplicationMonotonic(updatedApp)
 
       if (revisionEditSeqRef.current === editSeqAtStart) {
-        // Exact-revision cleanup: ONLY remove the specific submitted revision key/revId.
-        // Another tab's key (`...:tab:<otherTabId>`) is NEVER touched or deleted.
+        // Atomic exact-revision cleanup: remove ONLY the submitted immutable revision key.
+        // Any newer revision written by another tab lives under its own `:rev:<id>` key and is untouched.
         if (submittedDraftKey && submittedDraftRevId) {
-          removeRevisionDraftIfRevMatches(submittedDraftKey, submittedDraftRevId)
+          removeExactRevisionDraft(submittedDraftKey, submittedDraftRevId)
         }
-        if (submittedDraftRevId && myTabKey !== submittedDraftKey) {
-          removeRevisionDraftIfRevMatches(myTabKey, submittedDraftRevId)
+        if (submittedOwnKey && submittedOwnRevId && submittedOwnKey !== submittedDraftKey) {
+          removeExactRevisionDraft(submittedOwnKey, submittedOwnRevId)
+        }
+        if (ownDraftKeyRef.current === submittedOwnKey) {
+          ownDraftKeyRef.current = null
+          ownDraftRevIdRef.current = null
         }
         const remainingDrafts = readAllRevisionDrafts(userIdAtStart, appId)
         setRecoverableDrafts(remainingDrafts)
@@ -957,18 +999,7 @@ export default function Applications() {
           toast.warning('Заявка отправлена, но более новые правки из другой вкладки сохранены в черновике')
         }
       } else {
-        // User typed newer edits in THIS tab while PATCH was in flight: preserve in this tab's key
-        const nextRevId = lastDraftRevIdRef.current || generateClientToken(`rev-${revisionEditSeqRef.current}`)
-        writeRevisionDraft(myTabKey, {
-          applicationId: appId,
-          baseVersion: baseVer,
-          draftRevId: nextRevId,
-          editorTabId: tabIdRef.current,
-          ...revisionFieldsRef.current,
-          updatedAt: new Date().toISOString(),
-        })
-        activeDraftKeyRef.current = myTabKey
-        lastDraftRevIdRef.current = nextRevId
+        // User typed newer edits in THIS tab while PATCH was in flight: already persisted under ownDraftKeyRef
         setRecoverableDrafts(readAllRevisionDrafts(userIdAtStart, appId))
         setRevisionDraftVisible(true)
         if (appliedNewerSnapshot) {
@@ -987,31 +1018,34 @@ export default function Applications() {
         return
       }
       if (axios.isAxiosError(err) && err.response?.status === 409) {
-        const myExisting = readRevisionDraft(myTabKey)
         const hasLocalEdits = revisionEditSeqRef.current !== editSeqAtStart
         const allBeforeWrite = readAllRevisionDrafts(userIdAtStart, appId)
-        const hasOtherTabDraft = allBeforeWrite.some((entry) => entry.key !== myTabKey)
+        const hasAnyDraft = allBeforeWrite.length > 0
 
-        // Never overwrite another tab's key. Only ensure this tab's own draft is persisted
-        // if this tab had local edits or no other tab already holds a newer draft.
-        if (hasLocalEdits || (!hasOtherTabDraft && !myExisting)) {
-          const nextRevId = lastDraftRevIdRef.current || generateClientToken('rev-409')
-          writeRevisionDraft(myTabKey, {
-            applicationId: appId,
-            baseVersion: myExisting?.baseVersion ?? baseVer,
-            draftRevId: nextRevId,
-            editorTabId: tabIdRef.current,
-            ...revisionFieldsRef.current,
-            updatedAt: new Date().toISOString(),
-          })
-          activeDraftKeyRef.current = myTabKey
-          lastDraftRevIdRef.current = nextRevId
+        // Never overwrite another tab's key. Only persist a snapshot if no draft exists at all.
+        if (!hasLocalEdits && !hasAnyDraft) {
+          const nextRevId = generateClientToken('rev-409')
+          const nextKey = getImmutableRevisionDraftKey(userIdAtStart, appId, nextRevId)
+          if (
+            writeRevisionDraft(nextKey, {
+              applicationId: appId,
+              baseVersion: baseVer,
+              draftRevId: nextRevId,
+              editorTabId: tabIdRef.current,
+              ...revisionFieldsRef.current,
+              updatedAt: new Date().toISOString(),
+            })
+          ) {
+            ownDraftKeyRef.current = nextKey
+            ownDraftRevIdRef.current = nextRevId
+            activeDraftKeyRef.current = nextKey
+            lastDraftRevIdRef.current = nextRevId
+          }
         }
 
         const allAfter = readAllRevisionDrafts(userIdAtStart, appId)
         setRecoverableDrafts(allAfter)
         if (!hasLocalEdits && allAfter.length > 0) {
-          // Surface the newest preserved draft (e.g. from another tab) in the UI without overwriting it
           const newest = allAfter[0]
           applyRevisionFieldsState(newest.draft)
           activeDraftKeyRef.current = newest.key
@@ -1089,8 +1123,6 @@ export default function Applications() {
     const prevVersion = application?.version
     const appStatusAtStart = application?.status
     const userIdAtStart = effectiveUserId
-    const myTabKey =
-      appId !== null ? getTabRevisionDraftKey(userIdAtStart, appId, tabIdRef.current) : null
     setSubmittingPortfolio(true)
     try {
       const res = await api.post<{
@@ -1118,17 +1150,18 @@ export default function Applications() {
         res.data.application_version ?? (typeof prevVersion === 'number' ? prevVersion + 1 : 1)
 
       let detectedConcurrentChange = false
-      if (appId !== null && appStatusAtStart && myTabKey) {
-        const myDraft = readRevisionDraft(myTabKey)
+      if (appId !== null && appStatusAtStart) {
+        const activeKey = activeDraftKeyRef.current ?? ownDraftKeyRef.current
+        const activeDraft = activeKey ? readRevisionDraft(activeKey) : null
         const allDrafts = readAllRevisionDrafts(userIdAtStart, appId)
         setRecoverableDrafts(allDrafts)
-        const otherTabDrafts = allDrafts.filter((entry) => entry.key !== myTabKey)
+        const otherTabDrafts = allDrafts.filter((entry) => entry.key !== activeKey)
 
         if (
           typeof prevVersion === 'number' &&
           nextVersion === prevVersion + 1 &&
           nextVersion >= latestAppVersionRef.current &&
-          (!myDraft || myDraft.baseVersion === prevVersion)
+          (!activeDraft || activeDraft.baseVersion === prevVersion)
         ) {
           latestAppVersionRef.current = Math.max(latestAppVersionRef.current, nextVersion)
           setApplication((prev) =>
@@ -1136,13 +1169,12 @@ export default function Applications() {
               ? { ...prev, version: Math.max(prev.version, nextVersion) }
               : prev,
           )
-          // Rebase THIS tab's own draft (or copy-on-write a recovered active draft into this tab's key)
-          // with a FRESH draftRevId so a stale discard snapshot can never delete the rebased draft.
-          const activeKey = activeDraftKeyRef.current
-          const activeDraft = myDraft ?? (activeKey ? readRevisionDraft(activeKey) : null)
-          if (activeDraft && activeDraft.baseVersion === prevVersion) {
+          // Rebase the currently selected active draft into a NEW immutable `:rev:<id>` key
+          // (never overwriting another tab's key and never reusing an old draftRevId).
+          if (activeDraft && activeKey) {
             const rebasedRevId = generateClientToken('rev-rebase')
-            const wroteRebase = writeRevisionDraft(myTabKey, {
+            const rebasedKey = getImmutableRevisionDraftKey(userIdAtStart, appId, rebasedRevId)
+            const wroteRebase = writeRevisionDraft(rebasedKey, {
               ...activeDraft,
               baseVersion: nextVersion,
               draftRevId: rebasedRevId,
@@ -1150,13 +1182,21 @@ export default function Applications() {
               updatedAt: new Date().toISOString(),
             })
             if (wroteRebase) {
-              activeDraftKeyRef.current = myTabKey
+              if (activeKey === ownDraftKeyRef.current || allDrafts.length === 1) {
+                removeExactRevisionDraft(activeKey, activeDraft.draftRevId)
+              }
+              ownDraftKeyRef.current = rebasedKey
+              ownDraftRevIdRef.current = rebasedRevId
+              activeDraftKeyRef.current = rebasedKey
               lastDraftRevIdRef.current = rebasedRevId
+              setRevisionConflict((prev) =>
+                prev
+                  ? { ...prev, serverVersion: nextVersion, draftBaseVersion: nextVersion }
+                  : null,
+              )
             }
             setRecoverableDrafts(readAllRevisionDrafts(userIdAtStart, appId))
           }
-          // If another tab holds a draft at prevVersion, keep its original baseVersion untouched
-          // and surface the version mismatch explicitly without concealing any edit.
           if (otherTabDrafts.length > 0) {
             setRevisionDraftVisible(true)
           }
@@ -1164,10 +1204,10 @@ export default function Applications() {
           typeof prevVersion === 'number' &&
           (nextVersion > prevVersion + 1 ||
             nextVersion < latestAppVersionRef.current ||
-            (myDraft && myDraft.baseVersion !== prevVersion))
+            (activeDraft && activeDraft.baseVersion !== prevVersion))
         ) {
           // Do NOT publish nextVersion onto application before refreshing & reconciling concurrent changes
-          const primaryDraft = myDraft ?? allDrafts[0]?.draft ?? null
+          const primaryDraft = activeDraft ?? allDrafts[0]?.draft ?? null
           detectedConcurrentChange = Boolean(primaryDraft)
           if (primaryDraft && nextVersion >= latestAppVersionRef.current) {
             setRevisionConflict({
