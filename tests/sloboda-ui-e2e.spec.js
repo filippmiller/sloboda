@@ -1644,7 +1644,7 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
       await expect(pageA.getByRole('button', { name: /Отправить доработанную заявку|Отправить на повторное/i })).toBeDisabled();
 
       // Unconditionally verify Retry refresh button is visible & preserves Tab A's active v2 draft + base #2 (Gate A #3)
-      const retryBtn = pageA.getByRole('button', { name: /Повторить/i }).first();
+      const retryBtn = pageA.getByRole('button', { name: /Обновить версию с сервера/i }).first();
       await expect(retryBtn).toBeVisible({ timeout: 10000 });
       await retryBtn.click();
       await expect(pageA.locator('textarea').nth(0)).toHaveValue(aSkillsV2Edited, { timeout: 10000 });
