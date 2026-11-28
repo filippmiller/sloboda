@@ -1511,4 +1511,161 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
 
     expect(pageErrors).toEqual([]);
   });
+
+  test('9. SLB-R5-PRO-02: Portfolio version-gap refresh (GET success & failure) keeps active draft fields/base coherent when another tab has a newer draft', async ({ browser }) => {
+    test.skip(!process.env.DATABASE_URL, 'Requires real PostgreSQL (DATABASE_URL)');
+
+    const suffix = `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+    const email = `e2e.pro02.${suffix}@sloboda.land`;
+    const password = 'Pro02Pass123!';
+    const pageErrors = [];
+
+    const seeded = await seedUser(pool, {
+      email,
+      password,
+      name: `Конфликт Портфолио ${suffix}`,
+      onboardingCompleted: true,
+    });
+    const appRow = (await pool.query(`
+      INSERT INTO member_applications
+        (user_id, full_name, email, city, primary_domain, skills, motivation, status, version, review_note)
+      VALUES ($1, $2, $3, 'Казань', 'ENG', 'Server v2 skills', 'Server v2 motivation', 'revision_requested', 2, 'Уточните навыки')
+      RETURNING id
+    `, [seeded.id, `Конфликт Портфолио ${suffix}`, email])).rows[0];
+
+    const ctx = await browser.newContext();
+    const pageA = await ctx.newPage();
+    const pageB = await ctx.newPage();
+    trackPageErrors(pageA, pageErrors, 'pro02-A');
+    trackPageErrors(pageB, pageErrors, 'pro02-B');
+
+    try {
+      // Login on Tab A at server version 2 and type Tab A's v2 draft
+      await pageA.goto('/login?redirect=%2Fapplications');
+      await loginUserViaUi(pageA, email, password);
+      await pageA.waitForURL(/\/applications$/, { timeout: 15000 });
+      await expect(pageA.locator('textarea').nth(0)).toBeVisible({ timeout: 10000 });
+
+      const aSkillsV2 = `TabA v2 draft skills ${suffix}`;
+      await pageA.locator('textarea').nth(0).fill(aSkillsV2);
+
+      // Advance server to version 3; open Tab B, reconcile to v3, and type a NEWER-timestamp v3 draft
+      await pool.query("UPDATE member_applications SET version = 3, skills = 'Server v3 skills' WHERE id = $1", [appRow.id]);
+      await pageB.goto('/applications');
+      await expect(pageB.getByText(/Обнаружено изменение заявки на сервере/i).first()).toBeVisible({ timeout: 10000 });
+      await pageB.getByRole('button', { name: /Сохранить мои правки для версии/i }).click();
+      const bSkillsV3 = `TabB v3 draft skills ${suffix}`;
+      const bMotV3 = `TabB v3 draft motivation ${suffix}`;
+      await pageB.locator('textarea').nth(0).fill(bSkillsV3);
+      await pageB.locator('textarea').nth(1).fill(bMotV3);
+
+      // Tab A types again so it holds its own independent immutable `:rev:` draft with base v2,
+      // then Tab B types once more so B is strictly the newest draft in localStorage (allDrafts[0]).
+      await pageA.locator('textarea').nth(0).fill(aSkillsV2);
+      const bMotV3Newest = `TabB v3 newest motivation ${suffix}`;
+      await pageB.locator('textarea').nth(1).fill(bMotV3Newest);
+
+      // 9A: Tab A adds portfolio item -> server bumps 3 -> 4 (version gap from Tab A's prevVersion 2 -> 4), GET /applications/my SUCCEEDS
+      const portTitleSuccess = `PRO02 Gap Success ${suffix}`;
+      await pageA.locator('input[placeholder*="Название проекта"]').first().fill(portTitleSuccess);
+      await pageA.getByRole('button', { name: /Добавить работу|Добавить в портфолио/i }).click();
+      await expect(pageA.getByText(portTitleSuccess)).toBeVisible({ timeout: 10000 });
+
+      // Tab A MUST still display its own v2 fields AND report base version #2 (NOT Tab B's #3!)
+      await expect(pageA.locator('textarea').nth(0)).toHaveValue(aSkillsV2, { timeout: 10000 });
+      await expect(pageA.getByText(/создавался для версии #2/i).first()).toBeVisible({ timeout: 10000 });
+      // Submit button must remain blocked while conflict is unresolved
+      await expect(pageA.getByRole('button', { name: /Отправить доработанную заявку|Отправить на повторное/i })).toBeDisabled();
+
+      // Native UI edit on Tab A MUST preserve baseVersion #2 (never silently adopt #3)
+      const aMotAfterGapSuccess = `TabA continues typing after GET success ${suffix}`;
+      await pageA.locator('textarea').nth(1).fill(aMotAfterGapSuccess);
+
+      // Immediate reload of BOTH tabs -> verify both drafts exist with exact bases (A: v2, B: v3) and B is NOT lost
+      await pageA.reload();
+      await pageB.reload();
+      await expect(pageA.getByText(/Сохранено несколько версий черновика \(2\)/i)).toBeVisible({ timeout: 10000 });
+      const storedAfter9A = await pageA.evaluate(() =>
+        Object.keys(localStorage)
+          .filter((k) => k.startsWith('sloboda_revision_draft:'))
+          .map((k) => JSON.parse(localStorage.getItem(k) || '{}'))
+      );
+      const draftA9A = storedAfter9A.find((d) => d.revSkills === aSkillsV2 && d.revMotivation === aMotAfterGapSuccess);
+      const draftB9A = storedAfter9A.find((d) => d.revSkills === bSkillsV3 && d.revMotivation === bMotV3Newest);
+      expect(draftA9A).toBeTruthy();
+      expect(draftA9A.baseVersion).toBe(2);
+      expect(draftB9A).toBeTruthy();
+      expect(draftB9A.baseVersion).toBe(3);
+
+      // 9B: Failed GET branch — select Tab A's v2 draft on pageA, bump server version (4 -> 5),
+      // intercept GET /applications/my on pageA to fail (500) during portfolio POST (5 -> 6).
+      // First ensure Tab B is strictly newest in localStorage while Tab A explicitly selects A's v2 draft.
+      await pageA.getByRole('button', { name: 'Открыть' }).nth(1).click();
+      const currentASkills = await pageA.locator('textarea').nth(0).inputValue();
+      if (currentASkills !== aSkillsV2) {
+        await pageA.getByRole('button', { name: 'Открыть' }).nth(0).click();
+      }
+      await expect(pageA.locator('textarea').nth(0)).toHaveValue(aSkillsV2, { timeout: 10000 });
+      await expect(pageA.getByText(/создавался для версии #2/i).first()).toBeVisible({ timeout: 10000 });
+
+      // Bump server 4 -> 5 so next portfolio POST produces version 6 (gap from pageA's 4 -> 6)
+      await pool.query('UPDATE member_applications SET version = 5 WHERE id = $1', [appRow.id]);
+
+      let failGetOnce = true;
+      await pageA.route('**/api/applications/my', async (route) => {
+        if (route.request().method() === 'GET' && failGetOnce) {
+          failGetOnce = false;
+          await route.fulfill({
+            status: 500,
+            contentType: 'application/json',
+            body: JSON.stringify({ error: 'Simulated transient GET failure' }),
+          });
+          return;
+        }
+        await route.continue();
+      });
+
+      const portTitleFail = `PRO02 Gap FailGet ${suffix}`;
+      await pageA.locator('input[placeholder*="Название проекта"]').first().fill(portTitleFail);
+      await pageA.getByRole('button', { name: /Добавить работу|Добавить в портфолио/i }).click();
+      await expect(pageA.getByText(portTitleFail)).toBeVisible({ timeout: 10000 });
+
+      // Even after GET failure, Tab A MUST keep base #2 (NOT Tab B's #3!) and keep submit blocked
+      await expect(pageA.locator('textarea').nth(0)).toHaveValue(aSkillsV2, { timeout: 10000 });
+      await expect(pageA.getByText(/создавался для версии #2/i).first()).toBeVisible({ timeout: 10000 });
+      await expect(pageA.getByRole('button', { name: /Отправить доработанную заявку|Отправить на повторное/i })).toBeDisabled();
+
+      // Native UI edit on Tab A after GET failure MUST still persist baseVersion #2
+      const aMotAfterGapFail = `TabA continues typing after GET failure ${suffix}`;
+      await pageA.locator('textarea').nth(1).fill(aMotAfterGapFail);
+
+      // Click Retry refresh ("Повторить загрузку") -> MUST keep Tab A's active v2 draft selected & base #2 (Gate A #3)
+      const retryBtn = pageA.getByRole('button', { name: /Повторить/i }).first();
+      if (await retryBtn.isVisible()) {
+        await retryBtn.click();
+        await expect(pageA.locator('textarea').nth(0)).toHaveValue(aSkillsV2, { timeout: 10000 });
+        await expect(pageA.getByText(/создавался для версии #2/i).first()).toBeVisible({ timeout: 10000 });
+      }
+
+      // Immediate reload of BOTH tabs -> verify A's edited draft still has baseVersion 2 and B's v3 draft is intact
+      await pageA.reload();
+      await pageB.reload();
+      await expect(pageB.getByText(/Сохранено несколько версий черновика \(2\)/i)).toBeVisible({ timeout: 10000 });
+      const storedAfter9B = await pageB.evaluate(() =>
+        Object.keys(localStorage)
+          .filter((k) => k.startsWith('sloboda_revision_draft:'))
+          .map((k) => JSON.parse(localStorage.getItem(k) || '{}'))
+      );
+      const draftA9B = storedAfter9B.find((d) => d.revSkills === aSkillsV2 && d.revMotivation === aMotAfterGapFail);
+      const draftB9B = storedAfter9B.find((d) => d.revSkills === bSkillsV3 && d.revMotivation === bMotV3Newest);
+      expect(draftA9B).toBeTruthy();
+      expect(draftA9B.baseVersion).toBe(2);
+      expect(draftB9B).toBeTruthy();
+      expect(draftB9B.baseVersion).toBe(3);
+    } finally {
+      await ctx.close();
+    }
+
+    expect(pageErrors).toEqual([]);
+  });
 });

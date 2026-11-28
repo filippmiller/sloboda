@@ -31,76 +31,105 @@ const CORE_MIGRATION_VERSIONS = [
 /**
  * Complete versioned column contracts derived from R1-R4 migrations and runtime SQL callers.
  * typeMatch: canonical PG format_type(atttypid, atttypmod) prefix/exact matcher:
+ *  - 'text': text | character varying (unbounded)
+ *  - 'varchar_min': text | character varying | character varying(n) with n >= minLen
  *  - 'text_like': text | character varying(...)
  *  - 'integer': integer
  *  - 'bigint': bigint
  *  - 'boolean': boolean
  *  - 'jsonb': jsonb
- *  - 'numeric': numeric(...)
+ *  - 'numeric_min': numeric(p,s) with (p - s) >= minIntDigits and exactScale / minScale check
  *  - 'timestamp_any': timestamp without time zone | timestamp with time zone
  *  - 'timestamptz': timestamp with time zone (strictly distinguishes from timestamp without time zone)
  */
+const SCHEMA_MIGRATIONS_REQUIRED_COLUMNS = [
+    { table: 'schema_migrations', column: 'version', type: 'varchar_min', minLen: 64, notNull: true },
+    { table: 'schema_migrations', column: 'applied_at', type: 'timestamp_any', notNull: true, requiresDefault: true },
+];
+
+const USERS_CORE_MEMBERSHIP_COLUMNS = ['membership_status', 'membership_admitted_at', 'settlement_id'];
+
 const R1_REQUIRED_COLUMNS = [
-    // users (core membership extensions)
-    { table: 'users', column: 'membership_status', type: 'varchar_min', minLen: 24, notNull: true },
+    // schema_migrations
+    ...SCHEMA_MIGRATIONS_REQUIRED_COLUMNS,
+    // users (base columns required by coreStore.js + R1 core membership extensions)
+    { table: 'users', column: 'id', type: 'integer', notNull: true },
+    { table: 'users', column: 'email', type: 'varchar_min', minLen: 255, notNull: true },
+    { table: 'users', column: 'name', type: 'varchar_min', minLen: 200, notNull: 'any' },
+    { table: 'users', column: 'status', type: 'varchar_min', minLen: 24, notNull: 'any' },
+    { table: 'users', column: 'membership_status', type: 'varchar_min', minLen: 24, notNull: true, requiresDefault: true },
     { table: 'users', column: 'membership_admitted_at', type: 'timestamp_any', notNull: false },
-    { table: 'users', column: 'settlement_id', type: 'varchar_min', minLen: 64, notNull: true },
+    { table: 'users', column: 'settlement_id', type: 'varchar_min', minLen: 64, notNull: true, requiresDefault: true },
     // member_applications (all runtime-read/written fields including skills & motivation)
     { table: 'member_applications', column: 'id', type: 'integer', notNull: true },
     { table: 'member_applications', column: 'user_id', type: 'integer', notNull: false },
-    { table: 'member_applications', column: 'settlement_id', type: 'varchar_min', minLen: 64, notNull: true },
+    { table: 'member_applications', column: 'settlement_id', type: 'varchar_min', minLen: 64, notNull: true, requiresDefault: true },
     { table: 'member_applications', column: 'full_name', type: 'varchar_min', minLen: 200, notNull: true },
     { table: 'member_applications', column: 'email', type: 'varchar_min', minLen: 255, notNull: true },
     { table: 'member_applications', column: 'city', type: 'varchar_min', minLen: 120, notNull: false },
-    { table: 'member_applications', column: 'primary_domain', type: 'varchar_min', minLen: 16, notNull: true },
+    { table: 'member_applications', column: 'primary_domain', type: 'varchar_min', minLen: 16, notNull: true, requiresDefault: true },
     { table: 'member_applications', column: 'skills', type: 'text', notNull: false },
     { table: 'member_applications', column: 'motivation', type: 'text', notNull: false },
     { table: 'member_applications', column: 'trial_task_title', type: 'varchar_min', minLen: 255, notNull: false },
     { table: 'member_applications', column: 'trial_task_url', type: 'text', notNull: false },
     { table: 'member_applications', column: 'claim_token_hash', type: 'varchar_min', minLen: 64, notNull: false },
     { table: 'member_applications', column: 'claim_token_used_at', type: 'timestamp_any', notNull: false },
-    { table: 'member_applications', column: 'status', type: 'varchar_min', minLen: 24, notNull: true },
-    { table: 'member_applications', column: 'version', type: 'integer', notNull: true },
+    { table: 'member_applications', column: 'status', type: 'varchar_min', minLen: 24, notNull: true, requiresDefault: true },
+    { table: 'member_applications', column: 'version', type: 'integer', notNull: true, requiresDefault: true },
     { table: 'member_applications', column: 'reviewer_id', type: 'integer', notNull: false },
     { table: 'member_applications', column: 'review_note', type: 'text', notNull: false },
     { table: 'member_applications', column: 'reviewed_at', type: 'timestamp_any', notNull: false },
-    { table: 'member_applications', column: 'created_at', type: 'timestamp_any', notNull: true },
-    { table: 'member_applications', column: 'updated_at', type: 'timestamp_any', notNull: true },
+    { table: 'member_applications', column: 'created_at', type: 'timestamp_any', notNull: true, requiresDefault: true },
+    { table: 'member_applications', column: 'updated_at', type: 'timestamp_any', notNull: true, requiresDefault: true },
     // portfolio_items
     { table: 'portfolio_items', column: 'id', type: 'integer', notNull: true },
     { table: 'portfolio_items', column: 'user_id', type: 'integer', notNull: false },
     { table: 'portfolio_items', column: 'application_id', type: 'integer', notNull: true },
     { table: 'portfolio_items', column: 'title', type: 'varchar_min', minLen: 255, notNull: true },
-    { table: 'portfolio_items', column: 'domain_code', type: 'varchar_min', minLen: 16, notNull: true },
+    { table: 'portfolio_items', column: 'domain_code', type: 'varchar_min', minLen: 16, notNull: true, requiresDefault: true },
     { table: 'portfolio_items', column: 'summary', type: 'text', notNull: false },
     { table: 'portfolio_items', column: 'artifact_url', type: 'text', notNull: false },
-    { table: 'portfolio_items', column: 'verified', type: 'boolean', notNull: true },
-    { table: 'portfolio_items', column: 'created_at', type: 'timestamp_any', notNull: true },
-    // governance_proposals
+    { table: 'portfolio_items', column: 'verified', type: 'boolean', notNull: true, requiresDefault: true },
+    { table: 'portfolio_items', column: 'created_at', type: 'timestamp_any', notNull: true, requiresDefault: true },
+    // governance_proposals (complete R1 column contract)
     { table: 'governance_proposals', column: 'id', type: 'integer', notNull: true },
     { table: 'governance_proposals', column: 'title', type: 'varchar_min', minLen: 255, notNull: true },
     { table: 'governance_proposals', column: 'description', type: 'text', notNull: false },
     { table: 'governance_proposals', column: 'vote_type', type: 'varchar_min', minLen: 24, notNull: true },
-    { table: 'governance_proposals', column: 'scope_level', type: 'varchar_min', minLen: 24, notNull: true },
-    { table: 'governance_proposals', column: 'settlement_id', type: 'varchar_min', minLen: 64, notNull: true },
-    { table: 'governance_proposals', column: 'authoritative_engine', type: 'varchar_min', minLen: 24, notNull: true },
-    { table: 'governance_proposals', column: 'secret_ballot', type: 'boolean', notNull: true },
-    { table: 'governance_proposals', column: 'seats_count', type: 'integer', notNull: true },
+    { table: 'governance_proposals', column: 'scope_level', type: 'varchar_min', minLen: 24, notNull: true, requiresDefault: true },
+    { table: 'governance_proposals', column: 'settlement_id', type: 'varchar_min', minLen: 64, notNull: true, requiresDefault: true },
+    { table: 'governance_proposals', column: 'authoritative_engine', type: 'varchar_min', minLen: 24, notNull: true, requiresDefault: true },
+    { table: 'governance_proposals', column: 'secret_ballot', type: 'boolean', notNull: true, requiresDefault: true },
+    { table: 'governance_proposals', column: 'share_class', type: 'varchar_min', minLen: 32, notNull: false },
+    { table: 'governance_proposals', column: 'terms_version', type: 'varchar_min', minLen: 32, notNull: false },
+    { table: 'governance_proposals', column: 'seats_count', type: 'integer', notNull: true, requiresDefault: true },
     { table: 'governance_proposals', column: 'options', type: 'jsonb', notNull: true },
     { table: 'governance_proposals', column: 'abstain_option_index', type: 'integer', notNull: false },
-    { table: 'governance_proposals', column: 'status', type: 'varchar_min', minLen: 24, notNull: true },
-    { table: 'governance_proposals', column: 'quorum_members_pct', type: 'integer', notNull: true },
-    { table: 'governance_proposals', column: 'quorum_capital_pct', type: 'integer', notNull: true },
+    { table: 'governance_proposals', column: 'status', type: 'varchar_min', minLen: 24, notNull: true, requiresDefault: true },
+    { table: 'governance_proposals', column: 'quorum_members_pct', type: 'integer', notNull: true, requiresDefault: true },
+    { table: 'governance_proposals', column: 'quorum_capital_pct', type: 'integer', notNull: true, requiresDefault: true },
+    { table: 'governance_proposals', column: 'roster_hash', type: 'varchar_min', minLen: 64, notNull: false },
+    { table: 'governance_proposals', column: 'protocol_hash', type: 'varchar_min', minLen: 64, notNull: false },
+    { table: 'governance_proposals', column: 'protocol_json', type: 'jsonb', notNull: false },
+    { table: 'governance_proposals', column: 'adopted', type: 'boolean', notNull: false },
+    { table: 'governance_proposals', column: 'winning_option_index', type: 'integer', notNull: false },
+    { table: 'governance_proposals', column: 'external_election_fingerprint', type: 'varchar_min', minLen: 128, notNull: false },
+    { table: 'governance_proposals', column: 'created_by', type: 'integer', notNull: false },
+    { table: 'governance_proposals', column: 'opened_at', type: 'timestamp_any', notNull: false },
     { table: 'governance_proposals', column: 'closes_at', type: 'timestamp_any', notNull: false },
+    { table: 'governance_proposals', column: 'closed_at', type: 'timestamp_any', notNull: false },
+    { table: 'governance_proposals', column: 'created_at', type: 'timestamp_any', notNull: true, requiresDefault: true },
     // governance_voter_snapshots
     { table: 'governance_voter_snapshots', column: 'id', type: 'integer', notNull: true },
     { table: 'governance_voter_snapshots', column: 'proposal_id', type: 'integer', notNull: true },
     { table: 'governance_voter_snapshots', column: 'user_id', type: 'integer', notNull: true },
     { table: 'governance_voter_snapshots', column: 'voter_label', type: 'varchar_min', minLen: 200, notNull: true },
-    { table: 'governance_voter_snapshots', column: 'can_vote_member', type: 'boolean', notNull: true },
-    { table: 'governance_voter_snapshots', column: 'member_weight', type: 'integer', notNull: true },
-    { table: 'governance_voter_snapshots', column: 'can_vote_capital', type: 'boolean', notNull: true },
-    { table: 'governance_voter_snapshots', column: 'capital_weight_kopecks', type: 'bigint', notNull: true },
+    { table: 'governance_voter_snapshots', column: 'can_vote_member', type: 'boolean', notNull: true, requiresDefault: true },
+    { table: 'governance_voter_snapshots', column: 'member_weight', type: 'integer', notNull: true, requiresDefault: true },
+    { table: 'governance_voter_snapshots', column: 'can_vote_capital', type: 'boolean', notNull: true, requiresDefault: true },
+    { table: 'governance_voter_snapshots', column: 'capital_weight_kopecks', type: 'bigint', notNull: true, requiresDefault: true },
+    { table: 'governance_voter_snapshots', column: 'share_class', type: 'varchar_min', minLen: 32, notNull: false },
+    { table: 'governance_voter_snapshots', column: 'terms_version', type: 'varchar_min', minLen: 32, notNull: false },
     // governance_ballots
     { table: 'governance_ballots', column: 'id', type: 'integer', notNull: true },
     { table: 'governance_ballots', column: 'proposal_id', type: 'integer', notNull: true },
@@ -109,11 +138,13 @@ const R1_REQUIRED_COLUMNS = [
     { table: 'governance_ballots', column: 'chamber', type: 'varchar_min', minLen: 16, notNull: true },
     { table: 'governance_ballots', column: 'option_index', type: 'integer', notNull: true },
     { table: 'governance_ballots', column: 'weight_applied', type: 'bigint', notNull: true },
+    { table: 'governance_ballots', column: 'cast_at', type: 'timestamp_any', notNull: true, requiresDefault: true },
     // governance_voter_receipts
     { table: 'governance_voter_receipts', column: 'id', type: 'integer', notNull: true },
     { table: 'governance_voter_receipts', column: 'proposal_id', type: 'integer', notNull: true },
     { table: 'governance_voter_receipts', column: 'user_id', type: 'integer', notNull: true },
     { table: 'governance_voter_receipts', column: 'chamber', type: 'varchar_min', minLen: 16, notNull: true },
+    { table: 'governance_voter_receipts', column: 'cast_at', type: 'timestamp_any', notNull: true, requiresDefault: true },
     // governance_secret_ballots
     { table: 'governance_secret_ballots', column: 'id', type: 'integer', notNull: true },
     { table: 'governance_secret_ballots', column: 'proposal_id', type: 'integer', notNull: true },
@@ -123,46 +154,53 @@ const R1_REQUIRED_COLUMNS = [
     { table: 'governance_secret_ballots', column: 'ballot_hash', type: 'varchar_min', minLen: 64, notNull: true },
     // council_delegations
     { table: 'council_delegations', column: 'id', type: 'integer', notNull: true },
-    { table: 'council_delegations', column: 'settlement_id', type: 'varchar_min', minLen: 64, notNull: true },
+    { table: 'council_delegations', column: 'settlement_id', type: 'varchar_min', minLen: 64, notNull: true, requiresDefault: true },
     { table: 'council_delegations', column: 'delegate_user_id', type: 'integer', notNull: true },
+    { table: 'council_delegations', column: 'elected_via_proposal_id', type: 'integer', notNull: false },
     { table: 'council_delegations', column: 'level', type: 'varchar_min', minLen: 24, notNull: true },
-    { table: 'council_delegations', column: 'active', type: 'boolean', notNull: true },
+    { table: 'council_delegations', column: 'seat_label', type: 'varchar_min', minLen: 120, notNull: false },
+    { table: 'council_delegations', column: 'authorizing_local_council_id', type: 'integer', notNull: false },
+    { table: 'council_delegations', column: 'active', type: 'boolean', notNull: true, requiresDefault: true },
+    { table: 'council_delegations', column: 'term_starts_at', type: 'timestamp_any', notNull: true, requiresDefault: true },
+    { table: 'council_delegations', column: 'term_ends_at', type: 'timestamp_any', notNull: false },
     // contributions
     { table: 'contributions', column: 'id', type: 'integer', notNull: true },
     { table: 'contributions', column: 'user_id', type: 'integer', notNull: false },
-    { table: 'contributions', column: 'settlement_id', type: 'varchar_min', minLen: 64, notNull: true },
-    { table: 'contributions', column: 'purpose', type: 'varchar_min', minLen: 64, notNull: true },
+    { table: 'contributions', column: 'settlement_id', type: 'varchar_min', minLen: 64, notNull: true, requiresDefault: true },
+    { table: 'contributions', column: 'purpose', type: 'varchar_min', minLen: 64, notNull: true, requiresDefault: true },
     { table: 'contributions', column: 'contributor_name', type: 'varchar_min', minLen: 200, notNull: true },
     { table: 'contributions', column: 'received_kopecks', type: 'bigint', notNull: true },
     { table: 'contributions', column: 'available_kopecks', type: 'bigint', notNull: true },
-    { table: 'contributions', column: 'reserved_kopecks', type: 'bigint', notNull: true },
-    { table: 'contributions', column: 'paid_kopecks', type: 'bigint', notNull: true },
-    { table: 'contributions', column: 'refunded_kopecks', type: 'bigint', notNull: true },
+    { table: 'contributions', column: 'reserved_kopecks', type: 'bigint', notNull: true, requiresDefault: true },
+    { table: 'contributions', column: 'paid_kopecks', type: 'bigint', notNull: true, requiresDefault: true },
+    { table: 'contributions', column: 'refunded_kopecks', type: 'bigint', notNull: true, requiresDefault: true },
     { table: 'contributions', column: 'share_class', type: 'varchar_min', minLen: 32, notNull: false },
     { table: 'contributions', column: 'terms_version', type: 'varchar_min', minLen: 32, notNull: false },
-    { table: 'contributions', column: 'legal_right_type', type: 'varchar_min', minLen: 32, notNull: true },
-    { table: 'contributions', column: 'status', type: 'varchar_min', minLen: 24, notNull: true },
-    { table: 'contributions', column: 'ledger_mode', type: 'varchar_min', minLen: 24, notNull: true },
+    { table: 'contributions', column: 'legal_right_type', type: 'varchar_min', minLen: 32, notNull: true, requiresDefault: true },
+    { table: 'contributions', column: 'status', type: 'varchar_min', minLen: 24, notNull: true, requiresDefault: true },
+    { table: 'contributions', column: 'ledger_mode', type: 'varchar_min', minLen: 24, notNull: true, requiresDefault: true },
     { table: 'contributions', column: 'payment_ref', type: 'varchar_min', minLen: 120, notNull: false },
     { table: 'contributions', column: 'idempotency_key', type: 'varchar_min', minLen: 128, notNull: false },
     { table: 'contributions', column: 'note', type: 'text', notNull: false },
     { table: 'contributions', column: 'verified_by', type: 'integer', notNull: false },
-    { table: 'contributions', column: 'created_at', type: 'timestamp_any', notNull: true },
-    // construction_milestones
+    { table: 'contributions', column: 'created_at', type: 'timestamp_any', notNull: true, requiresDefault: true },
+    // construction_milestones (NUMERIC(12,2) => exactScale: 2, minIntDigits: 10)
     { table: 'construction_milestones', column: 'id', type: 'integer', notNull: true },
-    { table: 'construction_milestones', column: 'settlement_id', type: 'varchar_min', minLen: 64, notNull: true },
+    { table: 'construction_milestones', column: 'settlement_id', type: 'varchar_min', minLen: 64, notNull: true, requiresDefault: true },
     { table: 'construction_milestones', column: 'code', type: 'varchar_min', minLen: 64, notNull: true },
     { table: 'construction_milestones', column: 'title', type: 'varchar_min', minLen: 255, notNull: true },
     { table: 'construction_milestones', column: 'category', type: 'varchar_min', minLen: 48, notNull: true },
     { table: 'construction_milestones', column: 'unit', type: 'varchar_min', minLen: 32, notNull: true },
-    { table: 'construction_milestones', column: 'planned_qty', type: 'numeric', notNull: true },
-    { table: 'construction_milestones', column: 'actual_qty', type: 'numeric', notNull: true },
-    { table: 'construction_milestones', column: 'budget_kopecks', type: 'bigint', notNull: true },
-    { table: 'construction_milestones', column: 'status', type: 'varchar_min', minLen: 24, notNull: true },
+    { table: 'construction_milestones', column: 'planned_qty', type: 'numeric_min', minIntDigits: 10, exactScale: 2, notNull: true, requiresDefault: true },
+    { table: 'construction_milestones', column: 'actual_qty', type: 'numeric_min', minIntDigits: 10, exactScale: 2, notNull: true, requiresDefault: true },
+    { table: 'construction_milestones', column: 'budget_kopecks', type: 'bigint', notNull: true, requiresDefault: true },
+    { table: 'construction_milestones', column: 'status', type: 'varchar_min', minLen: 24, notNull: true, requiresDefault: true },
+    { table: 'construction_milestones', column: 'photo_url', type: 'text', notNull: false },
+    { table: 'construction_milestones', column: 'updated_at', type: 'timestamp_any', notNull: true, requiresDefault: true },
     // ledger_expenses
     { table: 'ledger_expenses', column: 'id', type: 'integer', notNull: true },
-    { table: 'ledger_expenses', column: 'settlement_id', type: 'varchar_min', minLen: 64, notNull: true },
-    { table: 'ledger_expenses', column: 'purpose', type: 'varchar_min', minLen: 64, notNull: true },
+    { table: 'ledger_expenses', column: 'settlement_id', type: 'varchar_min', minLen: 64, notNull: true, requiresDefault: true },
+    { table: 'ledger_expenses', column: 'purpose', type: 'varchar_min', minLen: 64, notNull: true, requiresDefault: true },
     { table: 'ledger_expenses', column: 'title', type: 'varchar_min', minLen: 255, notNull: true },
     { table: 'ledger_expenses', column: 'category', type: 'varchar_min', minLen: 64, notNull: true },
     { table: 'ledger_expenses', column: 'amount_kopecks', type: 'bigint', notNull: true },
@@ -171,12 +209,12 @@ const R1_REQUIRED_COLUMNS = [
     { table: 'ledger_expenses', column: 'asset_location', type: 'varchar_min', minLen: 255, notNull: false },
     { table: 'ledger_expenses', column: 'receipt_url', type: 'text', notNull: false },
     { table: 'ledger_expenses', column: 'photo_url', type: 'text', notNull: false },
-    { table: 'ledger_expenses', column: 'allocation_rule', type: 'varchar_min', minLen: 32, notNull: true },
-    { table: 'ledger_expenses', column: 'status', type: 'varchar_min', minLen: 24, notNull: true },
+    { table: 'ledger_expenses', column: 'allocation_rule', type: 'varchar_min', minLen: 32, notNull: true, requiresDefault: true },
+    { table: 'ledger_expenses', column: 'status', type: 'varchar_min', minLen: 24, notNull: true, requiresDefault: true },
     { table: 'ledger_expenses', column: 'idempotency_key', type: 'varchar_min', minLen: 128, notNull: false },
     { table: 'ledger_expenses', column: 'approved_by', type: 'integer', notNull: false },
     { table: 'ledger_expenses', column: 'paid_at', type: 'timestamp_any', notNull: false },
-    { table: 'ledger_expenses', column: 'created_at', type: 'timestamp_any', notNull: true },
+    { table: 'ledger_expenses', column: 'created_at', type: 'timestamp_any', notNull: true, requiresDefault: true },
     // expense_allocations
     { table: 'expense_allocations', column: 'id', type: 'integer', notNull: true },
     { table: 'expense_allocations', column: 'expense_id', type: 'integer', notNull: true },
@@ -184,8 +222,8 @@ const R1_REQUIRED_COLUMNS = [
     { table: 'expense_allocations', column: 'amount_kopecks', type: 'bigint', notNull: true },
     { table: 'expense_allocations', column: 'allocation_rule', type: 'varchar_min', minLen: 32, notNull: true },
     { table: 'expense_allocations', column: 'financing_share_label', type: 'varchar_min', minLen: 160, notNull: false },
-    { table: 'expense_allocations', column: 'legal_right_type', type: 'varchar_min', minLen: 32, notNull: true },
-    { table: 'expense_allocations', column: 'created_at', type: 'timestamp_any', notNull: true },
+    { table: 'expense_allocations', column: 'legal_right_type', type: 'varchar_min', minLen: 32, notNull: true, requiresDefault: true },
+    { table: 'expense_allocations', column: 'created_at', type: 'timestamp_any', notNull: true, requiresDefault: true },
     // ledger_postings
     { table: 'ledger_postings', column: 'id', type: 'integer', notNull: true },
     { table: 'ledger_postings', column: 'posting_type', type: 'varchar_min', minLen: 24, notNull: true },
@@ -194,28 +232,39 @@ const R1_REQUIRED_COLUMNS = [
     { table: 'ledger_postings', column: 'amount_kopecks', type: 'bigint', notNull: true },
     { table: 'ledger_postings', column: 'actor_admin_id', type: 'integer', notNull: false },
     { table: 'ledger_postings', column: 'note', type: 'text', notNull: false },
-    { table: 'ledger_postings', column: 'created_at', type: 'timestamp_any', notNull: true },
+    { table: 'ledger_postings', column: 'created_at', type: 'timestamp_any', notNull: true, requiresDefault: true },
 ];
 
 const R2_REQUIRED_COLUMNS = [
     { table: 'contributions', column: 'request_fingerprint', type: 'varchar_min', minLen: 64, notNull: false },
     { table: 'ledger_expenses', column: 'request_fingerprint', type: 'varchar_min', minLen: 64, notNull: false },
-    { table: 'ledger_expenses', column: 'financial_status', type: 'varchar_min', minLen: 24, notNull: true },
-    { table: 'ledger_expenses', column: 'dispute_status', type: 'varchar_min', minLen: 24, notNull: true },
-    { table: 'ledger_expenses', column: 'version', type: 'integer', notNull: true },
-    { table: 'governance_proposals', column: 'legacy_r1_unsupported', type: 'boolean', notNull: true },
+    { table: 'ledger_expenses', column: 'financial_status', type: 'varchar_min', minLen: 24, notNull: true, requiresDefault: true },
+    { table: 'ledger_expenses', column: 'dispute_status', type: 'varchar_min', minLen: 24, notNull: true, requiresDefault: true },
+    { table: 'ledger_expenses', column: 'version', type: 'integer', notNull: true, requiresDefault: true },
+    { table: 'governance_proposals', column: 'legacy_r1_unsupported', type: 'boolean', notNull: true, requiresDefault: true },
     { table: 'governance_proposals', column: 'legacy_r1_disposition', type: 'varchar_min', minLen: 64, notNull: false },
     { table: 'governance_proposals', column: 'closes_at', type: 'timestamptz', notNull: false },
 ];
 
 const R3_REQUIRED_COLUMNS = [
     { table: 'sloboda_core_gates', column: 'gate_key', type: 'varchar_min', minLen: 64, notNull: true },
-    { table: 'sloboda_core_gates', column: 'is_blocked', type: 'boolean', notNull: true },
-    { table: 'sloboda_core_gates', column: 'report_json', type: 'jsonb', notNull: true },
-    { table: 'sloboda_core_gates', column: 'checked_at', type: 'timestamptz', notNull: true },
+    { table: 'sloboda_core_gates', column: 'is_blocked', type: 'boolean', notNull: true, requiresDefault: true },
+    { table: 'sloboda_core_gates', column: 'report_json', type: 'jsonb', notNull: true, requiresDefault: true },
+    { table: 'sloboda_core_gates', column: 'checked_at', type: 'timestamptz', notNull: true, requiresDefault: true },
+    { table: 'forum_roles', column: 'user_id', type: 'integer', notNull: true },
+    { table: 'forum_roles', column: 'role', type: 'varchar_min', minLen: 50, notNull: true, requiresDefault: true },
+    { table: 'forum_bans', column: 'lifted_by_user_id', type: 'integer', notNull: false },
 ];
 
 const R1_UNIQUE_CONTRACTS = [
+    {
+        id: 'schema_migrations_version_unique',
+        table: 'schema_migrations',
+        columns: ['version'],
+        predicateKind: 'none',
+        allowMultipleNulls: false,
+        conflictArbiter: true,
+    },
     {
         id: 'contributions_idempotency_key_unique',
         table: 'contributions',
@@ -337,7 +386,21 @@ function matchesColumnType(formattedType, reqCol) {
     if (expectedKind === 'bigint') return t === 'bigint';
     if (expectedKind === 'boolean') return t === 'boolean';
     if (expectedKind === 'jsonb') return t === 'jsonb';
-    if (expectedKind === 'numeric') return t === 'numeric' || /^numeric\(\d+(?:,\d+)?\)$/.test(t);
+    if (expectedKind === 'numeric_min') {
+        const m = t.match(/^numeric\((\d+)(?:,(-?\d+))?\)$/);
+        if (!m) return false;
+        const precision = Number(m[1]);
+        const scale = m[2] !== undefined ? Number(m[2]) : 0;
+        const intDigits = precision - scale;
+        if (reqCol.exactScale !== undefined && scale !== Number(reqCol.exactScale)) {
+            return false;
+        }
+        if (reqCol.minScale !== undefined && scale < Number(reqCol.minScale)) {
+            return false;
+        }
+        return intDigits >= Number(reqCol.minIntDigits || 0);
+    }
+    if (expectedKind === 'numeric') return t === 'numeric' || /^numeric\(\d+(?:,-?\d+)?\)$/.test(t);
     if (expectedKind === 'timestamp_any') {
         return t === 'timestamp without time zone' || t === 'timestamp with time zone';
     }
@@ -586,14 +649,51 @@ function columnsEqualUnordered(actualCols, expectedCols) {
     return true;
 }
 
+function columnsSetEqual(actualCols, expectedCols) {
+    if (!Array.isArray(actualCols) || actualCols.length === 0) {
+        return false;
+    }
+    if (actualCols.some((c) => c === '__expr__' || !c)) {
+        return false;
+    }
+    const a = [...new Set(actualCols)].sort();
+    const b = [...new Set(expectedCols)].sort();
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < b.length; i += 1) {
+        if (a[i] !== b[i]) return false;
+    }
+    return true;
+}
+
+function arraysEqual(a, b) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) {
+        return false;
+    }
+    for (let i = 0; i < a.length; i += 1) {
+        if (String(a[i]) !== String(b[i])) return false;
+    }
+    return true;
+}
+
+function matchesSingleColNotNullPredicate(predicateExpr, colName) {
+    if (!predicateExpr || String(predicateExpr).trim() === '') {
+        return false;
+    }
+    const norm = stripBalancedOuterParens(collapseWsOutsideQuotes(predicateExpr));
+    const escaped = colName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`^${escaped}\\s+IS\\s+NOT\\s+NULL$`, 'i').test(norm);
+}
+
 function evaluateUniqueContracts(contracts, allIndexes) {
     const missing = [];
     const violations = [];
     for (const contract of contracts) {
+        // PostgreSQL uniqueness and ON CONFLICT arbiter inference are order-invariant for ordinary
+        // multi-column unique indexes.
         const sameTargetIndexes = allIndexes.filter((idx) => (
             idx.table_name === contract.table
             && idx.indisunique === true
-            && columnsEqual(idx.key_columns, contract.columns)
+            && columnsEqualUnordered(idx.key_columns, contract.columns)
         ));
 
         const predicateMatches = (idx) => {
@@ -624,18 +724,37 @@ function evaluateUniqueContracts(contracts, allIndexes) {
             idx.table_name === contract.table
             && idx.indisunique === true
             && idx.indimmediate === false
-            && columnsEqualUnordered(idx.key_columns, contract.columns)
+            && columnsSetEqual(idx.key_columns, contract.columns)
             && predicateMatches(idx)
         ));
 
         // If multiple NULLs must be allowed (e.g. optional idempotency_key / claim_token_hash),
-        // reject if ANY companion unique index (full or partial) on the same columns enforces NULLS NOT DISTINCT.
-        const hasNullsNotDistinctCompanion = contract.allowMultipleNulls && sameTargetIndexes.some((idx) => (
-            idx.indisvalid === true
-            && idx.indisready === true
-            && idx.indislive === true
-            && idx.indnullsnotdistinct === true
-        ));
+        // reject ANY ready+live companion unique index (even if !indisvalid or duplicate-keyed like (col, col))
+        // that enforces NULLS NOT DISTINCT — EXCEPT a provably benign single-column partial index
+        // `WHERE <col> IS NOT NULL` that matches the healthy enforcing index's collation & operator class.
+        const hasNullsNotDistinctCompanion = contract.allowMultipleNulls && allIndexes.some((idx) => {
+            if (
+                idx.table_name !== contract.table
+                || idx.indisunique !== true
+                || idx.indisready !== true
+                || idx.indislive !== true
+                || idx.indnullsnotdistinct !== true
+                || !columnsSetEqual(idx.key_columns, contract.columns)
+            ) {
+                return false;
+            }
+            const isBenignNonNullPartial = (
+                contract.columns.length === 1
+                && columnsEqual(idx.key_columns, contract.columns)
+                && matchesSingleColNotNullPredicate(idx.predicate_expr, contract.columns[0])
+                && enforcing.length > 0
+                && enforcing.some((e) => (
+                    arraysEqual(e.key_collations, idx.key_collations)
+                    && arraysEqual(e.key_opclasses, idx.key_opclasses)
+                ))
+            );
+            return !isBenignNonNullPartial;
+        });
 
         if (enforcing.length === 0) {
             missing.push(contract.id);
@@ -673,6 +792,7 @@ async function getTableColumnCatalog(client, tableNames) {
                 a.attname::text AS column_name,
                 pg_catalog.format_type(a.atttypid, a.atttypmod) AS formatted_type,
                 a.attnotnull AS not_null,
+                (a.attidentity <> '' OR a.atthasdef) AS has_any_default,
                 (
                     a.attidentity <> ''
                     OR (
@@ -699,6 +819,7 @@ async function getTableColumnCatalog(client, tableNames) {
         catalog.get(row.table_name).set(row.column_name, {
             formatted_type: row.formatted_type,
             not_null: row.not_null === true,
+            has_any_default: row.has_any_default === true,
             has_default: row.has_sequence_default === true,
         });
     }
@@ -720,13 +841,16 @@ function evaluateColumnContracts(contracts, columnCatalog) {
                 `column_type_mismatch:${reqCol.table}.${reqCol.column}:expected_${reqCol.type}:got_${info.formatted_type}`
             );
         }
-        if (Boolean(info.not_null) !== Boolean(reqCol.notNull)) {
+        if (reqCol.notNull !== 'any' && Boolean(info.not_null) !== Boolean(reqCol.notNull)) {
             violations.push(
                 `column_nullable_mismatch:${reqCol.table}.${reqCol.column}:expected_${reqCol.notNull ? 'not_null' : 'nullable'}`
             );
         }
         if (reqCol.column === 'id' && reqCol.type === 'integer' && !info.has_default) {
             violations.push(`column_missing_id_default:${reqCol.table}.id`);
+        }
+        if (reqCol.requiresDefault === true && !info.has_any_default) {
+            violations.push(`column_missing_default:${reqCol.table}.${reqCol.column}`);
         }
     }
     return { missing, violations };
@@ -789,6 +913,38 @@ async function inspectCoreSchemaState(client) {
         };
     }
 
+    // Inspect column catalog BEFORE reading public.schema_migrations so a malformed
+    // schema_migrations table fails closed with PARTIAL_OR_INCONSISTENT (exit 2)
+    // instead of throwing a SQL exception (exit 1).
+    const tablesForColumnScan = [
+        'users',
+        'forum_roles',
+        'forum_bans',
+        ...presentCoreTables,
+        ...(hasGatesTable ? ['sloboda_core_gates'] : []),
+        ...(hasSchemaMigrationsTable ? ['schema_migrations'] : []),
+    ];
+    const columnCatalog = await getTableColumnCatalog(client, tablesForColumnScan);
+
+    if (hasSchemaMigrationsTable) {
+        const smEval = evaluateColumnContracts(SCHEMA_MIGRATIONS_REQUIRED_COLUMNS, columnCatalog);
+        if (smEval.missing.length > 0 || smEval.violations.length > 0) {
+            const smReasons = [];
+            if (smEval.missing.length > 0) smReasons.push(`missing_schema_migrations_columns:${smEval.missing.join(',')}`);
+            if (smEval.violations.length > 0) smReasons.push(...smEval.violations);
+            return {
+                schema_state: 'PARTIAL_OR_INCONSISTENT',
+                present_tables: hasGatesTable ? [...presentCoreTables, 'sloboda_core_gates'] : presentCoreTables,
+                missing_tables: missingCoreTables,
+                has_gates_table: hasGatesTable,
+                missing_columns: smEval.missing,
+                missing_indexes: [],
+                applied_core_migrations: [],
+                reasons: smReasons,
+            };
+        }
+    }
+
     let appliedCoreMigrations = [];
     if (hasSchemaMigrationsTable) {
         const migRes = await client.query(
@@ -806,9 +962,6 @@ async function inspectCoreSchemaState(client) {
     const hasM3 = migSet.has('2026-11-26-sloboda-core-r3');
     const hasM4 = migSet.has('2026-11-26-sloboda-core-r4');
 
-    const tablesForColumnScan = ['users', ...presentCoreTables, ...(hasGatesTable ? ['sloboda_core_gates'] : [])];
-    const columnCatalog = await getTableColumnCatalog(client, tablesForColumnScan);
-
     const r1ColEval = evaluateColumnContracts(R1_REQUIRED_COLUMNS, columnCatalog);
     const r2ColEval = evaluateColumnContracts(R2_REQUIRED_COLUMNS, columnCatalog);
     const r3ColEval = evaluateColumnContracts(R3_REQUIRED_COLUMNS, columnCatalog);
@@ -822,7 +975,11 @@ async function inspectCoreSchemaState(client) {
 
     // Fetch ALL indexes on tracked core tables (do not pre-filter flags in SQL so deferrable
     // conflict arbiters and invalid/non-live/nulls-not-distinct indexes are visible).
-    const idxTables = [...presentCoreTables, ...(hasGatesTable ? ['sloboda_core_gates'] : [])];
+    const idxTables = [
+        ...presentCoreTables,
+        ...(hasGatesTable ? ['sloboda_core_gates'] : []),
+        ...(hasSchemaMigrationsTable ? ['schema_migrations'] : []),
+    ];
     let allIndexes = [];
     if (idxTables.length > 0) {
         const idxRes = await client.query(
@@ -846,7 +1003,17 @@ async function inspectCoreSchemaState(client) {
                          AND a.attnum = k.attnum
                          AND NOT a.attisdropped
                         WHERE k.ord <= i.indnkeyatts
-                    ) AS key_columns
+                    ) AS key_columns,
+                    (
+                        SELECT ARRAY_AGG(c.coll::oid::text ORDER BY c.ord)
+                        FROM unnest(i.indcollation::oid[]) WITH ORDINALITY AS c(coll, ord)
+                        WHERE c.ord <= i.indnkeyatts
+                    ) AS key_collations,
+                    (
+                        SELECT ARRAY_AGG(o.opc::oid::text ORDER BY o.ord)
+                        FROM unnest(i.indclass::oid[]) WITH ORDINALITY AS o(opc, ord)
+                        WHERE o.ord <= i.indnkeyatts
+                    ) AS key_opclasses
              FROM pg_catalog.pg_index i
              JOIN pg_catalog.pg_class ic ON ic.oid = i.indexrelid
              JOIN pg_catalog.pg_class t ON t.oid = i.indrelid
@@ -868,6 +1035,8 @@ async function inspectCoreSchemaState(client) {
             indnullsnotdistinct: r.indnullsnotdistinct === true,
             predicate_expr: r.predicate_expr === null || r.predicate_expr === undefined ? null : String(r.predicate_expr),
             key_columns: Array.isArray(r.key_columns) ? r.key_columns : [],
+            key_collations: Array.isArray(r.key_collations) ? r.key_collations : [],
+            key_opclasses: Array.isArray(r.key_opclasses) ? r.key_opclasses : [],
         }));
     }
 
@@ -899,10 +1068,19 @@ async function inspectCoreSchemaState(client) {
     let effectiveMissingColumns = [...r1ColEval.missing];
     let effectiveMissingIndexes = [...r1IdxEval.missing];
 
+    const usersCatalog = columnCatalog.get('users');
+    const presentUsersCoreCols = USERS_CORE_MEMBERSHIP_COLUMNS.filter((col) => Boolean(usersCatalog && usersCatalog.has(col)));
+
     if (presentCoreTables.length === 0 && !hasGatesTable && appliedCoreMigrations.length === 0) {
-        schemaState = 'NOT_INSTALLED';
-        effectiveMissingColumns = [];
-        effectiveMissingIndexes = [];
+        if (presentUsersCoreCols.length > 0) {
+            reasons.push(`unexpected_partial_users_core_columns:${presentUsersCoreCols.join(',')}`);
+            effectiveMissingColumns = [];
+            effectiveMissingIndexes = [];
+        } else {
+            schemaState = 'NOT_INSTALLED';
+            effectiveMissingColumns = [];
+            effectiveMissingIndexes = [];
+        }
     } else if (missingCoreTables.length > 0) {
         reasons.push(`missing_core_tables:${missingCoreTables.join(',')}`);
     } else if (r1ColEval.missing.length > 0) {

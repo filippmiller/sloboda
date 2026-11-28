@@ -337,6 +337,7 @@ export default function Applications() {
   const tabIdRef = useRef<string>(generateClientToken('tab'))
   const activeDraftKeyRef = useRef<string | null>(null)
   const lastDraftRevIdRef = useRef<string | null>(null)
+  const displayedBaseVersionRef = useRef<number | null>(null)
   const ownDraftKeyRef = useRef<string | null>(null)
   const ownDraftRevIdRef = useRef<string | null>(null)
   const activeAppIdRef = useRef<number | null>(null)
@@ -353,6 +354,48 @@ export default function Applications() {
     setRevTrialTaskTitle(fields.revTrialTaskTitle)
     setRevTrialTaskUrl(fields.revTrialTaskUrl)
   }, [])
+
+  const resolveActiveDraftForConflict = useCallback(
+    (
+      allDrafts: StoredRevisionDraftEntry[],
+      fallbackBaseVersion: number,
+      allowFallbackSwitch: boolean,
+    ): { entry: StoredRevisionDraftEntry | null; baseVersion: number } => {
+      const activeKey = activeDraftKeyRef.current
+      const activeRevId = lastDraftRevIdRef.current
+      const matchedActive = activeKey
+        ? (allDrafts.find(
+            (entry) =>
+              entry.key === activeKey &&
+              (!activeRevId || entry.draft.draftRevId === activeRevId),
+          ) ?? null)
+        : null
+      if (matchedActive) {
+        displayedBaseVersionRef.current = matchedActive.draft.baseVersion
+        return { entry: matchedActive, baseVersion: matchedActive.draft.baseVersion }
+      }
+      if (allowFallbackSwitch && allDrafts.length > 0) {
+        const fallback = allDrafts[0]
+        applyRevisionFieldsState({
+          revFullName: fallback.draft.revFullName,
+          revCity: fallback.draft.revCity,
+          revPrimaryDomain: fallback.draft.revPrimaryDomain || 'GEN',
+          revSkills: fallback.draft.revSkills,
+          revMotivation: fallback.draft.revMotivation,
+          revTrialTaskTitle: fallback.draft.revTrialTaskTitle,
+          revTrialTaskUrl: fallback.draft.revTrialTaskUrl,
+        })
+        activeDraftKeyRef.current = fallback.key
+        lastDraftRevIdRef.current = fallback.draft.draftRevId
+        displayedBaseVersionRef.current = fallback.draft.baseVersion
+        return { entry: fallback, baseVersion: fallback.draft.baseVersion }
+      }
+      const preservedBase = displayedBaseVersionRef.current ?? fallbackBaseVersion
+      displayedBaseVersionRef.current = preservedBase
+      return { entry: null, baseVersion: preservedBase }
+    },
+    [applyRevisionFieldsState],
+  )
 
   const applyApplicationMonotonic = useCallback((nextApp: MemberApplication | null): boolean => {
     if (!nextApp) {
@@ -378,6 +421,7 @@ export default function Applications() {
   const syncRevisionFields = useCallback(
     (app: MemberApplication | null) => {
       if (!app) return
+      displayedBaseVersionRef.current = app.version
       applyRevisionFieldsState({
         revFullName: app.full_name || '',
         revCity: app.city || '',
@@ -418,10 +462,23 @@ export default function Applications() {
         const prevActiveKey = activeDraftKeyRef.current
         const prevActiveRevId = lastDraftRevIdRef.current
         const existingBefore = readAllRevisionDrafts(effectiveUserId, application.id)
+        const matchedActive = prevActiveKey
+          ? (existingBefore.find(
+              (entry) =>
+                entry.key === prevActiveKey &&
+                (!prevActiveRevId || entry.draft.draftRevId === prevActiveRevId),
+            ) ?? null)
+          : null
+        const resolvedBaseVersion =
+          matchedActive?.draft.baseVersion ??
+          displayedBaseVersionRef.current ??
+          revisionConflict?.draftBaseVersion ??
+          application.version
+        displayedBaseVersionRef.current = resolvedBaseVersion
 
         const wrote = writeRevisionDraft(nextKey, {
           applicationId: application.id,
-          baseVersion: revisionConflict?.draftBaseVersion ?? application.version,
+          baseVersion: resolvedBaseVersion,
           draftRevId: nextRevId,
           editorTabId: tabIdRef.current,
           ...nextFields,
@@ -472,46 +529,50 @@ export default function Applications() {
         const resolvedUserId = res.data.membership?.id ?? authUser?.id ?? app.user_id
         const allDrafts = readAllRevisionDrafts(resolvedUserId, app.id)
         setRecoverableDrafts(allDrafts)
-        const primaryEntry = allDrafts[0] ?? null
+        const noLocalEdits = revisionEditSeqRef.current === editSeqAtStart
 
-        if (primaryEntry) {
-          const savedRevDraft = primaryEntry.draft
-          if (revisionEditSeqRef.current === editSeqAtStart) {
-            applyRevisionFieldsState({
-              revFullName: savedRevDraft.revFullName,
-              revCity: savedRevDraft.revCity,
-              revPrimaryDomain: savedRevDraft.revPrimaryDomain || 'GEN',
-              revSkills: savedRevDraft.revSkills,
-              revMotivation: savedRevDraft.revMotivation,
-              revTrialTaskTitle: savedRevDraft.revTrialTaskTitle,
-              revTrialTaskUrl: savedRevDraft.revTrialTaskUrl,
-            })
-            activeDraftKeyRef.current = primaryEntry.key
-            lastDraftRevIdRef.current = savedRevDraft.draftRevId
-          }
+        if (allDrafts.length > 0) {
+          const resolved = resolveActiveDraftForConflict(
+            allDrafts,
+            displayedBaseVersionRef.current ?? app.version,
+            noLocalEdits,
+          )
           setRevisionDraftVisible(true)
 
           const hasDivergentOrStaleDraft =
             allDrafts.length > 1 ||
-            savedRevDraft.baseVersion !== app.version ||
+            resolved.baseVersion !== app.version ||
             app.status !== 'revision_requested'
 
           if (hasDivergentOrStaleDraft) {
             setRevisionConflict({
               serverVersion: app.version,
               serverStatus: app.status,
-              draftBaseVersion: savedRevDraft.baseVersion,
+              draftBaseVersion: resolved.baseVersion,
               serverApplication: app,
+              refreshFailed: false,
             })
           } else {
             setRevisionConflict(null)
           }
-        } else if (revisionEditSeqRef.current === editSeqAtStart) {
+        } else if (noLocalEdits) {
           activeDraftKeyRef.current = null
           lastDraftRevIdRef.current = null
           syncRevisionFields(app)
           setRevisionConflict(null)
           setRevisionDraftVisible(false)
+        } else if (
+          displayedBaseVersionRef.current !== null &&
+          (displayedBaseVersionRef.current !== app.version || app.status !== 'revision_requested')
+        ) {
+          setRevisionConflict({
+            serverVersion: app.version,
+            serverStatus: app.status,
+            draftBaseVersion: displayedBaseVersionRef.current,
+            serverApplication: app,
+            refreshFailed: false,
+          })
+          setRevisionDraftVisible(true)
         }
 
         if (app.primary_domain) {
@@ -520,6 +581,7 @@ export default function Applications() {
       } else {
         activeDraftKeyRef.current = null
         lastDraftRevIdRef.current = null
+        displayedBaseVersionRef.current = null
         setRecoverableDrafts([])
         setRevisionConflict(null)
         setRevisionDraftVisible(false)
@@ -556,7 +618,7 @@ export default function Applications() {
         setLoading(false)
       }
     }
-  }, [applyApplicationMonotonic, applyRevisionFieldsState, authUser?.email, authUser?.id, authUser?.name, syncRevisionFields])
+  }, [applyApplicationMonotonic, authUser?.email, authUser?.id, authUser?.name, resolveActiveDraftForConflict, syncRevisionFields])
 
   useEffect(() => {
     loadMyApplication()
@@ -753,6 +815,7 @@ export default function Applications() {
     })
     activeDraftKeyRef.current = entry.key
     lastDraftRevIdRef.current = fresh.draftRevId
+    displayedBaseVersionRef.current = fresh.baseVersion
     setRevisionDraftVisible(true)
     if (application) {
       setRevisionConflict((prev) =>
@@ -790,6 +853,7 @@ export default function Applications() {
       applyRevisionFieldsState(next.draft)
       activeDraftKeyRef.current = next.key
       lastDraftRevIdRef.current = next.draft.draftRevId
+      displayedBaseVersionRef.current = next.draft.baseVersion
       const serverApp = revisionConflict?.serverApplication ?? application
       if (
         remaining.length === 1 &&
@@ -846,6 +910,7 @@ export default function Applications() {
     ownDraftRevIdRef.current = nextRevId
     activeDraftKeyRef.current = nextKey
     lastDraftRevIdRef.current = nextRevId
+    displayedBaseVersionRef.current = targetApp.version
     const remaining = readAllRevisionDrafts(effectiveUserId, targetApp.id)
     setRecoverableDrafts(remaining)
     const hasOtherUnresolved = remaining.some(
@@ -887,6 +952,7 @@ export default function Applications() {
       applyRevisionFieldsState(newest.draft)
       activeDraftKeyRef.current = newest.key
       lastDraftRevIdRef.current = newest.draft.draftRevId
+      displayedBaseVersionRef.current = newest.draft.baseVersion
       setRevisionDraftVisible(true)
       setRevisionConflict({
         serverVersion: targetApp.version,
@@ -917,6 +983,20 @@ export default function Applications() {
   const handleResubmitRevision = async (e: FormEvent) => {
     e.preventDefault()
     if (!application || revisionConflict) return
+    if (
+      displayedBaseVersionRef.current !== null &&
+      displayedBaseVersionRef.current !== application.version
+    ) {
+      setRevisionConflict({
+        serverVersion: application.version,
+        serverStatus: application.status,
+        draftBaseVersion: displayedBaseVersionRef.current,
+        serverApplication: application,
+      })
+      setRevisionDraftVisible(true)
+      toast.warning('Версия заявки изменилась. Проверьте конфликт версий перед отправкой.')
+      return
+    }
     const currentFields = revisionFieldsRef.current
     if (currentFields.revFullName.trim().length < 2) {
       toast.error('Имя должно содержать от 2 символов')
@@ -1072,28 +1152,11 @@ export default function Applications() {
             setMembership(freshRes.data.membership ?? null)
             const latestDrafts = readAllRevisionDrafts(userIdAtStart, appId)
             setRecoverableDrafts(latestDrafts)
-            const matchedActive =
-              latestDrafts.find(
-                (entry) =>
-                  entry.key === activeDraftKeyRef.current &&
-                  entry.draft.draftRevId === lastDraftRevIdRef.current,
-              ) ?? null
-            let resolvedBaseVersion = baseVer
-            if (matchedActive) {
-              resolvedBaseVersion = matchedActive.draft.baseVersion
-            } else if (!hasLocalEdits && latestDrafts.length > 0) {
-              // Active draft was discarded in another tab during refresh: switch UI & key together
-              // so displayed fields and draftBaseVersion always belong to the same draft.
-              const fallback = latestDrafts[0]
-              applyRevisionFieldsState(fallback.draft)
-              activeDraftKeyRef.current = fallback.key
-              lastDraftRevIdRef.current = fallback.draft.draftRevId
-              resolvedBaseVersion = fallback.draft.baseVersion
-            }
+            const resolved = resolveActiveDraftForConflict(latestDrafts, baseVer, !hasLocalEdits)
             setRevisionConflict({
               serverVersion: freshApp.version,
               serverStatus: freshApp.status,
-              draftBaseVersion: resolvedBaseVersion,
+              draftBaseVersion: resolved.baseVersion,
               serverApplication: freshApp,
               refreshFailed: false,
             })
@@ -1165,17 +1228,32 @@ export default function Applications() {
 
       let detectedConcurrentChange = false
       if (appId !== null && appStatusAtStart) {
+        const editSeqAtStart = revisionEditSeqRef.current
         const activeKey = activeDraftKeyRef.current ?? ownDraftKeyRef.current
-        const activeDraft = activeKey ? readRevisionDraft(activeKey) : null
+        const activeRevId = activeDraftKeyRef.current
+          ? lastDraftRevIdRef.current
+          : ownDraftRevIdRef.current
+        const rawActiveDraft = activeKey ? readRevisionDraft(activeKey) : null
+        const activeDraft =
+          rawActiveDraft && (!activeRevId || rawActiveDraft.draftRevId === activeRevId)
+            ? rawActiveDraft
+            : null
         const allDrafts = readAllRevisionDrafts(userIdAtStart, appId)
         setRecoverableDrafts(allDrafts)
         const otherTabDrafts = allDrafts.filter((entry) => entry.key !== activeKey)
+        const currentDisplayedBase =
+          activeDraft?.baseVersion ??
+          displayedBaseVersionRef.current ??
+          revisionConflict?.draftBaseVersion ??
+          prevVersion ??
+          nextVersion
 
         if (
           typeof prevVersion === 'number' &&
           nextVersion === prevVersion + 1 &&
           nextVersion >= latestAppVersionRef.current &&
-          (!activeDraft || activeDraft.baseVersion === prevVersion)
+          (!activeDraft || activeDraft.baseVersion === prevVersion) &&
+          (displayedBaseVersionRef.current === null || displayedBaseVersionRef.current === prevVersion)
         ) {
           latestAppVersionRef.current = Math.max(latestAppVersionRef.current, nextVersion)
           setApplication((prev) =>
@@ -1184,16 +1262,13 @@ export default function Applications() {
               : prev,
           )
           // Rebase the currently selected active draft (verified by exact draftRevId) into a NEW
-          // immutable `:rev:<id>` key so displayed fields and baseVersion never diverge.
-          if (
-            activeDraft &&
-            activeKey &&
-            (!lastDraftRevIdRef.current || activeDraft.draftRevId === lastDraftRevIdRef.current)
-          ) {
+          // immutable `:rev:<id>` key, merging live displayed fields so failed prior writes are never lost.
+          if (activeDraft && activeKey) {
             const rebasedRevId = generateClientToken('rev-rebase')
             const rebasedKey = getImmutableRevisionDraftKey(userIdAtStart, appId, rebasedRevId)
             const wroteRebase = writeRevisionDraft(rebasedKey, {
               ...activeDraft,
+              ...revisionFieldsRef.current,
               baseVersion: nextVersion,
               draftRevId: rebasedRevId,
               editorTabId: tabIdRef.current,
@@ -1207,6 +1282,7 @@ export default function Applications() {
               ownDraftRevIdRef.current = rebasedRevId
               activeDraftKeyRef.current = rebasedKey
               lastDraftRevIdRef.current = rebasedRevId
+              displayedBaseVersionRef.current = nextVersion
               setRevisionConflict((prev) =>
                 prev
                   ? {
@@ -1221,6 +1297,8 @@ export default function Applications() {
               )
             }
             setRecoverableDrafts(readAllRevisionDrafts(userIdAtStart, appId))
+          } else {
+            displayedBaseVersionRef.current = nextVersion
           }
           if (otherTabDrafts.length > 0) {
             setRevisionDraftVisible(true)
@@ -1229,16 +1307,25 @@ export default function Applications() {
           typeof prevVersion === 'number' &&
           (nextVersion > prevVersion + 1 ||
             nextVersion < latestAppVersionRef.current ||
-            (activeDraft && activeDraft.baseVersion !== prevVersion))
+            (activeDraft && activeDraft.baseVersion !== prevVersion) ||
+            (displayedBaseVersionRef.current !== null && displayedBaseVersionRef.current !== prevVersion))
         ) {
-          // Do NOT publish nextVersion onto application before refreshing & reconciling concurrent changes
-          const primaryDraft = activeDraft ?? allDrafts[0]?.draft ?? null
-          detectedConcurrentChange = Boolean(primaryDraft)
-          if (primaryDraft && nextVersion >= latestAppVersionRef.current) {
+          // Do NOT publish nextVersion onto application before refreshing & reconciling concurrent changes.
+          // Resolve active draft by exact (key + draftRevId); never borrow another draft's baseVersion.
+          const preResolved = resolveActiveDraftForConflict(
+            allDrafts,
+            currentDisplayedBase,
+            !activeKey && revisionEditSeqRef.current === editSeqAtStart,
+          )
+          const hasTabDraftOrEdits = Boolean(
+            preResolved.entry || revisionEditSeqRef.current > 0 || revisionConflict,
+          )
+          detectedConcurrentChange = hasTabDraftOrEdits
+          if (hasTabDraftOrEdits && nextVersion >= latestAppVersionRef.current) {
             setRevisionConflict({
               serverVersion: nextVersion,
               serverStatus: appStatusAtStart,
-              draftBaseVersion: primaryDraft.baseVersion,
+              draftBaseVersion: preResolved.baseVersion,
               serverApplication: null,
               refreshFailed: true,
             })
@@ -1252,30 +1339,38 @@ export default function Applications() {
             const freshApp = freshRes.data.application ?? null
             const postRefreshDrafts = readAllRevisionDrafts(userIdAtStart, appId)
             setRecoverableDrafts(postRefreshDrafts)
-            const postRefreshDraft = postRefreshDrafts[0]?.draft ?? null
+            const hadLocalEdits = revisionEditSeqRef.current !== editSeqAtStart
+            const postResolved = resolveActiveDraftForConflict(
+              postRefreshDrafts,
+              preResolved.baseVersion,
+              !hadLocalEdits,
+            )
             if (freshApp && freshApp.id === appId) {
               if (!applyApplicationMonotonic(freshApp)) {
                 return
               }
               setPortfolio(freshRes.data.portfolio ?? [])
               setMembership(freshRes.data.membership ?? null)
-              if (postRefreshDraft) {
+              if (postResolved.entry || hadLocalEdits) {
                 setRevisionConflict({
                   serverVersion: freshApp.version,
                   serverStatus: freshApp.status,
-                  draftBaseVersion: postRefreshDraft.baseVersion,
+                  draftBaseVersion: postResolved.baseVersion,
                   serverApplication: freshApp,
                   refreshFailed: false,
                 })
                 setRevisionDraftVisible(true)
               } else {
+                activeDraftKeyRef.current = null
+                lastDraftRevIdRef.current = null
                 syncRevisionFields(freshApp)
+                setRevisionConflict(null)
               }
-            } else if (postRefreshDraft && nextVersion >= latestAppVersionRef.current) {
+            } else if ((postResolved.entry || hadLocalEdits) && nextVersion >= latestAppVersionRef.current) {
               setRevisionConflict({
                 serverVersion: nextVersion,
                 serverStatus: appStatusAtStart,
-                draftBaseVersion: postRefreshDraft.baseVersion,
+                draftBaseVersion: postResolved.baseVersion,
                 serverApplication: null,
                 refreshFailed: true,
               })
@@ -1287,12 +1382,17 @@ export default function Applications() {
             }
             const postRefreshDrafts = readAllRevisionDrafts(userIdAtStart, appId)
             setRecoverableDrafts(postRefreshDrafts)
-            const postRefreshDraft = postRefreshDrafts[0]?.draft ?? null
-            if (postRefreshDraft && nextVersion >= latestAppVersionRef.current) {
+            const hadLocalEdits = revisionEditSeqRef.current !== editSeqAtStart
+            const postResolved = resolveActiveDraftForConflict(
+              postRefreshDrafts,
+              preResolved.baseVersion,
+              !hadLocalEdits,
+            )
+            if ((postResolved.entry || hadLocalEdits) && nextVersion >= latestAppVersionRef.current) {
               setRevisionConflict({
                 serverVersion: nextVersion,
                 serverStatus: appStatusAtStart,
-                draftBaseVersion: postRefreshDraft.baseVersion,
+                draftBaseVersion: postResolved.baseVersion,
                 serverApplication: null,
                 refreshFailed: true,
               })

@@ -1719,7 +1719,197 @@ async function run() {
         },
         (j) => assert.ok(j.schema.reasons.some((r) => r.includes('invalid_relation_kind:sloboda_core_gates:v')))
     );
-    console.log('PASS [R5 / SLB-R4-01] All 14 PG17 schema drift negative controls & healthy positive controls verified');
+
+    // =========================================================================
+    // [R6 / SLB-R5-PRO-01, PRO-03, PRO-04, OBS-REORDERED-UNIQUE & Gate A]
+    // Independent PG17 negative & positive controls for complete column contracts,
+    // numeric(12,2) scale/capacity, defaults, schema_migrations shape/arbiter,
+    // and NND companion / reordered ordinary unique index semantics.
+    // =========================================================================
+    console.log('=== [R6] SLB-R5-PRO-01 / PRO-03 / PRO-04 PG17 Regression Matrix ===');
+
+    // PRO-01: Missing required runtime columns (all 4 confirmed audit misses + additional runtime columns)
+    await assertSchemaDriftRejected(
+        'pro01_missing_governance_proposals_share_class',
+        () => pool.query('ALTER TABLE public.governance_proposals DROP COLUMN share_class'),
+        (j) => assert.ok(j.schema.missing_columns.includes('governance_proposals.share_class'))
+    );
+    await assertSchemaDriftRejected(
+        'pro01_missing_governance_proposals_protocol_json',
+        () => pool.query('ALTER TABLE public.governance_proposals DROP COLUMN protocol_json'),
+        (j) => assert.ok(j.schema.missing_columns.includes('governance_proposals.protocol_json'))
+    );
+    await assertSchemaDriftRejected(
+        'pro01_missing_governance_ballots_cast_at',
+        () => pool.query('ALTER TABLE public.governance_ballots DROP COLUMN cast_at'),
+        (j) => assert.ok(j.schema.missing_columns.includes('governance_ballots.cast_at'))
+    );
+    await assertSchemaDriftRejected(
+        'pro01_missing_construction_milestones_photo_url',
+        () => pool.query('ALTER TABLE public.construction_milestones DROP COLUMN photo_url'),
+        (j) => assert.ok(j.schema.missing_columns.includes('construction_milestones.photo_url'))
+    );
+    await assertSchemaDriftRejected(
+        'pro01_missing_construction_milestones_updated_at',
+        () => pool.query('ALTER TABLE public.construction_milestones DROP COLUMN updated_at'),
+        (j) => assert.ok(j.schema.missing_columns.includes('construction_milestones.updated_at'))
+    );
+    await assertSchemaDriftRejected(
+        'pro01_missing_council_delegations_term_starts_at',
+        () => pool.query('ALTER TABLE public.council_delegations DROP COLUMN term_starts_at'),
+        (j) => assert.ok(j.schema.missing_columns.includes('council_delegations.term_starts_at'))
+    );
+    await assertSchemaDriftRejected(
+        'pro01_missing_users_status',
+        () => pool.query('ALTER TABLE public.users DROP COLUMN status'),
+        (j) => assert.ok(j.schema.missing_columns.includes('users.status'))
+    );
+    await assertSchemaDriftRejected(
+        'pro01_missing_forum_roles_role',
+        () => pool.query('ALTER TABLE public.forum_roles DROP COLUMN role'),
+        (j) => assert.ok(j.schema.missing_columns.includes('forum_roles.role'))
+    );
+
+    // PRO-01: Wrong type, both-side nullability, missing default, and schema_migrations shape/arbiter
+    await assertSchemaDriftRejected(
+        'pro01_wrong_type_protocol_json_text',
+        () => pool.query('ALTER TABLE public.governance_proposals ALTER COLUMN protocol_json TYPE TEXT'),
+        (j) => assert.ok(j.schema.reasons.some((r) => r.includes('column_type_mismatch:governance_proposals.protocol_json')))
+    );
+    await assertSchemaDriftRejected(
+        'pro01_wrong_nullability_ballots_cast_at_nullable',
+        () => pool.query('ALTER TABLE public.governance_ballots ALTER COLUMN cast_at DROP NOT NULL'),
+        (j) => assert.ok(j.schema.reasons.some((r) => r.includes('column_nullable_mismatch:governance_ballots.cast_at')))
+    );
+    await assertSchemaDriftRejected(
+        'pro01_wrong_nullability_share_class_not_null',
+        () => pool.query('ALTER TABLE public.governance_proposals ALTER COLUMN share_class SET NOT NULL'),
+        (j) => assert.ok(j.schema.reasons.some((r) => r.includes('column_nullable_mismatch:governance_proposals.share_class')))
+    );
+    await assertSchemaDriftRejected(
+        'pro01_missing_default_voter_receipts_cast_at',
+        () => pool.query('ALTER TABLE public.governance_voter_receipts ALTER COLUMN cast_at DROP DEFAULT'),
+        (j) => assert.ok(j.schema.reasons.some((r) => r.includes('column_missing_default:governance_voter_receipts.cast_at')))
+    );
+    await assertSchemaDriftRejected(
+        'pro01_schema_migrations_missing_version_no_crash',
+        () => pool.query('ALTER TABLE public.schema_migrations DROP COLUMN version'),
+        (j) => assert.ok(j.schema.missing_columns.includes('schema_migrations.version'))
+    );
+    await assertSchemaDriftRejected(
+        'pro01_schema_migrations_missing_unique_arbiter',
+        () => pool.query('ALTER TABLE public.schema_migrations DROP CONSTRAINT schema_migrations_pkey'),
+        (j) => assert.ok(j.schema.missing_indexes.includes('schema_migrations_version_unique'))
+    );
+
+    // PRO-03: Numeric precision/scale/capacity contract on construction_milestones.planned_qty & actual_qty
+    await assertSchemaDriftRejected(
+        'pro03_planned_qty_numeric_12_0',
+        () => pool.query('ALTER TABLE public.construction_milestones ALTER COLUMN planned_qty TYPE NUMERIC(12,0)'),
+        (j) => assert.ok(j.schema.reasons.some((r) => r.includes('column_type_mismatch:construction_milestones.planned_qty')))
+    );
+    await assertSchemaDriftRejected(
+        'pro03_actual_qty_numeric_12_0',
+        () => pool.query('ALTER TABLE public.construction_milestones ALTER COLUMN actual_qty TYPE NUMERIC(12,0)'),
+        (j) => assert.ok(j.schema.reasons.some((r) => r.includes('column_type_mismatch:construction_milestones.actual_qty')))
+    );
+    await assertSchemaDriftRejected(
+        'pro03_planned_qty_small_capacity_numeric_1_0',
+        async () => {
+            await pool.query('DELETE FROM public.construction_milestones');
+            await pool.query('ALTER TABLE public.construction_milestones ALTER COLUMN planned_qty TYPE NUMERIC(1,0)');
+        },
+        (j) => assert.ok(j.schema.reasons.some((r) => r.includes('column_type_mismatch:construction_milestones.planned_qty')))
+    );
+    await assertSchemaDriftRejected(
+        'pro03_planned_qty_numeric_14_4_scale_mismatch',
+        () => pool.query('ALTER TABLE public.construction_milestones ALTER COLUMN planned_qty TYPE NUMERIC(14,4)'),
+        (j) => assert.ok(j.schema.reasons.some((r) => r.includes('column_type_mismatch:construction_milestones.planned_qty')))
+    );
+    await assertSchemaDriftRejected(
+        'pro03_planned_qty_unconstrained_numeric_rejected',
+        () => pool.query('ALTER TABLE public.construction_milestones ALTER COLUMN planned_qty TYPE NUMERIC'),
+        (j) => assert.ok(j.schema.reasons.some((r) => r.includes('column_type_mismatch:construction_milestones.planned_qty')))
+    );
+
+    // PRO-03 positive controls: lossless integer-capacity widening NUMERIC(14,2) passes,
+    // and healthy NUMERIC(12,2) persists & returns fractional 1.25 + photo_url via upsertConstructionMilestone
+    await setupHealthyR4Fixture();
+    await pool.query('ALTER TABLE public.construction_milestones ALTER COLUMN planned_qty TYPE NUMERIC(14,2)');
+    const widenedNumericCli = runPreflightCli();
+    assert.equal(widenedNumericCli.exitCode, 0, 'NUMERIC(14,2) widening preserving exact scale=2 must pass preflight');
+    assert.equal(widenedNumericCli.json.schema.schema_state, 'INSTALLED_R4');
+
+    await setupHealthyR4Fixture();
+    const fracMilestone = await coreStore.upsertConstructionMilestone({
+        settlement_id: 'sloboda-pilot',
+        code: 'R6_FRAC_ROAD',
+        title: 'Fractional Road Segment',
+        category: 'roads',
+        unit: 'км',
+        planned_qty: 1.25,
+        actual_qty: 1.25,
+        budget_kopecks: 250000,
+        status: 'in_progress',
+        photo_url: 'https://example.invalid/r6-road.jpg',
+    });
+    assert.equal(Number(fracMilestone.planned_qty), 1.25, 'Healthy NUMERIC(12,2) must persist and return 1.25 planned_qty');
+    assert.equal(Number(fracMilestone.actual_qty), 1.25, 'Healthy NUMERIC(12,2) must persist and return 1.25 actual_qty');
+    assert.equal(fracMilestone.photo_url, 'https://example.invalid/r6-road.jpg', 'Milestone upsert must persist photo_url');
+
+    // Positive runtime control: named governance proposal create -> open -> cast named ballot -> close (exercises share_class, cast_at, protocol_json)
+    const govAdminId = (await pool.query("INSERT INTO admins (email, name, role) VALUES ('r6.gov@sloboda.land', 'R6 Gov Admin', 'super_admin') RETURNING id")).rows[0].id;
+    const govVoterId = (await pool.query("INSERT INTO users (email, name, status, membership_status, settlement_id) VALUES ('r6.voter@sloboda.land', 'R6 Voter', 'active', 'accepted', 'sloboda-pilot') RETURNING id")).rows[0].id;
+    const namedProp = await coreStore.createProposal({
+        title: 'R6 Named Governance Runtime Control',
+        vote_type: 'council_election',
+        authoritative_engine: 'native_named',
+        secret_ballot: false,
+        share_class: 'A',
+        terms_version: 'v1',
+        seats_count: 1,
+        quorum_members_pct: 50,
+        options: ['Approve', 'Reject'],
+    }, govAdminId);
+    await coreStore.openProposal(namedProp.id);
+    await coreStore.castGovernanceBallot({ proposalId: namedProp.id, userId: govVoterId, chamber: 'member', optionIndex: 0 });
+    const namedClosed = await coreStore.closeProposal(namedProp.id);
+    assert.equal(namedClosed.outcome.adopted, true, 'Healthy named governance lifecycle must close and adopt');
+    const namedProtocolRow = (await pool.query('SELECT share_class, protocol_json FROM public.governance_proposals WHERE id = $1', [namedProp.id])).rows[0];
+    assert.equal(namedProtocolRow.share_class, 'A');
+    assert.ok(namedProtocolRow.protocol_json && typeof namedProtocolRow.protocol_json === 'object');
+
+    // PRO-04 & OBS-REORDERED-UNIQUE positive & negative controls
+    await setupHealthyR4Fixture();
+    await pool.query('CREATE UNIQUE INDEX idx_benign_partial_nnd_contrib ON public.contributions(idempotency_key) NULLS NOT DISTINCT WHERE idempotency_key IS NOT NULL');
+    const benignPartialNndCli = runPreflightCli();
+    assert.equal(benignPartialNndCli.exitCode, 0, 'Benign partial NND WHERE idempotency_key IS NOT NULL alongside healthy full unique index must pass');
+    assert.equal(benignPartialNndCli.json.schema.schema_state, 'INSTALLED_R4');
+
+    await setupHealthyR4Fixture();
+    await pool.query('ALTER TABLE public.construction_milestones DROP CONSTRAINT construction_milestones_settlement_id_code_key');
+    await pool.query('ALTER TABLE public.construction_milestones ADD CONSTRAINT uq_milestones_code_settlement_rev UNIQUE (code, settlement_id)');
+    const reorderedOrdinaryCli = runPreflightCli();
+    assert.equal(reorderedOrdinaryCli.exitCode, 0, 'Semantically equivalent reordered ordinary unique index must pass preflight');
+    assert.equal(reorderedOrdinaryCli.json.schema.schema_state, 'INSTALLED_R4');
+
+    // Negative controls preserved: full NND companion, partial WHERE IS NULL NND companion, duplicate-key NND companion
+    await assertSchemaDriftRejected(
+        'pro04_full_nnd_companion_rejected',
+        () => pool.query('CREATE UNIQUE INDEX idx_bad_full_nnd_contrib ON public.contributions(idempotency_key) NULLS NOT DISTINCT'),
+        (j) => assert.ok(j.schema.reasons.some((r) => r.includes('nulls_not_distinct_companion_present:contributions_idempotency_key_unique')))
+    );
+    await assertSchemaDriftRejected(
+        'pro04_partial_is_null_nnd_companion_rejected',
+        () => pool.query('CREATE UNIQUE INDEX idx_bad_isnull_nnd_contrib ON public.contributions(idempotency_key) NULLS NOT DISTINCT WHERE idempotency_key IS NULL'),
+        (j) => assert.ok(j.schema.reasons.some((r) => r.includes('nulls_not_distinct_companion_present:contributions_idempotency_key_unique')))
+    );
+    await assertSchemaDriftRejected(
+        'pro04_duplicate_key_nnd_companion_rejected',
+        () => pool.query('CREATE UNIQUE INDEX idx_bad_dupkey_nnd_contrib ON public.contributions(idempotency_key, idempotency_key) NULLS NOT DISTINCT'),
+        (j) => assert.ok(j.schema.reasons.some((r) => r.includes('nulls_not_distinct_companion_present:contributions_idempotency_key_unique')))
+    );
+    console.log('PASS [R5/R6] All PG17 schema drift negative controls, PRO-01/PRO-03/PRO-04 & healthy runtime controls verified');
 
     // Verify empty rollback removes R4 marker too, preflight reports NOT_INSTALLED, and reinstall reaches INSTALLED_R4
     await resetBaseSchema();
