@@ -1232,4 +1232,224 @@ test.describe('Sloboda Built-React + PG17 End-to-End UI Gate', () => {
 
     expect(pageErrors).toEqual([]);
   });
+
+  test('8. SLB-R4-02: Two-tab & three-tab cross-tab drafts survive delayed PATCH 200, genuine PATCH 409, portfolio POST, and immediate reload', async ({ browser }) => {
+    test.skip(!process.env.DATABASE_URL, 'Requires real PostgreSQL (DATABASE_URL)');
+
+    const suffix = `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+    const email = `e2e.xtab.${suffix}@sloboda.land`;
+    const password = 'CrossTabPass123!';
+    const pageErrors = [];
+
+    const seeded = await seedUser(pool, {
+      email,
+      password,
+      name: `Две Вкладки ${suffix}`,
+      onboardingCompleted: true,
+    });
+    const appRow = (await pool.query(`
+      INSERT INTO member_applications
+        (user_id, full_name, email, city, primary_domain, skills, motivation, status, version, review_note)
+      VALUES ($1, $2, $3, 'Казань', 'ENG', 'Initial X skills', 'Initial X motivation', 'revision_requested', 2, 'Уточните детали')
+      RETURNING id
+    `, [seeded.id, `Две Вкладки ${suffix}`, email])).rows[0];
+
+    const ctx = await browser.newContext();
+    const pageA = await ctx.newPage();
+    const pageB = await ctx.newPage();
+    trackPageErrors(pageA, pageErrors, 'xtab-A');
+    trackPageErrors(pageB, pageErrors, 'xtab-B');
+
+    try {
+      // Login on pageA (shared browser context shares cookies & localStorage with pageB)
+      await pageA.goto('/login?redirect=%2Fapplications');
+      await pageA.locator('input[type="email"]').fill(email);
+      await pageA.locator('input[type="password"]').fill(password);
+      await pageA.locator('button[type="submit"]').click();
+      await pageA.waitForURL(/\/applications$/, { timeout: 15000 });
+      await expect(pageA.locator('textarea').first()).toBeVisible({ timeout: 10000 });
+
+      await pageB.goto('/applications');
+      await expect(pageB.locator('textarea').first()).toBeVisible({ timeout: 10000 });
+
+      // 8A: Cross-tab delayed PATCH 409 — bump server version, pageA sends X (delayed 409),
+      // pageB edits BOTH skills and motivation to Y409, release 409, immediately reload BOTH pages.
+      const xSkills409 = `TabA X skills 409 ${suffix}`;
+      const xMot409 = `TabA X motivation 409 ${suffix}`;
+      await pageA.locator('textarea').nth(0).fill(xSkills409);
+      await pageA.locator('textarea').nth(1).fill(xMot409);
+
+      let release409;
+      let notify409Arrived;
+      const arrived409 = new Promise((resolve) => { notify409Arrived = resolve; });
+      const hold409 = new Promise((resolve) => { release409 = resolve; });
+      let intercepted409 = false;
+      await pageA.route('**/api/applications/my', async (route) => {
+        if (route.request().method() === 'PATCH' && !intercepted409) {
+          intercepted409 = true;
+          notify409Arrived();
+          await pool.query('UPDATE member_applications SET version = version + 1 WHERE id = $1', [appRow.id]);
+          const resp = await route.fetch();
+          expect(resp.status()).toBe(409);
+          await hold409;
+          await route.fulfill({ response: resp });
+          return;
+        }
+        await route.continue();
+      });
+
+      await pageA.getByRole('button', { name: /Отправить доработанную заявку|Отправить на повторное/i }).click();
+      await arrived409;
+
+      // Tab B edits BOTH skills and motivation to Y409 while Tab A's 409 is in flight
+      const ySkills409 = `TabB Y skills 409 ${suffix}`;
+      const yMot409 = `TabB Y motivation 409 ${suffix}`;
+      await pageB.locator('textarea').nth(0).fill(ySkills409);
+      await pageB.locator('textarea').nth(1).fill(yMot409);
+
+      release409();
+      await expect(pageA.getByText(/Обнаружено изменение заявки на сервере/i).first()).toBeVisible({ timeout: 10000 });
+
+      // Immediate reload of BOTH pages WITHOUT any additional typing -> Y409 MUST persist on both!
+      await pageA.reload();
+      await pageB.reload();
+      await expect(pageB.locator('textarea').nth(0)).toHaveValue(ySkills409, { timeout: 10000 });
+      await expect(pageB.locator('textarea').nth(1)).toHaveValue(yMot409, { timeout: 10000 });
+      await expect(pageB.getByText(/версия #3/i).first()).toBeVisible({ timeout: 10000 });
+      await expect(pageB.getByText(/создавался для версии #2/i).first()).toBeVisible({ timeout: 10000 });
+      await expect(pageA.locator('textarea').nth(0)).toHaveValue(ySkills409, { timeout: 10000 });
+      await expect(pageA.locator('textarea').nth(1)).toHaveValue(yMot409, { timeout: 10000 });
+
+      // Clean up drafts via explicit server reload button so 8B starts cleanly on version 3
+      await pageA.getByRole('button', { name: /Загрузить серверную версию/i }).click();
+      await expect(pageA.getByText(/Обнаружено изменение заявки на сервере/i)).toHaveCount(0, { timeout: 10000 });
+
+      // 8B: Cross-tab delayed portfolio POST — pageA adds portfolio item (delayed),
+      // pageB edits BOTH skills and motivation, release POST, reload -> Y preserved, item not duplicated
+      await pageB.reload();
+      await expect(pageB.locator('textarea').nth(0)).toBeVisible({ timeout: 10000 });
+      let releasePort;
+      let notifyPortArrived;
+      const arrivedPort = new Promise((resolve) => { notifyPortArrived = resolve; });
+      const holdPort = new Promise((resolve) => { releasePort = resolve; });
+      let interceptedPort = false;
+      await pageA.route('**/api/applications/my/portfolio', async (route) => {
+        if (route.request().method() === 'POST' && !interceptedPort) {
+          interceptedPort = true;
+          notifyPortArrived();
+          const resp = await route.fetch();
+          expect(resp.status()).toBe(201);
+          await holdPort;
+          await route.fulfill({ response: resp });
+          return;
+        }
+        await route.continue();
+      });
+
+      const portTitle = `CrossTab Portfolio ${suffix}`;
+      await pageA.locator('input[placeholder*="Название проекта"]').first().fill(portTitle);
+      await pageA.getByRole('button', { name: /Добавить работу|Добавить в портфолио/i }).click();
+      await arrivedPort;
+
+      const ySkillsPort = `TabB Y skills portfolio ${suffix}`;
+      const yMotPort = `TabB Y motivation portfolio ${suffix}`;
+      await pageB.locator('textarea').nth(0).fill(ySkillsPort);
+      await pageB.locator('textarea').nth(1).fill(yMotPort);
+
+      releasePort();
+      await expect(pageA.getByText(portTitle)).toBeVisible({ timeout: 10000 });
+
+      await pageB.reload();
+      await expect(pageB.locator('textarea').nth(0)).toHaveValue(ySkillsPort, { timeout: 10000 });
+      await expect(pageB.locator('textarea').nth(1)).toHaveValue(yMotPort, { timeout: 10000 });
+      await expect(pageB.getByText(portTitle)).toHaveCount(1, { timeout: 10000 });
+
+      // Clear draft so 8C starts cleanly at version 4
+      await pageB.getByRole('button', { name: /Загрузить серверную версию/i }).click();
+      await expect(pageB.getByText(/Обнаружено изменение заявки на сервере/i)).toHaveCount(0, { timeout: 10000 });
+
+      // 8C: Three divergent drafts across 3 tabs preserved after reload
+      const pageC = await ctx.newPage();
+      trackPageErrors(pageC, pageErrors, 'xtab-C');
+      try {
+        await pageA.reload();
+        await pageB.reload();
+        await pageC.goto('/applications');
+        await expect(pageC.locator('textarea').nth(0)).toBeVisible({ timeout: 10000 });
+        await pageA.locator('textarea').nth(0).fill(`Draft3A ${suffix}`);
+        await pageB.locator('textarea').nth(0).fill(`Draft3B ${suffix}`);
+        await pageC.locator('textarea').nth(0).fill(`Draft3C ${suffix}`);
+        await pageA.reload();
+        await expect(pageA.getByText(/Сохранено несколько версий черновика \(3\)/i)).toBeVisible({ timeout: 10000 });
+        await pageA.getByRole('button', { name: /Загрузить серверную версию/i }).click();
+        await expect(pageA.getByText(/Сохранено несколько версий черновика/i)).toHaveCount(0, { timeout: 10000 });
+      } finally {
+        await pageC.close();
+      }
+
+      // 8D: Cross-tab delayed PATCH 200 — pageA submits X (delayed genuine 200, moving status to pending),
+      // pageB edits BOTH skills and motivation to Y200 while 200 is pending, pageA does zero more typing,
+      // release 200, immediately reload BOTH pages -> Y200 MUST survive and be recoverable in UI!
+      await pageA.reload();
+      await pageB.reload();
+      await expect(pageA.locator('textarea').nth(0)).toBeVisible({ timeout: 10000 });
+      await expect(pageB.locator('textarea').nth(0)).toBeVisible({ timeout: 10000 });
+
+      await pageA.locator('textarea').nth(0).fill(`TabA X skills 200 ${suffix}`);
+      await pageA.locator('textarea').nth(1).fill(`TabA X mot 200 ${suffix}`);
+
+      let release200;
+      let notify200Arrived;
+      const arrived200 = new Promise((resolve) => { notify200Arrived = resolve; });
+      const hold200 = new Promise((resolve) => { release200 = resolve; });
+      let intercepted200 = false;
+      await pageA.route('**/api/applications/my', async (route) => {
+        if (route.request().method() === 'PATCH' && !intercepted200) {
+          intercepted200 = true;
+          notify200Arrived();
+          const resp = await route.fetch();
+          expect(resp.status()).toBe(200);
+          await hold200;
+          await route.fulfill({ response: resp });
+          return;
+        }
+        await route.continue();
+      });
+
+      await pageA.getByRole('button', { name: /Отправить доработанную заявку|Отправить на повторное/i }).click();
+      await arrived200;
+
+      const ySkills200 = `TabB Y skills 200 ${suffix}`;
+      const yMot200 = `TabB Y motivation 200 ${suffix}`;
+      await pageB.locator('textarea').nth(0).fill(ySkills200);
+      await pageB.locator('textarea').nth(1).fill(yMot200);
+
+      release200();
+      await expect(pageA.getByText(/Сохранённые локальные правки/i)).toBeVisible({ timeout: 10000 });
+
+      // Immediate reload of BOTH pages WITHOUT any additional typing -> BOTH fields of Y200 MUST persist!
+      await pageA.reload();
+      await pageB.reload();
+      await expect(pageB.getByText(ySkills200)).toBeVisible({ timeout: 10000 });
+      await expect(pageB.getByText(yMot200)).toBeVisible({ timeout: 10000 });
+      await expect(pageA.getByText(ySkills200)).toBeVisible({ timeout: 10000 });
+      await expect(pageA.getByText(yMot200)).toBeVisible({ timeout: 10000 });
+
+      // 8E: Clean submit without newer edits clears own draft cleanly and leaves no stale conflict banner
+      await pageA.getByRole('button', { name: /Очистить черновик/i }).click();
+      await pool.query("UPDATE member_applications SET status = 'revision_requested' WHERE id = $1", [appRow.id]);
+      await pageA.reload();
+      await expect(pageA.locator('textarea').nth(0)).toBeVisible({ timeout: 10000 });
+      await pageA.locator('textarea').nth(0).fill(`Clean final skills ${suffix}`);
+      await pageA.getByRole('button', { name: /Отправить доработанную заявку|Отправить на повторное/i }).click();
+      await expect(pageA.getByText(/Clean final skills/i)).toBeVisible({ timeout: 10000 });
+      await pageA.reload();
+      await expect(pageA.getByText(/Сохранённые локальные правки/i)).toHaveCount(0, { timeout: 10000 });
+      await expect(pageA.getByText(/Обнаружено изменение заявки на сервере/i)).toHaveCount(0, { timeout: 10000 });
+    } finally {
+      await ctx.close();
+    }
+
+    expect(pageErrors).toEqual([]);
+  });
 });

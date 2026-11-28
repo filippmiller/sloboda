@@ -102,7 +102,14 @@ interface RevisionDraftFields {
 interface RevisionDraft extends RevisionDraftFields {
   applicationId: number
   baseVersion: number
+  draftRevId: string
+  editorTabId: string
   updatedAt: string
+}
+
+interface StoredRevisionDraftEntry {
+  key: string
+  draft: RevisionDraft
 }
 
 interface RevisionConflict {
@@ -113,15 +120,34 @@ interface RevisionConflict {
   refreshFailed?: boolean
 }
 
+function generateClientToken(prefix: string): string {
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return `${prefix}-${crypto.randomUUID()}`
+    }
+  } catch {
+    // Fallback below
+  }
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+}
+
 function getDraftStorageKey(userId?: string | number | null): string {
   return `sloboda_application_draft:${userId || 'anon'}`
 }
 
-function getRevisionDraftKey(
+function getLegacyRevisionDraftKey(
   userId: string | number | null | undefined,
   appId: number,
 ): string {
   return `sloboda_revision_draft:${userId || 'anon'}:${appId}`
+}
+
+function getTabRevisionDraftKey(
+  userId: string | number | null | undefined,
+  appId: number,
+  tabId: string,
+): string {
+  return `${getLegacyRevisionDraftKey(userId, appId)}:tab:${tabId}`
 }
 
 function readDraft(key: string): Partial<ApplicationDraft> | null {
@@ -144,9 +170,20 @@ function readRevisionDraft(key: string): RevisionDraft | null {
     if (typeof parsed.applicationId !== 'number' || typeof parsed.baseVersion !== 'number') {
       return null
     }
+    const updatedAt = typeof parsed.updatedAt === 'string' ? parsed.updatedAt : ''
+    const draftRevId =
+      typeof parsed.draftRevId === 'string' && parsed.draftRevId.length > 0
+        ? parsed.draftRevId
+        : `legacy:${parsed.applicationId}:${parsed.baseVersion}:${updatedAt || '0'}`
+    const editorTabId =
+      typeof parsed.editorTabId === 'string' && parsed.editorTabId.length > 0
+        ? parsed.editorTabId
+        : 'legacy'
     return {
       applicationId: parsed.applicationId,
       baseVersion: parsed.baseVersion,
+      draftRevId,
+      editorTabId,
       revFullName: typeof parsed.revFullName === 'string' ? parsed.revFullName : '',
       revCity: typeof parsed.revCity === 'string' ? parsed.revCity : '',
       revPrimaryDomain: typeof parsed.revPrimaryDomain === 'string' ? parsed.revPrimaryDomain : 'GEN',
@@ -154,11 +191,39 @@ function readRevisionDraft(key: string): RevisionDraft | null {
       revMotivation: typeof parsed.revMotivation === 'string' ? parsed.revMotivation : '',
       revTrialTaskTitle: typeof parsed.revTrialTaskTitle === 'string' ? parsed.revTrialTaskTitle : '',
       revTrialTaskUrl: typeof parsed.revTrialTaskUrl === 'string' ? parsed.revTrialTaskUrl : '',
-      updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : '',
+      updatedAt,
     }
   } catch {
     return null
   }
+}
+
+function readAllRevisionDrafts(
+  userId: string | number | null | undefined,
+  appId: number,
+): StoredRevisionDraftEntry[] {
+  const basePrefix = getLegacyRevisionDraftKey(userId, appId)
+  const tabPrefix = `${basePrefix}:tab:`
+  const entries: StoredRevisionDraftEntry[] = []
+  try {
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i)
+      if (!key) continue
+      if (key !== basePrefix && !key.startsWith(tabPrefix)) continue
+      const draft = readRevisionDraft(key)
+      if (draft && draft.applicationId === appId) {
+        entries.push({ key, draft })
+      }
+    }
+  } catch {
+    // Ignore storage errors
+  }
+  entries.sort((a, b) => {
+    const timeCmp = (b.draft.updatedAt || '').localeCompare(a.draft.updatedAt || '')
+    if (timeCmp !== 0) return timeCmp
+    return b.key.localeCompare(a.key)
+  })
+  return entries
 }
 
 function writeRevisionDraft(key: string, draft: RevisionDraft): void {
@@ -169,11 +234,16 @@ function writeRevisionDraft(key: string, draft: RevisionDraft): void {
   }
 }
 
-function removeRevisionDraft(key: string): void {
+function removeRevisionDraftIfRevMatches(key: string, expectedDraftRevId: string): boolean {
   try {
+    const current = readRevisionDraft(key)
+    if (!current || current.draftRevId !== expectedDraftRevId) {
+      return false
+    }
     localStorage.removeItem(key)
+    return true
   } catch {
-    // Ignore storage errors
+    return false
   }
 }
 
@@ -191,6 +261,7 @@ export default function Applications() {
   const [revisionConflict, setRevisionConflict] = useState<RevisionConflict | null>(null)
   const [revisionDraftVisible, setRevisionDraftVisible] = useState(false)
   const [retryingConflict, setRetryingConflict] = useState(false)
+  const [recoverableDrafts, setRecoverableDrafts] = useState<StoredRevisionDraftEntry[]>([])
 
   // Initial application form state
   const [fullName, setFullName] = useState('')
@@ -244,6 +315,9 @@ export default function Applications() {
     revTrialTaskUrl: '',
   })
   const revisionEditSeqRef = useRef(0)
+  const tabIdRef = useRef<string>(generateClientToken('tab'))
+  const activeDraftKeyRef = useRef<string | null>(null)
+  const lastDraftRevIdRef = useRef<string | null>(null)
   const activeAppIdRef = useRef<number | null>(null)
   const latestAppVersionRef = useRef<number>(0)
   const requestGenRef = useRef(0)
@@ -316,13 +390,27 @@ export default function Applications() {
       else if (field === 'revTrialTaskUrl') setRevTrialTaskUrl(value)
 
       if (application && application.status === 'revision_requested') {
-        const key = getRevisionDraftKey(effectiveUserId, application.id)
-        writeRevisionDraft(key, {
+        const myKey = getTabRevisionDraftKey(effectiveUserId, application.id, tabIdRef.current)
+        const nextRevId = generateClientToken(`rev-${revisionEditSeqRef.current}`)
+        const prevKey = activeDraftKeyRef.current
+        const prevRevId = lastDraftRevIdRef.current
+
+        writeRevisionDraft(myKey, {
           applicationId: application.id,
           baseVersion: revisionConflict?.draftBaseVersion ?? application.version,
+          draftRevId: nextRevId,
+          editorTabId: tabIdRef.current,
           ...nextFields,
           updatedAt: new Date().toISOString(),
         })
+        // If this tab adopted a recovered draft key from a prior session/reload, remove that old
+        // key ONLY if its draftRevId is still unchanged (never deletes a newer cross-tab write).
+        if (prevKey && prevKey !== myKey && prevRevId) {
+          removeRevisionDraftIfRevMatches(prevKey, prevRevId)
+        }
+        activeDraftKeyRef.current = myKey
+        lastDraftRevIdRef.current = nextRevId
+        setRecoverableDrafts(readAllRevisionDrafts(effectiveUserId, application.id))
         setRevisionDraftVisible(true)
       }
     },
@@ -345,10 +433,12 @@ export default function Applications() {
 
       if (app) {
         const resolvedUserId = res.data.membership?.id ?? authUser?.id ?? app.user_id
-        const revKey = getRevisionDraftKey(resolvedUserId, app.id)
-        const savedRevDraft = readRevisionDraft(revKey)
+        const allDrafts = readAllRevisionDrafts(resolvedUserId, app.id)
+        setRecoverableDrafts(allDrafts)
+        const primaryEntry = allDrafts[0] ?? null
 
-        if (savedRevDraft) {
+        if (primaryEntry) {
+          const savedRevDraft = primaryEntry.draft
           if (revisionEditSeqRef.current === editSeqAtStart) {
             applyRevisionFieldsState({
               revFullName: savedRevDraft.revFullName,
@@ -359,13 +449,17 @@ export default function Applications() {
               revTrialTaskTitle: savedRevDraft.revTrialTaskTitle,
               revTrialTaskUrl: savedRevDraft.revTrialTaskUrl,
             })
+            activeDraftKeyRef.current = primaryEntry.key
+            lastDraftRevIdRef.current = savedRevDraft.draftRevId
           }
           setRevisionDraftVisible(true)
 
-          if (
+          const hasDivergentOrStaleDraft =
+            allDrafts.length > 1 ||
             savedRevDraft.baseVersion !== app.version ||
             app.status !== 'revision_requested'
-          ) {
+
+          if (hasDivergentOrStaleDraft) {
             setRevisionConflict({
               serverVersion: app.version,
               serverStatus: app.status,
@@ -376,6 +470,8 @@ export default function Applications() {
             setRevisionConflict(null)
           }
         } else if (revisionEditSeqRef.current === editSeqAtStart) {
+          activeDraftKeyRef.current = null
+          lastDraftRevIdRef.current = null
           syncRevisionFields(app)
           setRevisionConflict(null)
           setRevisionDraftVisible(false)
@@ -385,6 +481,9 @@ export default function Applications() {
           setNewItemDomain(app.primary_domain)
         }
       } else {
+        activeDraftKeyRef.current = null
+        lastDraftRevIdRef.current = null
+        setRecoverableDrafts([])
         setRevisionConflict(null)
         setRevisionDraftVisible(false)
         const userId = res.data.membership?.id ?? authUser?.id
@@ -425,6 +524,22 @@ export default function Applications() {
   useEffect(() => {
     loadMyApplication()
   }, [loadMyApplication])
+
+  // Keep recoverableDrafts synchronized when another tab edits or resolves drafts
+  useEffect(() => {
+    if (!application) return
+    const prefix = getLegacyRevisionDraftKey(effectiveUserId, application.id)
+    const onStorage = (ev: StorageEvent) => {
+      if (ev.key && ev.key !== prefix && !ev.key.startsWith(`${prefix}:tab:`)) return
+      const allDrafts = readAllRevisionDrafts(effectiveUserId, application.id)
+      setRecoverableDrafts(allDrafts)
+      if (allDrafts.length > 0) {
+        setRevisionDraftVisible(true)
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [application, effectiveUserId])
 
   // Persist draft in sessionStorage while filling initial form
   useEffect(() => {
@@ -589,17 +704,90 @@ export default function Applications() {
     }
   }
 
+  const handleSelectRecoverableDraft = (entry: StoredRevisionDraftEntry) => {
+    const fresh = readRevisionDraft(entry.key) ?? entry.draft
+    applyRevisionFieldsState({
+      revFullName: fresh.revFullName,
+      revCity: fresh.revCity,
+      revPrimaryDomain: fresh.revPrimaryDomain || 'GEN',
+      revSkills: fresh.revSkills,
+      revMotivation: fresh.revMotivation,
+      revTrialTaskTitle: fresh.revTrialTaskTitle,
+      revTrialTaskUrl: fresh.revTrialTaskUrl,
+    })
+    activeDraftKeyRef.current = entry.key
+    lastDraftRevIdRef.current = fresh.draftRevId
+    setRevisionDraftVisible(true)
+    if (application) {
+      setRevisionConflict((prev) =>
+        prev
+          ? { ...prev, draftBaseVersion: fresh.baseVersion }
+          : fresh.baseVersion !== application.version || application.status !== 'revision_requested'
+            ? {
+                serverVersion: application.version,
+                serverStatus: application.status,
+                draftBaseVersion: fresh.baseVersion,
+                serverApplication: application,
+              }
+            : null,
+      )
+    }
+  }
+
+  const handleDiscardSingleDraft = (entry: StoredRevisionDraftEntry) => {
+    if (!application) return
+    removeRevisionDraftIfRevMatches(entry.key, entry.draft.draftRevId)
+    const remaining = readAllRevisionDrafts(effectiveUserId, application.id)
+    setRecoverableDrafts(remaining)
+    if (remaining.length === 0) {
+      activeDraftKeyRef.current = null
+      lastDraftRevIdRef.current = null
+      syncRevisionFields(revisionConflict?.serverApplication ?? application)
+      setRevisionConflict(null)
+      setRevisionDraftVisible(false)
+    } else if (activeDraftKeyRef.current === entry.key) {
+      const next = remaining[0]
+      applyRevisionFieldsState(next.draft)
+      activeDraftKeyRef.current = next.key
+      lastDraftRevIdRef.current = next.draft.draftRevId
+    }
+  }
+
   const handleKeepRevisionDraftForNewVersion = () => {
     if (!application || revisionConflict?.refreshFailed) return
     const targetApp = revisionConflict?.serverApplication ?? application
-    const key = getRevisionDraftKey(effectiveUserId, targetApp.id)
-    writeRevisionDraft(key, {
+    const myKey = getTabRevisionDraftKey(effectiveUserId, targetApp.id, tabIdRef.current)
+    const prevKey = activeDraftKeyRef.current
+    const prevRevId = lastDraftRevIdRef.current
+    const nextRevId = generateClientToken('rev-keep')
+    writeRevisionDraft(myKey, {
       applicationId: targetApp.id,
       baseVersion: targetApp.version,
+      draftRevId: nextRevId,
+      editorTabId: tabIdRef.current,
       ...revisionFieldsRef.current,
       updatedAt: new Date().toISOString(),
     })
-    setRevisionConflict(null)
+    if (prevKey && prevKey !== myKey && prevRevId) {
+      removeRevisionDraftIfRevMatches(prevKey, prevRevId)
+    }
+    activeDraftKeyRef.current = myKey
+    lastDraftRevIdRef.current = nextRevId
+    const remaining = readAllRevisionDrafts(effectiveUserId, targetApp.id)
+    setRecoverableDrafts(remaining)
+    const hasOtherUnresolved = remaining.some(
+      (entry) => entry.key !== myKey && entry.draft.baseVersion !== targetApp.version,
+    )
+    if (hasOtherUnresolved) {
+      setRevisionConflict({
+        serverVersion: targetApp.version,
+        serverStatus: targetApp.status,
+        draftBaseVersion: targetApp.version,
+        serverApplication: targetApp,
+      })
+    } else {
+      setRevisionConflict(null)
+    }
     setRevisionDraftVisible(true)
     toast.success(`Ваши правки сохранены для версии #${targetApp.version}`)
   }
@@ -607,8 +795,35 @@ export default function Applications() {
   const handleLoadServerRevisionVersion = () => {
     if (!application || revisionConflict?.refreshFailed) return
     const targetApp = revisionConflict?.serverApplication ?? application
-    const key = getRevisionDraftKey(effectiveUserId, targetApp.id)
-    removeRevisionDraft(key)
+    // Exact-revision cleanup: only remove the revisions that were visible in this snapshot,
+    // so a concurrent newer write from another tab is never silently deleted.
+    const snapshotToDiscard = recoverableDrafts.length > 0
+      ? recoverableDrafts
+      : activeDraftKeyRef.current && lastDraftRevIdRef.current
+        ? [{ key: activeDraftKeyRef.current, draft: { draftRevId: lastDraftRevIdRef.current } as RevisionDraft }]
+        : []
+    for (const entry of snapshotToDiscard) {
+      removeRevisionDraftIfRevMatches(entry.key, entry.draft.draftRevId)
+    }
+    const remaining = readAllRevisionDrafts(effectiveUserId, targetApp.id)
+    setRecoverableDrafts(remaining)
+    if (remaining.length > 0) {
+      const newest = remaining[0]
+      applyRevisionFieldsState(newest.draft)
+      activeDraftKeyRef.current = newest.key
+      lastDraftRevIdRef.current = newest.draft.draftRevId
+      setRevisionDraftVisible(true)
+      setRevisionConflict({
+        serverVersion: targetApp.version,
+        serverStatus: targetApp.status,
+        draftBaseVersion: newest.draft.baseVersion,
+        serverApplication: targetApp,
+      })
+      toast.warning('Обнаружены более новые правки из другой вкладки — они сохранены')
+      return
+    }
+    activeDraftKeyRef.current = null
+    lastDraftRevIdRef.current = null
     syncRevisionFields(targetApp)
     setRevisionConflict(null)
     setRevisionDraftVisible(false)
@@ -638,6 +853,9 @@ export default function Applications() {
     const appStatusAtStart = application.status
     const userIdAtStart = effectiveUserId
     const editSeqAtStart = revisionEditSeqRef.current
+    const submittedDraftKey = activeDraftKeyRef.current
+    const submittedDraftRevId = lastDraftRevIdRef.current
+    const myTabKey = getTabRevisionDraftKey(userIdAtStart, appId, tabIdRef.current)
 
     setSubmittingRevision(true)
     try {
@@ -659,25 +877,61 @@ export default function Applications() {
         return
       }
       const updatedApp = res.data.application
-      const draftKey = getRevisionDraftKey(userIdAtStart, appId)
       const appliedNewerSnapshot = applyApplicationMonotonic(updatedApp)
+
       if (revisionEditSeqRef.current === editSeqAtStart) {
-        // Submitted draft had zero subsequent local edits: reconcile/clear even if a newer version arrived concurrently
-        removeRevisionDraft(draftKey)
-        setRevisionConflict((prev) => (prev && prev.draftBaseVersion === baseVer ? null : prev))
-        setRevisionDraftVisible(false)
-        if (appliedNewerSnapshot) {
-          syncRevisionFields(updatedApp)
+        // Exact-revision cleanup: ONLY remove the specific submitted revision key/revId.
+        // Another tab's key (`...:tab:<otherTabId>`) is NEVER touched or deleted.
+        if (submittedDraftKey && submittedDraftRevId) {
+          removeRevisionDraftIfRevMatches(submittedDraftKey, submittedDraftRevId)
         }
-        toast.success('Доработанная заявка отправлена на повторное рассмотрение')
+        if (submittedDraftRevId && myTabKey !== submittedDraftKey) {
+          removeRevisionDraftIfRevMatches(myTabKey, submittedDraftRevId)
+        }
+        const remainingDrafts = readAllRevisionDrafts(userIdAtStart, appId)
+        setRecoverableDrafts(remainingDrafts)
+
+        if (remainingDrafts.length === 0) {
+          activeDraftKeyRef.current = null
+          lastDraftRevIdRef.current = null
+          setRevisionConflict((prev) => (prev && prev.draftBaseVersion === baseVer ? null : prev))
+          setRevisionDraftVisible(false)
+          if (appliedNewerSnapshot) {
+            syncRevisionFields(updatedApp)
+          }
+          toast.success('Доработанная заявка отправлена на повторное рассмотрение')
+        } else {
+          // Another tab saved a newer unsent draft while PATCH 200 was in flight: preserve it!
+          const preserved = remainingDrafts[0]
+          applyRevisionFieldsState(preserved.draft)
+          activeDraftKeyRef.current = preserved.key
+          lastDraftRevIdRef.current = preserved.draft.draftRevId
+          setRevisionDraftVisible(true)
+          if (appliedNewerSnapshot) {
+            setRevisionConflict({
+              serverVersion: updatedApp.version,
+              serverStatus: updatedApp.status,
+              draftBaseVersion: preserved.draft.baseVersion,
+              serverApplication: updatedApp,
+              refreshFailed: false,
+            })
+          }
+          toast.warning('Заявка отправлена, но более новые правки из другой вкладки сохранены в черновике')
+        }
       } else {
-        // User typed newer edits while PATCH was in flight: preserve newer edits in durable draft
-        writeRevisionDraft(draftKey, {
+        // User typed newer edits in THIS tab while PATCH was in flight: preserve in this tab's key
+        const nextRevId = lastDraftRevIdRef.current || generateClientToken(`rev-${revisionEditSeqRef.current}`)
+        writeRevisionDraft(myTabKey, {
           applicationId: appId,
           baseVersion: baseVer,
+          draftRevId: nextRevId,
+          editorTabId: tabIdRef.current,
           ...revisionFieldsRef.current,
           updatedAt: new Date().toISOString(),
         })
+        activeDraftKeyRef.current = myTabKey
+        lastDraftRevIdRef.current = nextRevId
+        setRecoverableDrafts(readAllRevisionDrafts(userIdAtStart, appId))
         setRevisionDraftVisible(true)
         if (appliedNewerSnapshot) {
           setRevisionConflict({
@@ -695,14 +949,36 @@ export default function Applications() {
         return
       }
       if (axios.isAxiosError(err) && err.response?.status === 409) {
-        const draftKey = getRevisionDraftKey(userIdAtStart, appId)
-        const existingDraft = readRevisionDraft(draftKey)
-        writeRevisionDraft(draftKey, {
-          applicationId: appId,
-          baseVersion: existingDraft?.baseVersion ?? baseVer,
-          ...revisionFieldsRef.current,
-          updatedAt: new Date().toISOString(),
-        })
+        const myExisting = readRevisionDraft(myTabKey)
+        const hasLocalEdits = revisionEditSeqRef.current !== editSeqAtStart
+        const allBeforeWrite = readAllRevisionDrafts(userIdAtStart, appId)
+        const hasOtherTabDraft = allBeforeWrite.some((entry) => entry.key !== myTabKey)
+
+        // Never overwrite another tab's key. Only ensure this tab's own draft is persisted
+        // if this tab had local edits or no other tab already holds a newer draft.
+        if (hasLocalEdits || (!hasOtherTabDraft && !myExisting)) {
+          const nextRevId = lastDraftRevIdRef.current || generateClientToken('rev-409')
+          writeRevisionDraft(myTabKey, {
+            applicationId: appId,
+            baseVersion: myExisting?.baseVersion ?? baseVer,
+            draftRevId: nextRevId,
+            editorTabId: tabIdRef.current,
+            ...revisionFieldsRef.current,
+            updatedAt: new Date().toISOString(),
+          })
+          activeDraftKeyRef.current = myTabKey
+          lastDraftRevIdRef.current = nextRevId
+        }
+
+        const allAfter = readAllRevisionDrafts(userIdAtStart, appId)
+        setRecoverableDrafts(allAfter)
+        if (!hasLocalEdits && allAfter.length > 0) {
+          // Surface the newest preserved draft (e.g. from another tab) in the UI without overwriting it
+          const newest = allAfter[0]
+          applyRevisionFieldsState(newest.draft)
+          activeDraftKeyRef.current = newest.key
+          lastDraftRevIdRef.current = newest.draft.draftRevId
+        }
         setRevisionDraftVisible(true)
         toast.warning(
           extractApiError(
@@ -722,11 +998,16 @@ export default function Applications() {
             }
             setPortfolio(freshRes.data.portfolio ?? [])
             setMembership(freshRes.data.membership ?? null)
-            const latestDraft = readRevisionDraft(draftKey)
+            const latestDrafts = readAllRevisionDrafts(userIdAtStart, appId)
+            setRecoverableDrafts(latestDrafts)
+            const activeEntry =
+              latestDrafts.find((entry) => entry.key === activeDraftKeyRef.current) ??
+              latestDrafts[0] ??
+              null
             setRevisionConflict({
               serverVersion: freshApp.version,
               serverStatus: freshApp.status,
-              draftBaseVersion: latestDraft?.baseVersion ?? baseVer,
+              draftBaseVersion: activeEntry?.draft.baseVersion ?? baseVer,
               serverApplication: freshApp,
               refreshFailed: false,
             })
@@ -770,6 +1051,8 @@ export default function Applications() {
     const prevVersion = application?.version
     const appStatusAtStart = application?.status
     const userIdAtStart = effectiveUserId
+    const myTabKey =
+      appId !== null ? getTabRevisionDraftKey(userIdAtStart, appId, tabIdRef.current) : null
     setSubmittingPortfolio(true)
     try {
       const res = await api.post<{
@@ -797,14 +1080,17 @@ export default function Applications() {
         res.data.application_version ?? (typeof prevVersion === 'number' ? prevVersion + 1 : 1)
 
       let detectedConcurrentChange = false
-      if (appId !== null && appStatusAtStart) {
-        const revKey = getRevisionDraftKey(userIdAtStart, appId)
-        const latestDraft = readRevisionDraft(revKey)
+      if (appId !== null && appStatusAtStart && myTabKey) {
+        const myDraft = readRevisionDraft(myTabKey)
+        const allDrafts = readAllRevisionDrafts(userIdAtStart, appId)
+        setRecoverableDrafts(allDrafts)
+        const otherTabDrafts = allDrafts.filter((entry) => entry.key !== myTabKey)
+
         if (
           typeof prevVersion === 'number' &&
           nextVersion === prevVersion + 1 &&
           nextVersion >= latestAppVersionRef.current &&
-          (!latestDraft || latestDraft.baseVersion === prevVersion)
+          (!myDraft || myDraft.baseVersion === prevVersion)
         ) {
           latestAppVersionRef.current = Math.max(latestAppVersionRef.current, nextVersion)
           setApplication((prev) =>
@@ -812,26 +1098,34 @@ export default function Applications() {
               ? { ...prev, version: Math.max(prev.version, nextVersion) }
               : prev,
           )
-          if (latestDraft) {
-            writeRevisionDraft(revKey, {
-              ...latestDraft,
+          // Only rebase THIS tab's own draft when version advanced by +1; never mutate another tab's key.
+          if (myDraft) {
+            writeRevisionDraft(myTabKey, {
+              ...myDraft,
               baseVersion: nextVersion,
               updatedAt: new Date().toISOString(),
             })
+            setRecoverableDrafts(readAllRevisionDrafts(userIdAtStart, appId))
+          }
+          // If another tab holds a draft at prevVersion, keep its original baseVersion untouched
+          // and surface the version mismatch explicitly without concealing any edit.
+          if (otherTabDrafts.length > 0) {
+            setRevisionDraftVisible(true)
           }
         } else if (
           typeof prevVersion === 'number' &&
           (nextVersion > prevVersion + 1 ||
             nextVersion < latestAppVersionRef.current ||
-            (latestDraft && latestDraft.baseVersion !== prevVersion))
+            (myDraft && myDraft.baseVersion !== prevVersion))
         ) {
           // Do NOT publish nextVersion onto application before refreshing & reconciling concurrent changes
-          detectedConcurrentChange = Boolean(latestDraft)
-          if (latestDraft && nextVersion >= latestAppVersionRef.current) {
+          const primaryDraft = myDraft ?? allDrafts[0]?.draft ?? null
+          detectedConcurrentChange = Boolean(primaryDraft)
+          if (primaryDraft && nextVersion >= latestAppVersionRef.current) {
             setRevisionConflict({
               serverVersion: nextVersion,
               serverStatus: appStatusAtStart,
-              draftBaseVersion: latestDraft.baseVersion,
+              draftBaseVersion: primaryDraft.baseVersion,
               serverApplication: null,
               refreshFailed: true,
             })
@@ -843,7 +1137,9 @@ export default function Applications() {
               return
             }
             const freshApp = freshRes.data.application ?? null
-            const postRefreshDraft = readRevisionDraft(revKey)
+            const postRefreshDrafts = readAllRevisionDrafts(userIdAtStart, appId)
+            setRecoverableDrafts(postRefreshDrafts)
+            const postRefreshDraft = postRefreshDrafts[0]?.draft ?? null
             if (freshApp && freshApp.id === appId) {
               if (!applyApplicationMonotonic(freshApp)) {
                 return
@@ -876,7 +1172,9 @@ export default function Applications() {
             if (activeAppIdRef.current !== appId) {
               return
             }
-            const postRefreshDraft = readRevisionDraft(revKey)
+            const postRefreshDrafts = readAllRevisionDrafts(userIdAtStart, appId)
+            setRecoverableDrafts(postRefreshDrafts)
+            const postRefreshDraft = postRefreshDrafts[0]?.draft ?? null
             if (postRefreshDraft && nextVersion >= latestAppVersionRef.current) {
               setRevisionConflict({
                 serverVersion: nextVersion,
@@ -1301,6 +1599,53 @@ export default function Applications() {
                       </Button>
                     </div>
                   )
+                )}
+                {recoverableDrafts.length > 1 && (
+                  <div className="pt-2 border-t border-red-500/20 space-y-2">
+                    <p className="text-xs font-medium text-text">
+                      Сохранено несколько версий черновика ({recoverableDrafts.length}):
+                    </p>
+                    <div className="space-y-1.5">
+                      {recoverableDrafts.map((entry, idx) => {
+                        const isSelected = activeDraftKeyRef.current === entry.key
+                        return (
+                          <div
+                            key={entry.key}
+                            className="flex flex-wrap items-center justify-between gap-2 p-2 rounded bg-bg-card/80 border border-border text-xs"
+                          >
+                            <div className="space-y-0.5 min-w-0 flex-1">
+                              <div className="font-medium text-text">
+                                Черновик #{idx + 1} (база v{entry.draft.baseVersion})
+                                {isSelected ? ' · выбран' : ''}
+                              </div>
+                              <div className="text-text-secondary truncate">
+                                Навыки: {entry.draft.revSkills || '—'} · Мотивация:{' '}
+                                {entry.draft.revMotivation || '—'}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant={isSelected ? 'primary' : 'secondary'}
+                                onClick={() => handleSelectRecoverableDraft(entry)}
+                              >
+                                Открыть
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => handleDiscardSingleDraft(entry)}
+                              >
+                                Удалить
+                              </Button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
                 )}
               </div>
             )}

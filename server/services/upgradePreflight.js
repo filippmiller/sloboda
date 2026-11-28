@@ -28,60 +28,656 @@ const CORE_MIGRATION_VERSIONS = [
     '2026-11-26-sloboda-core-r4',
 ];
 
+/**
+ * Complete versioned column contracts derived from R1-R4 migrations and runtime SQL callers.
+ * typeMatch: canonical PG format_type(atttypid, atttypmod) prefix/exact matcher:
+ *  - 'text_like': text | character varying(...)
+ *  - 'integer': integer
+ *  - 'bigint': bigint
+ *  - 'boolean': boolean
+ *  - 'jsonb': jsonb
+ *  - 'numeric': numeric(...)
+ *  - 'timestamp_any': timestamp without time zone | timestamp with time zone
+ *  - 'timestamptz': timestamp with time zone (strictly distinguishes from timestamp without time zone)
+ */
 const R1_REQUIRED_COLUMNS = [
-    { table: 'users', column: 'membership_status' },
-    { table: 'users', column: 'membership_admitted_at' },
-    { table: 'users', column: 'settlement_id' },
-    { table: 'member_applications', column: 'user_id' },
-    { table: 'member_applications', column: 'settlement_id' },
-    { table: 'member_applications', column: 'status' },
-    { table: 'member_applications', column: 'version' },
-    { table: 'portfolio_items', column: 'application_id' },
-    { table: 'portfolio_items', column: 'title' },
-    { table: 'portfolio_items', column: 'domain_code' },
+    // users (core membership extensions)
+    { table: 'users', column: 'membership_status', type: 'text_like', notNull: true },
+    { table: 'users', column: 'membership_admitted_at', type: 'timestamp_any', notNull: false },
+    { table: 'users', column: 'settlement_id', type: 'text_like', notNull: true },
+    // member_applications (all runtime-read/written fields including skills & motivation)
+    { table: 'member_applications', column: 'id', type: 'integer', notNull: true },
+    { table: 'member_applications', column: 'user_id', type: 'integer', notNull: false },
+    { table: 'member_applications', column: 'settlement_id', type: 'text_like', notNull: true },
+    { table: 'member_applications', column: 'full_name', type: 'text_like', notNull: true },
+    { table: 'member_applications', column: 'email', type: 'text_like', notNull: true },
+    { table: 'member_applications', column: 'city', type: 'text_like', notNull: false },
+    { table: 'member_applications', column: 'primary_domain', type: 'text_like', notNull: true },
+    { table: 'member_applications', column: 'skills', type: 'text_like', notNull: false },
+    { table: 'member_applications', column: 'motivation', type: 'text_like', notNull: false },
+    { table: 'member_applications', column: 'trial_task_title', type: 'text_like', notNull: false },
+    { table: 'member_applications', column: 'trial_task_url', type: 'text_like', notNull: false },
+    { table: 'member_applications', column: 'claim_token_hash', type: 'text_like', notNull: false },
+    { table: 'member_applications', column: 'claim_token_used_at', type: 'timestamp_any', notNull: false },
+    { table: 'member_applications', column: 'status', type: 'text_like', notNull: true },
+    { table: 'member_applications', column: 'version', type: 'integer', notNull: true },
+    { table: 'member_applications', column: 'reviewer_id', type: 'integer', notNull: false },
+    { table: 'member_applications', column: 'review_note', type: 'text_like', notNull: false },
+    { table: 'member_applications', column: 'reviewed_at', type: 'timestamp_any', notNull: false },
+    { table: 'member_applications', column: 'created_at', type: 'timestamp_any', notNull: true },
+    { table: 'member_applications', column: 'updated_at', type: 'timestamp_any', notNull: true },
+    // portfolio_items
+    { table: 'portfolio_items', column: 'id', type: 'integer', notNull: true },
+    { table: 'portfolio_items', column: 'user_id', type: 'integer', notNull: false },
+    { table: 'portfolio_items', column: 'application_id', type: 'integer', notNull: true },
+    { table: 'portfolio_items', column: 'title', type: 'text_like', notNull: true },
+    { table: 'portfolio_items', column: 'domain_code', type: 'text_like', notNull: true },
+    { table: 'portfolio_items', column: 'summary', type: 'text_like', notNull: false },
+    { table: 'portfolio_items', column: 'artifact_url', type: 'text_like', notNull: false },
+    { table: 'portfolio_items', column: 'verified', type: 'boolean', notNull: true },
+    { table: 'portfolio_items', column: 'created_at', type: 'timestamp_any', notNull: true },
+    // governance_proposals
+    { table: 'governance_proposals', column: 'id', type: 'integer', notNull: true },
+    { table: 'governance_proposals', column: 'title', type: 'text_like', notNull: true },
+    { table: 'governance_proposals', column: 'description', type: 'text_like', notNull: false },
+    { table: 'governance_proposals', column: 'vote_type', type: 'text_like', notNull: true },
+    { table: 'governance_proposals', column: 'scope_level', type: 'text_like', notNull: true },
+    { table: 'governance_proposals', column: 'settlement_id', type: 'text_like', notNull: true },
+    { table: 'governance_proposals', column: 'authoritative_engine', type: 'text_like', notNull: true },
+    { table: 'governance_proposals', column: 'secret_ballot', type: 'boolean', notNull: true },
+    { table: 'governance_proposals', column: 'seats_count', type: 'integer', notNull: true },
+    { table: 'governance_proposals', column: 'options', type: 'jsonb', notNull: true },
+    { table: 'governance_proposals', column: 'abstain_option_index', type: 'integer', notNull: false },
+    { table: 'governance_proposals', column: 'status', type: 'text_like', notNull: true },
+    { table: 'governance_proposals', column: 'quorum_members_pct', type: 'integer', notNull: true },
+    { table: 'governance_proposals', column: 'quorum_capital_pct', type: 'integer', notNull: true },
+    { table: 'governance_proposals', column: 'closes_at', type: 'timestamp_any', notNull: false },
+    // governance_voter_snapshots
+    { table: 'governance_voter_snapshots', column: 'id', type: 'integer', notNull: true },
+    { table: 'governance_voter_snapshots', column: 'proposal_id', type: 'integer', notNull: true },
+    { table: 'governance_voter_snapshots', column: 'user_id', type: 'integer', notNull: true },
+    { table: 'governance_voter_snapshots', column: 'voter_label', type: 'text_like', notNull: true },
+    { table: 'governance_voter_snapshots', column: 'can_vote_member', type: 'boolean', notNull: true },
+    { table: 'governance_voter_snapshots', column: 'member_weight', type: 'integer', notNull: true },
+    { table: 'governance_voter_snapshots', column: 'can_vote_capital', type: 'boolean', notNull: true },
+    { table: 'governance_voter_snapshots', column: 'capital_weight_kopecks', type: 'bigint', notNull: true },
+    // governance_ballots
+    { table: 'governance_ballots', column: 'id', type: 'integer', notNull: true },
+    { table: 'governance_ballots', column: 'proposal_id', type: 'integer', notNull: true },
+    { table: 'governance_ballots', column: 'snapshot_id', type: 'integer', notNull: true },
+    { table: 'governance_ballots', column: 'user_id', type: 'integer', notNull: true },
+    { table: 'governance_ballots', column: 'chamber', type: 'text_like', notNull: true },
+    { table: 'governance_ballots', column: 'option_index', type: 'integer', notNull: true },
+    { table: 'governance_ballots', column: 'weight_applied', type: 'bigint', notNull: true },
+    // governance_voter_receipts
+    { table: 'governance_voter_receipts', column: 'id', type: 'integer', notNull: true },
+    { table: 'governance_voter_receipts', column: 'proposal_id', type: 'integer', notNull: true },
+    { table: 'governance_voter_receipts', column: 'user_id', type: 'integer', notNull: true },
+    { table: 'governance_voter_receipts', column: 'chamber', type: 'text_like', notNull: true },
+    // governance_secret_ballots
+    { table: 'governance_secret_ballots', column: 'id', type: 'integer', notNull: true },
+    { table: 'governance_secret_ballots', column: 'proposal_id', type: 'integer', notNull: true },
+    { table: 'governance_secret_ballots', column: 'chamber', type: 'text_like', notNull: true },
+    { table: 'governance_secret_ballots', column: 'option_index', type: 'integer', notNull: true },
+    { table: 'governance_secret_ballots', column: 'weight_applied', type: 'bigint', notNull: true },
+    { table: 'governance_secret_ballots', column: 'ballot_hash', type: 'text_like', notNull: true },
+    // council_delegations
+    { table: 'council_delegations', column: 'id', type: 'integer', notNull: true },
+    { table: 'council_delegations', column: 'settlement_id', type: 'text_like', notNull: true },
+    { table: 'council_delegations', column: 'delegate_user_id', type: 'integer', notNull: true },
+    { table: 'council_delegations', column: 'level', type: 'text_like', notNull: true },
+    { table: 'council_delegations', column: 'active', type: 'boolean', notNull: true },
+    // contributions
+    { table: 'contributions', column: 'id', type: 'integer', notNull: true },
+    { table: 'contributions', column: 'settlement_id', type: 'text_like', notNull: true },
+    { table: 'contributions', column: 'purpose', type: 'text_like', notNull: true },
+    { table: 'contributions', column: 'contributor_name', type: 'text_like', notNull: true },
+    { table: 'contributions', column: 'received_kopecks', type: 'bigint', notNull: true },
+    { table: 'contributions', column: 'available_kopecks', type: 'bigint', notNull: true },
+    { table: 'contributions', column: 'reserved_kopecks', type: 'bigint', notNull: true },
+    { table: 'contributions', column: 'paid_kopecks', type: 'bigint', notNull: true },
+    { table: 'contributions', column: 'refunded_kopecks', type: 'bigint', notNull: true },
+    { table: 'contributions', column: 'status', type: 'text_like', notNull: true },
+    { table: 'contributions', column: 'ledger_mode', type: 'text_like', notNull: true },
+    { table: 'contributions', column: 'idempotency_key', type: 'text_like', notNull: false },
+    // construction_milestones
+    { table: 'construction_milestones', column: 'id', type: 'integer', notNull: true },
+    { table: 'construction_milestones', column: 'settlement_id', type: 'text_like', notNull: true },
+    { table: 'construction_milestones', column: 'code', type: 'text_like', notNull: true },
+    { table: 'construction_milestones', column: 'title', type: 'text_like', notNull: true },
+    { table: 'construction_milestones', column: 'category', type: 'text_like', notNull: true },
+    { table: 'construction_milestones', column: 'unit', type: 'text_like', notNull: true },
+    { table: 'construction_milestones', column: 'planned_qty', type: 'numeric', notNull: true },
+    { table: 'construction_milestones', column: 'actual_qty', type: 'numeric', notNull: true },
+    { table: 'construction_milestones', column: 'budget_kopecks', type: 'bigint', notNull: true },
+    { table: 'construction_milestones', column: 'status', type: 'text_like', notNull: true },
+    // ledger_expenses
+    { table: 'ledger_expenses', column: 'id', type: 'integer', notNull: true },
+    { table: 'ledger_expenses', column: 'settlement_id', type: 'text_like', notNull: true },
+    { table: 'ledger_expenses', column: 'purpose', type: 'text_like', notNull: true },
+    { table: 'ledger_expenses', column: 'title', type: 'text_like', notNull: true },
+    { table: 'ledger_expenses', column: 'category', type: 'text_like', notNull: true },
+    { table: 'ledger_expenses', column: 'amount_kopecks', type: 'bigint', notNull: true },
+    { table: 'ledger_expenses', column: 'milestone_id', type: 'integer', notNull: false },
+    { table: 'ledger_expenses', column: 'allocation_rule', type: 'text_like', notNull: true },
+    { table: 'ledger_expenses', column: 'status', type: 'text_like', notNull: true },
+    { table: 'ledger_expenses', column: 'idempotency_key', type: 'text_like', notNull: false },
+    // expense_allocations
+    { table: 'expense_allocations', column: 'id', type: 'integer', notNull: true },
+    { table: 'expense_allocations', column: 'expense_id', type: 'integer', notNull: true },
+    { table: 'expense_allocations', column: 'contribution_id', type: 'integer', notNull: true },
+    { table: 'expense_allocations', column: 'amount_kopecks', type: 'bigint', notNull: true },
+    { table: 'expense_allocations', column: 'allocation_rule', type: 'text_like', notNull: true },
+    // ledger_postings
+    { table: 'ledger_postings', column: 'id', type: 'integer', notNull: true },
+    { table: 'ledger_postings', column: 'posting_type', type: 'text_like', notNull: true },
+    { table: 'ledger_postings', column: 'contribution_id', type: 'integer', notNull: false },
+    { table: 'ledger_postings', column: 'expense_id', type: 'integer', notNull: false },
+    { table: 'ledger_postings', column: 'amount_kopecks', type: 'bigint', notNull: true },
+    { table: 'ledger_postings', column: 'actor_admin_id', type: 'integer', notNull: false },
+    { table: 'ledger_postings', column: 'created_at', type: 'timestamp_any', notNull: true },
 ];
 
 const R2_REQUIRED_COLUMNS = [
-    { table: 'contributions', column: 'request_fingerprint' },
-    { table: 'ledger_expenses', column: 'request_fingerprint' },
-    { table: 'ledger_expenses', column: 'financial_status' },
-    { table: 'ledger_expenses', column: 'dispute_status' },
-    { table: 'ledger_expenses', column: 'version' },
-    { table: 'governance_proposals', column: 'legacy_r1_unsupported' },
-    { table: 'governance_proposals', column: 'legacy_r1_disposition' },
+    { table: 'contributions', column: 'request_fingerprint', type: 'text_like', notNull: false },
+    { table: 'ledger_expenses', column: 'request_fingerprint', type: 'text_like', notNull: false },
+    { table: 'ledger_expenses', column: 'financial_status', type: 'text_like', notNull: true },
+    { table: 'ledger_expenses', column: 'dispute_status', type: 'text_like', notNull: true },
+    { table: 'ledger_expenses', column: 'version', type: 'integer', notNull: true },
+    { table: 'governance_proposals', column: 'legacy_r1_unsupported', type: 'boolean', notNull: true },
+    { table: 'governance_proposals', column: 'legacy_r1_disposition', type: 'text_like', notNull: false },
+    { table: 'governance_proposals', column: 'closes_at', type: 'timestamptz', notNull: false },
 ];
 
-const R2_REQUIRED_INDEXES = [
-    'uq_member_applications_claim_token_hash',
-    'uq_member_applications_one_active_per_user_settlement',
+const R3_REQUIRED_COLUMNS = [
+    { table: 'sloboda_core_gates', column: 'gate_key', type: 'text_like', notNull: true },
+    { table: 'sloboda_core_gates', column: 'is_blocked', type: 'boolean', notNull: true },
+    { table: 'sloboda_core_gates', column: 'report_json', type: 'jsonb', notNull: true },
+    { table: 'sloboda_core_gates', column: 'checked_at', type: 'timestamptz', notNull: true },
 ];
+
+const R1_UNIQUE_CONTRACTS = [
+    {
+        id: 'contributions_idempotency_key_unique',
+        table: 'contributions',
+        columns: ['idempotency_key'],
+        predicateKind: 'none',
+        allowMultipleNulls: true,
+        conflictArbiter: false,
+    },
+    {
+        id: 'ledger_expenses_idempotency_key_unique',
+        table: 'ledger_expenses',
+        columns: ['idempotency_key'],
+        predicateKind: 'none',
+        allowMultipleNulls: true,
+        conflictArbiter: false,
+    },
+    {
+        id: 'construction_milestones_settlement_code_unique',
+        table: 'construction_milestones',
+        columns: ['settlement_id', 'code'],
+        predicateKind: 'none',
+        allowMultipleNulls: false,
+        conflictArbiter: true,
+    },
+    {
+        id: 'governance_voter_snapshots_proposal_user_unique',
+        table: 'governance_voter_snapshots',
+        columns: ['proposal_id', 'user_id'],
+        predicateKind: 'none',
+        allowMultipleNulls: false,
+        conflictArbiter: false,
+    },
+    {
+        id: 'governance_ballots_proposal_user_chamber_unique',
+        table: 'governance_ballots',
+        columns: ['proposal_id', 'user_id', 'chamber'],
+        predicateKind: 'none',
+        allowMultipleNulls: false,
+        conflictArbiter: true,
+    },
+    {
+        id: 'governance_voter_receipts_proposal_user_chamber_unique',
+        table: 'governance_voter_receipts',
+        columns: ['proposal_id', 'user_id', 'chamber'],
+        predicateKind: 'none',
+        allowMultipleNulls: false,
+        conflictArbiter: false,
+    },
+];
+
+const R2_UNIQUE_CONTRACTS = [
+    {
+        id: 'uq_member_applications_claim_token_hash',
+        table: 'member_applications',
+        columns: ['claim_token_hash'],
+        predicateKind: 'claim_token_not_null',
+        allowMultipleNulls: true,
+        conflictArbiter: false,
+    },
+    {
+        id: 'uq_member_applications_one_active_per_user_settlement',
+        table: 'member_applications',
+        columns: ['user_id', 'settlement_id'],
+        predicateKind: 'active_member_application',
+        allowMultipleNulls: false,
+        conflictArbiter: false,
+    },
+    {
+        id: 'uq_expense_allocations_expense_contribution',
+        table: 'expense_allocations',
+        columns: ['expense_id', 'contribution_id'],
+        predicateKind: 'none',
+        allowMultipleNulls: false,
+        conflictArbiter: false,
+    },
+    {
+        id: 'uq_construction_milestones_settlement_id',
+        table: 'construction_milestones',
+        columns: ['settlement_id', 'id'],
+        predicateKind: 'none',
+        allowMultipleNulls: false,
+        conflictArbiter: false,
+    },
+];
+
+const R3_UNIQUE_CONTRACTS = [
+    {
+        id: 'sloboda_core_gates_pkey',
+        table: 'sloboda_core_gates',
+        columns: ['gate_key'],
+        predicateKind: 'none',
+        allowMultipleNulls: false,
+        conflictArbiter: true,
+    },
+];
+
+const REQUIRED_ACTIVE_APPLICATION_STATUSES = [
+    'accepted',
+    'in_review',
+    'pending',
+    'revision_requested',
+];
+
+function matchesColumnType(formattedType, expectedKind) {
+    const t = String(formattedType || '').trim().toLowerCase();
+    if (expectedKind === 'text_like') {
+        return t === 'text' || t === 'character varying' || /^character varying\(\d+\)$/.test(t);
+    }
+    if (expectedKind === 'integer') return t === 'integer';
+    if (expectedKind === 'bigint') return t === 'bigint';
+    if (expectedKind === 'boolean') return t === 'boolean';
+    if (expectedKind === 'jsonb') return t === 'jsonb';
+    if (expectedKind === 'numeric') return t === 'numeric' || /^numeric\(\d+(?:,\d+)?\)$/.test(t);
+    if (expectedKind === 'timestamp_any') {
+        return t === 'timestamp without time zone' || t === 'timestamp with time zone';
+    }
+    if (expectedKind === 'timestamptz') {
+        return t === 'timestamp with time zone';
+    }
+    return false;
+}
+
+function stripBalancedOuterParens(expr) {
+    let s = String(expr || '').trim();
+    while (s.startsWith('(') && s.endsWith(')')) {
+        let depth = 0;
+        let wrapsWhole = true;
+        let inQuote = false;
+        for (let i = 0; i < s.length; i += 1) {
+            const ch = s[i];
+            if (ch === "'") {
+                if (inQuote && s[i + 1] === "'") {
+                    i += 1;
+                    continue;
+                }
+                inQuote = !inQuote;
+                continue;
+            }
+            if (inQuote) continue;
+            if (ch === '(') depth += 1;
+            else if (ch === ')') {
+                depth -= 1;
+                if (depth === 0 && i < s.length - 1) {
+                    wrapsWhole = false;
+                    break;
+                }
+            }
+        }
+        if (!wrapsWhole) break;
+        s = s.slice(1, -1).trim();
+    }
+    return s;
+}
+
+function splitTopLevelLogical(expr, keyword) {
+    const s = stripBalancedOuterParens(expr);
+    const parts = [];
+    let depth = 0;
+    let inQuote = false;
+    let start = 0;
+    const upper = s.toUpperCase();
+    const token = ` ${keyword.toUpperCase()} `;
+    for (let i = 0; i < s.length; i += 1) {
+        const ch = s[i];
+        if (ch === "'") {
+            if (inQuote && s[i + 1] === "'") {
+                i += 1;
+                continue;
+            }
+            inQuote = !inQuote;
+            continue;
+        }
+        if (inQuote) continue;
+        if (ch === '(') depth += 1;
+        else if (ch === ')') depth -= 1;
+        else if (depth === 0 && upper.startsWith(token, i)) {
+            parts.push(s.slice(start, i).trim());
+            i += token.length - 1;
+            start = i + 1;
+        }
+    }
+    parts.push(s.slice(start).trim());
+    return parts.map(stripBalancedOuterParens);
+}
+
+function collapseWsOutsideQuotes(expr) {
+    let out = '';
+    let inQuote = false;
+    let prevSpace = false;
+    const s = String(expr || '');
+    for (let i = 0; i < s.length; i += 1) {
+        const ch = s[i];
+        if (ch === "'") {
+            if (inQuote && s[i + 1] === "'") {
+                out += "''";
+                i += 1;
+                prevSpace = false;
+                continue;
+            }
+            inQuote = !inQuote;
+            out += ch;
+            prevSpace = false;
+            continue;
+        }
+        if (inQuote) {
+            out += ch;
+            continue;
+        }
+        if (/\s/.test(ch)) {
+            if (!prevSpace) {
+                out += ' ';
+                prevSpace = true;
+            }
+        } else {
+            out += ch;
+            prevSpace = false;
+        }
+    }
+    return out.trim();
+}
+
+function matchesClaimTokenPredicate(predicateExpr) {
+    if (predicateExpr === null || predicateExpr === undefined || String(predicateExpr).trim() === '') {
+        return true;
+    }
+    const norm = stripBalancedOuterParens(collapseWsOutsideQuotes(predicateExpr));
+    return /^claim_token_hash\s+IS\s+NOT\s+NULL$/i.test(norm);
+}
+
+function matchesActiveApplicationPredicate(predicateExpr) {
+    if (!predicateExpr || String(predicateExpr).trim() === '') {
+        return false;
+    }
+    const norm = collapseWsOutsideQuotes(predicateExpr);
+    // Reject any top-level OR that could weaken the active-status predicate
+    if (splitTopLevelLogical(norm, 'OR').length > 1) {
+        return false;
+    }
+    const conjuncts = splitTopLevelLogical(norm, 'AND');
+    if (conjuncts.length !== 2) {
+        return false;
+    }
+    let hasUserNotNull = false;
+    let hasExactActiveStatus = false;
+    for (const part of conjuncts) {
+        if (/^user_id\s+IS\s+NOT\s+NULL$/i.test(part)) {
+            hasUserNotNull = true;
+            continue;
+        }
+        // Match PG canonical deparsed form:
+        // ((status)::text = ANY ((ARRAY['pending'::character varying, ...])::text[]))
+        // or status = ANY (ARRAY['pending', ...])
+        const anyMatch = part.match(
+            /^(?:\(status\)|status)(?:::text)?\s*=\s*ANY\s*\(\s*\(?\s*ARRAY\[([^\]]+)\]\s*\)?(?:::text\[\])?\s*\)$/i
+        );
+        if (anyMatch) {
+            const rawItems = anyMatch[1].split(',').map((item) => item.trim());
+            const parsedStatuses = [];
+            let allValidLiterals = true;
+            for (const item of rawItems) {
+                const m = item.match(/^'([^']*)'(?:::(?:character varying|text))?$/i);
+                if (!m) {
+                    allValidLiterals = false;
+                    break;
+                }
+                parsedStatuses.push(m[1]);
+            }
+            if (allValidLiterals) {
+                const sorted = [...new Set(parsedStatuses)].sort();
+                if (
+                    sorted.length === REQUIRED_ACTIVE_APPLICATION_STATUSES.length
+                    && parsedStatuses.length === REQUIRED_ACTIVE_APPLICATION_STATUSES.length
+                    && sorted.every((val, idx) => val === REQUIRED_ACTIVE_APPLICATION_STATUSES[idx])
+                ) {
+                    hasExactActiveStatus = true;
+                }
+            }
+        }
+    }
+    return hasUserNotNull && hasExactActiveStatus;
+}
+
+function matchesSafeR4AbstainCheck(defExpr, convalidated) {
+    if (convalidated !== true) return false;
+    const raw = collapseWsOutsideQuotes(defExpr);
+    if (/\bNOT\s+VALID\b/i.test(raw)) return false;
+    const checkMatch = raw.match(/^CHECK\s*\(([\s\S]+)\)$/i);
+    if (!checkMatch) return false;
+    const body = stripBalancedOuterParens(checkMatch[1]);
+    const disjuncts = splitTopLevelLogical(body, 'OR');
+    if (disjuncts.length !== 3) {
+        return false;
+    }
+    let hasLegacyBypass = false;
+    let hasAbstainNull = false;
+    let hasBoundedCase = false;
+
+    for (const d of disjuncts) {
+        if (/^legacy_r1_unsupported\s*=\s*true$/i.test(d)) {
+            hasLegacyBypass = true;
+            continue;
+        }
+        if (/^abstain_option_index\s+IS\s+NULL$/i.test(d)) {
+            hasAbstainNull = true;
+            continue;
+        }
+        const bounds = splitTopLevelLogical(d, 'AND');
+        if (bounds.length === 2) {
+            let hasLower = false;
+            let hasUpper = false;
+            for (const b of bounds) {
+                if (/^abstain_option_index\s*>=\s*0$/i.test(b)) {
+                    hasLower = true;
+                    continue;
+                }
+                const upperMatch = b.match(
+                    /^abstain_option_index\s*<\s*CASE\s+WHEN\s+([\s\S]+?)\s+THEN\s+jsonb_array_length\(options\)\s+ELSE\s+0\s+END$/i
+                );
+                if (upperMatch) {
+                    const whenConds = splitTopLevelLogical(upperMatch[1], 'AND');
+                    const hasOptNotNull = whenConds.some((c) => /^options\s+IS\s+NOT\s+NULL$/i.test(c));
+                    const hasTypeArray = whenConds.some((c) => /^jsonb_typeof\(options\)\s*=\s*'array'(?:::text)?$/i.test(c));
+                    if (whenConds.length === 2 && hasOptNotNull && hasTypeArray) {
+                        hasUpper = true;
+                    }
+                }
+            }
+            if (hasLower && hasUpper) {
+                hasBoundedCase = true;
+            }
+        }
+    }
+    return hasLegacyBypass && hasAbstainNull && hasBoundedCase;
+}
+
+function columnsEqual(actualCols, expectedCols) {
+    if (!Array.isArray(actualCols) || actualCols.length !== expectedCols.length) {
+        return false;
+    }
+    for (let i = 0; i < expectedCols.length; i += 1) {
+        if (actualCols[i] !== expectedCols[i]) return false;
+    }
+    return true;
+}
+
+function evaluateUniqueContracts(contracts, allIndexes) {
+    const missing = [];
+    const violations = [];
+    for (const contract of contracts) {
+        const sameTargetIndexes = allIndexes.filter((idx) => (
+            idx.table_name === contract.table
+            && idx.indisunique === true
+            && columnsEqual(idx.key_columns, contract.columns)
+        ));
+
+        const predicateMatches = (idx) => {
+            if (contract.predicateKind === 'none') {
+                return idx.predicate_expr === null || idx.predicate_expr === '';
+            }
+            if (contract.predicateKind === 'claim_token_not_null') {
+                return matchesClaimTokenPredicate(idx.predicate_expr);
+            }
+            if (contract.predicateKind === 'active_member_application') {
+                return matchesActiveApplicationPredicate(idx.predicate_expr);
+            }
+            return false;
+        };
+
+        const enforcing = sameTargetIndexes.filter((idx) => (
+            idx.indisvalid === true
+            && idx.indisready === true
+            && idx.indislive === true
+            && idx.indimmediate === true
+            && (!contract.allowMultipleNulls || idx.indnullsnotdistinct !== true)
+            && predicateMatches(idx)
+        ));
+
+        const hasDeferrableArbiter = contract.conflictArbiter && sameTargetIndexes.some((idx) => (
+            idx.indimmediate === false && predicateMatches(idx)
+        ));
+
+        if (enforcing.length === 0) {
+            missing.push(contract.id);
+            violations.push(`missing_or_invalid_unique_contract:${contract.id}`);
+        } else if (hasDeferrableArbiter) {
+            missing.push(contract.id);
+            violations.push(`deferrable_conflict_arbiter_present:${contract.id}`);
+        }
+    }
+    return { missing, violations };
+}
 
 async function getColumnSet(client, tableName) {
     const res = await client.query(
-        `SELECT column_name
-         FROM information_schema.columns
-         WHERE table_schema = 'public' AND table_name = $1`,
+        `SELECT a.attname AS column_name
+         FROM pg_catalog.pg_attribute a
+         JOIN pg_catalog.pg_class c ON c.oid = a.attrelid
+         JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+         WHERE n.nspname = 'public'
+           AND c.relname = $1
+           AND c.relkind IN ('r', 'p')
+           AND a.attnum > 0
+           AND NOT a.attisdropped`,
         [tableName]
     );
     return new Set(res.rows.map((r) => r.column_name));
 }
 
+async function getTableColumnCatalog(client, tableNames) {
+    const res = await client.query(
+        `SELECT c.relname AS table_name,
+                a.attname AS column_name,
+                pg_catalog.format_type(a.atttypid, a.atttypmod) AS formatted_type,
+                a.attnotnull AS not_null
+         FROM pg_catalog.pg_attribute a
+         JOIN pg_catalog.pg_class c ON c.oid = a.attrelid
+         JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+         WHERE n.nspname = 'public'
+           AND c.relkind IN ('r', 'p')
+           AND c.relname = ANY($1::text[])
+           AND a.attnum > 0
+           AND NOT a.attisdropped`,
+        [tableNames]
+    );
+    const catalog = new Map();
+    for (const row of res.rows) {
+        if (!catalog.has(row.table_name)) {
+            catalog.set(row.table_name, new Map());
+        }
+        catalog.get(row.table_name).set(row.column_name, {
+            formatted_type: row.formatted_type,
+            not_null: row.not_null === true,
+        });
+    }
+    return catalog;
+}
+
+function evaluateColumnContracts(contracts, columnCatalog) {
+    const missing = [];
+    const violations = [];
+    for (const reqCol of contracts) {
+        const tableCols = columnCatalog.get(reqCol.table);
+        const info = tableCols ? tableCols.get(reqCol.column) : null;
+        if (!info) {
+            missing.push(`${reqCol.table}.${reqCol.column}`);
+            continue;
+        }
+        if (!matchesColumnType(info.formatted_type, reqCol.type)) {
+            violations.push(
+                `column_type_mismatch:${reqCol.table}.${reqCol.column}:expected_${reqCol.type}:got_${info.formatted_type}`
+            );
+        }
+        if (reqCol.notNull && !info.not_null) {
+            violations.push(`column_nullable_mismatch:${reqCol.table}.${reqCol.column}:expected_not_null`);
+        }
+    }
+    return { missing, violations };
+}
+
 async function inspectCoreSchemaState(client) {
     const allTrackedTables = [...CORE_R1_TABLES, 'sloboda_core_gates', 'schema_migrations'];
     // Use pg_catalog.pg_class instead of information_schema.tables so tables without SELECT
-    // privilege on the connected role are still discovered (never misclassified as NOT_INSTALLED).
+    // privilege on the connected role are still discovered (never misclassified as NOT_INSTALLED),
+    // and check relkind so views/foreign tables cannot spoof real core tables.
     const tblRes = await client.query(
         `SELECT c.relname AS table_name,
+                c.relkind AS relkind,
                 has_table_privilege(c.oid, 'SELECT') AS can_select
          FROM pg_catalog.pg_class c
          JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
          WHERE n.nspname = 'public'
-           AND c.relkind IN ('r', 'p')
            AND c.relname = ANY($1::text[])`,
         [allTrackedTables]
     );
-    const presentSet = new Set(tblRes.rows.map((r) => r.table_name));
-    const unreadableTables = tblRes.rows
+    const nonTableRelations = tblRes.rows
+        .filter((r) => r.relkind !== 'r' && r.relkind !== 'p')
+        .map((r) => `${r.table_name}:${r.relkind}`)
+        .sort();
+    const realTableRows = tblRes.rows.filter((r) => r.relkind === 'r' || r.relkind === 'p');
+    const presentSet = new Set(realTableRows.map((r) => r.table_name));
+    const unreadableTables = realTableRows
         .filter((r) => r.can_select !== true)
         .map((r) => r.table_name)
         .sort();
@@ -98,8 +694,22 @@ async function inspectCoreSchemaState(client) {
             missing_tables: missingCoreTables,
             has_gates_table: hasGatesTable,
             missing_columns: [],
+            missing_indexes: [],
             applied_core_migrations: [],
             reasons: [`insufficient_select_privilege:${unreadableTables.join(',')}`],
+        };
+    }
+
+    if (nonTableRelations.length > 0) {
+        return {
+            schema_state: 'PARTIAL_OR_INCONSISTENT',
+            present_tables: hasGatesTable ? [...presentCoreTables, 'sloboda_core_gates'] : presentCoreTables,
+            missing_tables: missingCoreTables,
+            has_gates_table: hasGatesTable,
+            missing_columns: [],
+            missing_indexes: [],
+            applied_core_migrations: [],
+            reasons: [`invalid_relation_kind:${nonTableRelations.join(',')}`],
         };
     }
 
@@ -120,113 +730,157 @@ async function inspectCoreSchemaState(client) {
     const hasM3 = migSet.has('2026-11-26-sloboda-core-r3');
     const hasM4 = migSet.has('2026-11-26-sloboda-core-r4');
 
-    const userCols = await getColumnSet(client, 'users');
-    const appCols = presentSet.has('member_applications')
-        ? await getColumnSet(client, 'member_applications')
-        : new Set();
-    const portfolioCols = presentSet.has('portfolio_items')
-        ? await getColumnSet(client, 'portfolio_items')
-        : new Set();
-    const contribCols = presentSet.has('contributions')
-        ? await getColumnSet(client, 'contributions')
-        : new Set();
-    const expenseCols = presentSet.has('ledger_expenses')
-        ? await getColumnSet(client, 'ledger_expenses')
-        : new Set();
-    const proposalCols = presentSet.has('governance_proposals')
-        ? await getColumnSet(client, 'governance_proposals')
-        : new Set();
+    const tablesForColumnScan = ['users', ...presentCoreTables, ...(hasGatesTable ? ['sloboda_core_gates'] : [])];
+    const columnCatalog = await getTableColumnCatalog(client, tablesForColumnScan);
 
-    const colMap = {
-        users: userCols,
-        member_applications: appCols,
-        portfolio_items: portfolioCols,
-        contributions: contribCols,
-        ledger_expenses: expenseCols,
-        governance_proposals: proposalCols,
-    };
-    const missingR1Columns = [];
-    for (const reqCol of R1_REQUIRED_COLUMNS) {
-        const cols = colMap[reqCol.table] || new Set();
-        if (!cols.has(reqCol.column)) {
-            missingR1Columns.push(`${reqCol.table}.${reqCol.column}`);
-        }
-    }
-    const missingR2Columns = [];
-    for (const reqCol of R2_REQUIRED_COLUMNS) {
-        const cols = colMap[reqCol.table] || new Set();
-        if (!cols.has(reqCol.column)) {
-            missingR2Columns.push(`${reqCol.table}.${reqCol.column}`);
-        }
-    }
-    const hasAllR2Columns = missingR2Columns.length === 0;
-    const hasAnyR2Columns = missingR2Columns.length < R2_REQUIRED_COLUMNS.length;
+    const r1ColEval = evaluateColumnContracts(R1_REQUIRED_COLUMNS, columnCatalog);
+    const r2ColEval = evaluateColumnContracts(R2_REQUIRED_COLUMNS, columnCatalog);
+    const r3ColEval = evaluateColumnContracts(R3_REQUIRED_COLUMNS, columnCatalog);
 
-    const idxRes = await client.query(
-        `SELECT c.relname AS index_name
-         FROM pg_catalog.pg_class c
-         JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-         JOIN pg_catalog.pg_index i ON i.indexrelid = c.oid
-         WHERE n.nspname = 'public'
-           AND c.relkind = 'i'
-           AND i.indisunique = TRUE
-           AND i.indisvalid = TRUE
-           AND i.indisready = TRUE
-           AND c.relname = ANY($1::text[])`,
-        [R2_REQUIRED_INDEXES]
-    );
-    const presentIdxSet = new Set(idxRes.rows.map((r) => r.index_name));
-    const missingR2Indexes = R2_REQUIRED_INDEXES.filter((idx) => !presentIdxSet.has(idx));
+    const r2OnlyColumnNames = R2_REQUIRED_COLUMNS.filter((c) => c.column !== 'closes_at');
+    const presentR2OnlyCols = r2OnlyColumnNames.filter((reqCol) => {
+        const tableCols = columnCatalog.get(reqCol.table);
+        return Boolean(tableCols && tableCols.has(reqCol.column));
+    });
+    const hasAnyR2Columns = presentR2OnlyCols.length > 0;
+
+    // Fetch ALL indexes on tracked core tables (do not pre-filter flags in SQL so deferrable
+    // conflict arbiters and invalid/non-live/nulls-not-distinct indexes are visible).
+    const idxTables = [...presentCoreTables, ...(hasGatesTable ? ['sloboda_core_gates'] : [])];
+    let allIndexes = [];
+    if (idxTables.length > 0) {
+        const idxRes = await client.query(
+            `SELECT t.relname AS table_name,
+                    ic.relname AS index_name,
+                    i.indisunique,
+                    i.indisvalid,
+                    i.indisready,
+                    i.indislive,
+                    i.indimmediate,
+                    i.indnullsnotdistinct,
+                    pg_catalog.pg_get_expr(i.indpred, i.indrelid) AS predicate_expr,
+                    (
+                        SELECT ARRAY_AGG(
+                            CASE WHEN k.attnum = 0 THEN '__expr__' ELSE a.attname END
+                            ORDER BY k.ord
+                        )
+                        FROM unnest(i.indkey::int2[]) WITH ORDINALITY AS k(attnum, ord)
+                        LEFT JOIN pg_catalog.pg_attribute a
+                          ON a.attrelid = i.indrelid
+                         AND a.attnum = k.attnum
+                         AND NOT a.attisdropped
+                        WHERE k.ord <= i.indnkeyatts
+                    ) AS key_columns
+             FROM pg_catalog.pg_index i
+             JOIN pg_catalog.pg_class ic ON ic.oid = i.indexrelid
+             JOIN pg_catalog.pg_class t ON t.oid = i.indrelid
+             JOIN pg_catalog.pg_namespace n ON n.oid = t.relnamespace
+             WHERE n.nspname = 'public'
+               AND t.relkind IN ('r', 'p')
+               AND ic.relkind = 'i'
+               AND t.relname = ANY($1::text[])`,
+            [idxTables]
+        );
+        allIndexes = idxRes.rows.map((r) => ({
+            table_name: r.table_name,
+            index_name: r.index_name,
+            indisunique: r.indisunique === true,
+            indisvalid: r.indisvalid === true,
+            indisready: r.indisready === true,
+            indislive: r.indislive === true,
+            indimmediate: r.indimmediate === true,
+            indnullsnotdistinct: r.indnullsnotdistinct === true,
+            predicate_expr: r.predicate_expr === null || r.predicate_expr === undefined ? null : String(r.predicate_expr),
+            key_columns: Array.isArray(r.key_columns) ? r.key_columns : [],
+        }));
+    }
+
+    const r1IdxEval = evaluateUniqueContracts(R1_UNIQUE_CONTRACTS, allIndexes);
+    const r2IdxEval = evaluateUniqueContracts(R2_UNIQUE_CONTRACTS, allIndexes);
+    const r3IdxEval = evaluateUniqueContracts(R3_UNIQUE_CONTRACTS, allIndexes);
 
     let hasSafeR4AbstainConstraint = false;
     if (presentSet.has('governance_proposals')) {
         const conRes = await client.query(
             `SELECT c.convalidated AS convalidated,
-                    pg_get_constraintdef(c.oid) AS def
-             FROM pg_constraint c
-             JOIN pg_class t ON t.oid = c.conrelid
-             JOIN pg_namespace n ON n.oid = t.relnamespace
+                    pg_catalog.pg_get_constraintdef(c.oid) AS def
+             FROM pg_catalog.pg_constraint c
+             JOIN pg_catalog.pg_class t ON t.oid = c.conrelid
+             JOIN pg_catalog.pg_namespace n ON n.oid = t.relnamespace
              WHERE n.nspname = 'public'
                AND t.relname = 'governance_proposals'
+               AND c.contype = 'c'
                AND c.conname = 'chk_governance_proposals_abstain_index'`
         );
         const row = conRes.rows[0];
-        const def = String(row?.def || '').replace(/\s+/g, ' ');
-        hasSafeR4AbstainConstraint = (
-            row?.convalidated === true
-            && !/\bNOT\s+VALID\b/i.test(def)
-            && /abstain_option_index\s*<\s*CASE\s+WHEN\b/i.test(def)
-            && /jsonb_typeof\(options\)\s*=\s*'array'(?:::text)?\)*\s+THEN\s+jsonb_array_length\(options\)\s+ELSE\s+0\s+END/i.test(def)
-        );
+        if (row) {
+            hasSafeR4AbstainConstraint = matchesSafeR4AbstainCheck(row.def, row.convalidated);
+        }
     }
 
     const reasons = [];
     let schemaState = 'PARTIAL_OR_INCONSISTENT';
+    let effectiveMissingColumns = [...r1ColEval.missing];
+    let effectiveMissingIndexes = [...r1IdxEval.missing];
 
     if (presentCoreTables.length === 0 && !hasGatesTable && appliedCoreMigrations.length === 0) {
         schemaState = 'NOT_INSTALLED';
+        effectiveMissingColumns = [];
+        effectiveMissingIndexes = [];
     } else if (missingCoreTables.length > 0) {
         reasons.push(`missing_core_tables:${missingCoreTables.join(',')}`);
-    } else if (missingR1Columns.length > 0) {
-        reasons.push(`missing_r1_columns:${missingR1Columns.join(',')}`);
+    } else if (r1ColEval.missing.length > 0) {
+        reasons.push(`missing_r1_columns:${r1ColEval.missing.join(',')}`);
+    } else if (r1ColEval.violations.length > 0) {
+        reasons.push(...r1ColEval.violations);
+    } else if (r1IdxEval.missing.length > 0) {
+        reasons.push(...r1IdxEval.violations);
     } else if (hasM1 && !hasM2 && !hasM3 && !hasM4) {
         if (hasGatesTable) reasons.push('unexpected_sloboda_core_gates_on_r1');
         if (hasAnyR2Columns) reasons.push('unexpected_r2_columns_on_r1');
         if (reasons.length === 0) schemaState = 'INSTALLED_R1';
     } else if (hasM1 && hasM2 && !hasM3 && !hasM4) {
+        effectiveMissingColumns = [...r1ColEval.missing, ...r2ColEval.missing];
+        effectiveMissingIndexes = [...r1IdxEval.missing, ...r2IdxEval.missing];
         if (hasGatesTable) reasons.push('unexpected_sloboda_core_gates_on_r2');
-        if (!hasAllR2Columns) reasons.push(`missing_r2_columns:${missingR2Columns.join(',')}`);
-        if (missingR2Indexes.length > 0) reasons.push(`missing_r2_indexes:${missingR2Indexes.join(',')}`);
+        if (r2ColEval.missing.length > 0) reasons.push(`missing_r2_columns:${r2ColEval.missing.join(',')}`);
+        if (r2ColEval.violations.length > 0) reasons.push(...r2ColEval.violations);
+        if (r2IdxEval.missing.length > 0) {
+            reasons.push(`missing_r2_indexes:${r2IdxEval.missing.join(',')}`);
+            reasons.push(...r2IdxEval.violations);
+        }
         if (reasons.length === 0) schemaState = 'INSTALLED_R2';
     } else if (hasM1 && hasM2 && hasM3 && !hasM4) {
+        effectiveMissingColumns = [...r1ColEval.missing, ...r2ColEval.missing, ...r3ColEval.missing];
+        effectiveMissingIndexes = [...r1IdxEval.missing, ...r2IdxEval.missing, ...r3IdxEval.missing];
         if (!hasGatesTable) reasons.push('missing_sloboda_core_gates_on_r3');
-        if (!hasAllR2Columns) reasons.push(`missing_r2_columns:${missingR2Columns.join(',')}`);
-        if (missingR2Indexes.length > 0) reasons.push(`missing_r2_indexes:${missingR2Indexes.join(',')}`);
+        if (r2ColEval.missing.length > 0) reasons.push(`missing_r2_columns:${r2ColEval.missing.join(',')}`);
+        if (r2ColEval.violations.length > 0) reasons.push(...r2ColEval.violations);
+        if (r3ColEval.missing.length > 0) reasons.push(`missing_r3_columns:${r3ColEval.missing.join(',')}`);
+        if (r3ColEval.violations.length > 0) reasons.push(...r3ColEval.violations);
+        if (r2IdxEval.missing.length > 0) {
+            reasons.push(`missing_r2_indexes:${r2IdxEval.missing.join(',')}`);
+            reasons.push(...r2IdxEval.violations);
+        }
+        if (r3IdxEval.missing.length > 0) {
+            reasons.push(...r3IdxEval.violations);
+        }
         if (reasons.length === 0) schemaState = 'INSTALLED_R3';
     } else if (hasM1 && hasM2 && hasM3 && hasM4) {
+        effectiveMissingColumns = [...r1ColEval.missing, ...r2ColEval.missing, ...r3ColEval.missing];
+        effectiveMissingIndexes = [...r1IdxEval.missing, ...r2IdxEval.missing, ...r3IdxEval.missing];
         if (!hasGatesTable) reasons.push('missing_sloboda_core_gates_on_r4');
-        if (!hasAllR2Columns) reasons.push(`missing_r2_columns:${missingR2Columns.join(',')}`);
-        if (missingR2Indexes.length > 0) reasons.push(`missing_r2_indexes:${missingR2Indexes.join(',')}`);
+        if (r2ColEval.missing.length > 0) reasons.push(`missing_r2_columns:${r2ColEval.missing.join(',')}`);
+        if (r2ColEval.violations.length > 0) reasons.push(...r2ColEval.violations);
+        if (r3ColEval.missing.length > 0) reasons.push(`missing_r3_columns:${r3ColEval.missing.join(',')}`);
+        if (r3ColEval.violations.length > 0) reasons.push(...r3ColEval.violations);
+        if (r2IdxEval.missing.length > 0) {
+            reasons.push(`missing_r2_indexes:${r2IdxEval.missing.join(',')}`);
+            reasons.push(...r2IdxEval.violations);
+        }
+        if (r3IdxEval.missing.length > 0) {
+            reasons.push(...r3IdxEval.violations);
+        }
         if (!hasSafeR4AbstainConstraint) reasons.push('missing_r4_safe_abstain_constraint');
         if (reasons.length === 0) schemaState = 'INSTALLED_R4';
     } else {
@@ -238,8 +892,8 @@ async function inspectCoreSchemaState(client) {
         present_tables: hasGatesTable ? [...presentCoreTables, 'sloboda_core_gates'] : presentCoreTables,
         missing_tables: missingCoreTables,
         has_gates_table: hasGatesTable,
-        missing_columns: [...missingR1Columns, ...missingR2Columns],
-        missing_indexes: missingR2Indexes,
+        missing_columns: effectiveMissingColumns,
+        missing_indexes: effectiveMissingIndexes,
         applied_core_migrations: appliedCoreMigrations,
         reasons,
     };
