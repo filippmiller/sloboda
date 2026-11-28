@@ -629,13 +629,12 @@ function evaluateUniqueContracts(contracts, allIndexes) {
         ));
 
         // If multiple NULLs must be allowed (e.g. optional idempotency_key / claim_token_hash),
-        // reject if ANY companion unique index on the same columns enforces NULLS NOT DISTINCT.
+        // reject if ANY companion unique index (full or partial) on the same columns enforces NULLS NOT DISTINCT.
         const hasNullsNotDistinctCompanion = contract.allowMultipleNulls && sameTargetIndexes.some((idx) => (
             idx.indisvalid === true
             && idx.indisready === true
             && idx.indislive === true
             && idx.indnullsnotdistinct === true
-            && predicateMatches(idx)
         ));
 
         if (enforcing.length === 0) {

@@ -1183,9 +1183,13 @@ export default function Applications() {
               ? { ...prev, version: Math.max(prev.version, nextVersion) }
               : prev,
           )
-          // Rebase the currently selected active draft into a NEW immutable `:rev:<id>` key
-          // (never overwriting another tab's key and never reusing an old draftRevId).
-          if (activeDraft && activeKey) {
+          // Rebase the currently selected active draft (verified by exact draftRevId) into a NEW
+          // immutable `:rev:<id>` key so displayed fields and baseVersion never diverge.
+          if (
+            activeDraft &&
+            activeKey &&
+            (!lastDraftRevIdRef.current || activeDraft.draftRevId === lastDraftRevIdRef.current)
+          ) {
             const rebasedRevId = generateClientToken('rev-rebase')
             const rebasedKey = getImmutableRevisionDraftKey(userIdAtStart, appId, rebasedRevId)
             const wroteRebase = writeRevisionDraft(rebasedKey, {
