@@ -25,6 +25,7 @@ process.env.TEST_NO_DB = 'false';
 
 const rootDir = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), '..');
 const sqlR1 = fs.readFileSync(path.join(rootDir, 'server/migrations/2026-11-26-sloboda-core.sql'), 'utf8');
+const sqlR2 = fs.readFileSync(path.join(rootDir, 'server/migrations/2026-11-26-sloboda-core-r2.sql'), 'utf8');
 const sqlR3 = fs.readFileSync(path.join(rootDir, 'server/migrations/2026-11-26-sloboda-core-r3.sql'), 'utf8');
 const sqlRollback = fs.readFileSync(path.join(rootDir, 'server/migrations/2026-11-26-sloboda-core.rollback.sql'), 'utf8');
 const sqlFallbackReadonly = fs.readFileSync(path.join(rootDir, 'server/migrations/2026-11-26-sloboda-core-r3.fallback-readonly.sql'), 'utf8');
