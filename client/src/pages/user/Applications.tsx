@@ -411,7 +411,6 @@ export default function Applications() {
       else if (field === 'revTrialTaskUrl') setRevTrialTaskUrl(value)
 
       if (application && application.status === 'revision_requested') {
-        const legacyKey = getLegacyRevisionDraftKey(effectiveUserId, application.id)
         const nextRevId = generateClientToken(`rev-${revisionEditSeqRef.current}`)
         const nextKey = getImmutableRevisionDraftKey(effectiveUserId, application.id, nextRevId)
         const prevOwnKey = ownDraftKeyRef.current
@@ -429,16 +428,17 @@ export default function Applications() {
           updatedAt: new Date().toISOString(),
         })
         if (wrote) {
-          // Atomically retire only this tab's own previous immutable revision key.
-          // If this tab recovered the sole draft after reload (or a legacy un-tabbed key),
-          // retire that exact revision key too; NEVER delete another tab's key when 2+ drafts exist.
-          if (prevOwnKey && prevOwnRevId && prevOwnKey !== nextKey) {
+          // Only retire prevOwnKey when this tab was actively editing its OWN draft (never erase
+          // Tab A's own saved draft when Tab A selected and edited Tab B's recovered draft!).
+          // Only retire a single recovered `:rev:` key on reload; never auto-delete legacy mutable keys.
+          if (prevOwnKey && prevOwnRevId && prevActiveKey === prevOwnKey && prevOwnKey !== nextKey) {
             removeExactRevisionDraft(prevOwnKey, prevOwnRevId)
           } else if (
             prevActiveKey &&
             prevActiveRevId &&
             prevActiveKey !== nextKey &&
-            (prevActiveKey === legacyKey || existingBefore.length === 1)
+            prevActiveKey.includes(':rev:') &&
+            existingBefore.length === 1
           ) {
             removeExactRevisionDraft(prevActiveKey, prevActiveRevId)
           }
@@ -811,7 +811,6 @@ export default function Applications() {
   const handleKeepRevisionDraftForNewVersion = () => {
     if (!application || revisionConflict?.refreshFailed) return
     const targetApp = revisionConflict?.serverApplication ?? application
-    const legacyKey = getLegacyRevisionDraftKey(effectiveUserId, targetApp.id)
     const prevOwnKey = ownDraftKeyRef.current
     const prevOwnRevId = ownDraftRevIdRef.current
     const prevActiveKey = activeDraftKeyRef.current
@@ -832,13 +831,14 @@ export default function Applications() {
       toast.error('Не удалось сохранить черновик в локальном хранилище')
       return
     }
-    if (prevOwnKey && prevOwnRevId && prevOwnKey !== nextKey) {
+    if (prevOwnKey && prevOwnRevId && prevActiveKey === prevOwnKey && prevOwnKey !== nextKey) {
       removeExactRevisionDraft(prevOwnKey, prevOwnRevId)
     } else if (
       prevActiveKey &&
       prevActiveRevId &&
       prevActiveKey !== nextKey &&
-      (prevActiveKey === legacyKey || existingBefore.length === 1)
+      prevActiveKey.includes(':rev:') &&
+      existingBefore.length === 1
     ) {
       removeExactRevisionDraft(prevActiveKey, prevActiveRevId)
     }
@@ -930,8 +930,6 @@ export default function Applications() {
     const editSeqAtStart = revisionEditSeqRef.current
     const submittedDraftKey = activeDraftKeyRef.current
     const submittedDraftRevId = lastDraftRevIdRef.current
-    const submittedOwnKey = ownDraftKeyRef.current
-    const submittedOwnRevId = ownDraftRevIdRef.current
 
     setSubmittingRevision(true)
     try {
@@ -956,15 +954,12 @@ export default function Applications() {
       const appliedNewerSnapshot = applyApplicationMonotonic(updatedApp)
 
       if (revisionEditSeqRef.current === editSeqAtStart) {
-        // Atomic exact-revision cleanup: remove ONLY the submitted immutable revision key.
-        // Any newer revision written by another tab lives under its own `:rev:<id>` key and is untouched.
-        if (submittedDraftKey && submittedDraftRevId) {
+        // Atomic exact-revision cleanup: remove ONLY the submitted immutable `:rev:` revision key.
+        // Never touch another tab's key or an unrelated own draft when submitting a recovered draft.
+        if (submittedDraftKey && submittedDraftRevId && submittedDraftKey.includes(':rev:')) {
           removeExactRevisionDraft(submittedDraftKey, submittedDraftRevId)
         }
-        if (submittedOwnKey && submittedOwnRevId && submittedOwnKey !== submittedDraftKey) {
-          removeExactRevisionDraft(submittedOwnKey, submittedOwnRevId)
-        }
-        if (ownDraftKeyRef.current === submittedOwnKey) {
+        if (ownDraftKeyRef.current === submittedDraftKey) {
           ownDraftKeyRef.current = null
           ownDraftRevIdRef.current = null
         }
@@ -1045,7 +1040,12 @@ export default function Applications() {
 
         const allAfter = readAllRevisionDrafts(userIdAtStart, appId)
         setRecoverableDrafts(allAfter)
-        if (!hasLocalEdits && allAfter.length > 0) {
+        // Keep the user's currently selected draft active on screen if it still exists;
+        // only fall back to allAfter[0] if no active key is present.
+        const stillSelected = activeDraftKeyRef.current
+          ? allAfter.find((entry) => entry.key === activeDraftKeyRef.current)
+          : null
+        if (!hasLocalEdits && !stillSelected && allAfter.length > 0) {
           const newest = allAfter[0]
           applyRevisionFieldsState(newest.draft)
           activeDraftKeyRef.current = newest.key
@@ -1191,7 +1191,14 @@ export default function Applications() {
               lastDraftRevIdRef.current = rebasedRevId
               setRevisionConflict((prev) =>
                 prev
-                  ? { ...prev, serverVersion: nextVersion, draftBaseVersion: nextVersion }
+                  ? {
+                      ...prev,
+                      serverVersion: nextVersion,
+                      draftBaseVersion: nextVersion,
+                      serverApplication: prev.serverApplication
+                        ? { ...prev.serverApplication, version: nextVersion }
+                        : null,
+                    }
                   : null,
               )
             }
