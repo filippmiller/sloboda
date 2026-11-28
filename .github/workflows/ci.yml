@@ -1,0 +1,107 @@
+name: Sloboda Core CI
+
+on:
+  push:
+    branches:
+      - master
+      - main
+      - 'feat/**'
+      - 'fix/**'
+  pull_request:
+    branches:
+      - master
+      - main
+
+jobs:
+  verify:
+    name: Lint, Build, PostgreSQL 17 & Playwright E2E
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: sloboda
+          POSTGRES_PASSWORD: sloboda_ci_password
+          POSTGRES_DB: sloboda_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U sloboda -d sloboda_ci"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      DATABASE_URL: postgres://sloboda:sloboda_ci_password@localhost:5432/sloboda_ci
+      JWT_SECRET: ci-test-secret-32-chars-minimum-value
+      ADMIN_EMAIL: admin@sloboda.land
+      ADMIN_PASSWORD: testpassword123
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Print exact commit and tree provenance
+        run: |
+          echo "GITHUB_SHA=${GITHUB_SHA}"
+          echo "HEAD=$(git rev-parse HEAD)"
+          echo "TREE=$(git rev-parse HEAD^{tree})"
+          echo "BASE_MASTER=$(git rev-parse --verify aec59ccdc97f76d5b024333f02dfb0a4ce47175a^{commit})"
+          echo "POSTGRES_VERSION=$(psql "$DATABASE_URL" -tAc 'SELECT version()' || true)"
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install root and client dependencies
+        run: |
+          npm ci
+          cd client && npm ci
+
+      - name: Client ESLint (zero warnings)
+        run: cd client && npm run lint
+
+      - name: Client TypeScript + Vite production build
+        run: cd client && npm run build
+
+      - name: Server syntax check
+        run: |
+          node -c server/index.js
+          node -c server/services/coreStore.js
+          node -c server/services/slobodaCore.js
+          node -c server/routes/applications.js
+          node -c server/routes/governance.js
+          node -c server/routes/ledger.js
+          node -c server/routes/finance.js
+          node -c server/routes/moderation.js
+
+      - name: Real PostgreSQL 17 Core Invariants & Upgrade/Rollback Suite
+        env:
+          ALLOW_DESTRUCTIVE_PG_VERIFY: 'true'
+        run: node scripts/verify-pg-core.mjs
+
+      - name: Actual-Master Fallback Runtime Rehearsal (SLB-R3-E01)
+        env:
+          ALLOW_DESTRUCTIVE_PG_VERIFY: 'true'
+        run: node scripts/rehearse-master-fallback.mjs
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium
+
+      - name: Reset PostgreSQL 17 DB for Built-React UI E2E
+        env:
+          ALLOW_DESTRUCTIVE_PG_VERIFY: 'true'
+        run: node scripts/reset-disposable-pg.mjs
+
+      - name: Playwright Legacy + Acceptance Suite
+        run: npx playwright test
+
+      - name: Playwright Built-React + PostgreSQL 17 UI E2E Suite
+        env:
+          ALLOW_DESTRUCTIVE_PG_VERIFY: 'true'
+        run: npx playwright test --config=playwright.pg-ui.config.js

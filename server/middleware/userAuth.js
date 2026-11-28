@@ -1,12 +1,20 @@
 const { verifyToken } = require('../utils/tokens');
 
+function extractUserToken(req) {
+    const authHeader = req.headers.authorization;
+    if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+        const bearer = authHeader.slice(7).trim();
+        if (bearer) return bearer;
+    }
+    return req.cookies?.userToken || null;
+}
+
 /**
  * Middleware to verify user is authenticated
- * Reads JWT from 'userToken' cookie or Authorization header
+ * Reads JWT from Authorization Bearer header (preferred) or 'userToken' cookie
  */
 function requireUserAuth(req, res, next) {
-    const token = req.cookies?.userToken ||
-                  req.headers.authorization?.replace('Bearer ', '');
+    const token = extractUserToken(req);
 
     if (!token) {
         return res.status(401).json({
@@ -39,8 +47,7 @@ function requireUserAuth(req, res, next) {
  * Optional auth - attaches user if token present, doesn't block
  */
 function optionalUserAuth(req, res, next) {
-    const token = req.cookies?.userToken ||
-                  req.headers.authorization?.replace('Bearer ', '');
+    const token = extractUserToken(req);
 
     if (token) {
         const decoded = verifyToken(token);

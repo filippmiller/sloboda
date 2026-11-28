@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertTriangle, Shield, Ban, AlertCircle, Lock, Trash2, MessageSquare } from 'lucide-react'
 import { ROUTES } from '@/config/routes'
@@ -56,11 +56,7 @@ export default function ForumModeration() {
   const [warnings, setWarnings] = useState<Warning[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchData()
-  }, [activeTab])
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true)
     try {
       if (activeTab === 'log') {
@@ -83,7 +79,11 @@ export default function ForumModeration() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [activeTab])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
 
   const handleLiftBan = async (banId: number) => {
     if (!confirm('Снять бан с пользователя?')) return
@@ -92,7 +92,7 @@ export default function ForumModeration() {
       await axios.post(`/api/forum/moderation/bans/${banId}/lift`)
       toast.success('Бан снят')
       fetchData()
-    } catch (error) {
+    } catch {
       toast.error('Ошибка при снятии бана')
     }
   }

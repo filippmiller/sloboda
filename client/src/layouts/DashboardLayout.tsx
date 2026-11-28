@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { Outlet, NavLink, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
@@ -24,6 +24,8 @@ import {
   MessageSquare,
   Map as MapIcon,
   Award,
+  Briefcase,
+  Vote,
 } from 'lucide-react'
 
 const navKeys = [
@@ -35,6 +37,8 @@ const navKeys = [
   { to: ROUTES.MAP, key: 'common.nav.map', icon: MapIcon },
   { to: ROUTES.BADGES, key: 'common.nav.badges', icon: Award },
   { to: ROUTES.FINANCE, key: 'common.nav.finance', icon: Wallet },
+  { to: ROUTES.APPLICATIONS, key: 'common.nav.applications', icon: Briefcase },
+  { to: ROUTES.GOVERNANCE, key: 'common.nav.governance', icon: Vote },
   { to: ROUTES.BOOKMARKS, key: 'common.nav.bookmarks', icon: Bookmark, shortcut: 'G·B' },
   { to: ROUTES.SUBMIT, key: 'common.nav.submit', icon: Upload },
   { to: ROUTES.PROFILE, key: 'common.nav.profile', icon: User, shortcut: 'G·P' },
@@ -47,8 +51,11 @@ export default function DashboardLayout() {
   const logout = useAuthStore((s) => s.logout)
   const user = useAuthStore((s) => s.user)
   const [unreadCount, setUnreadCount] = useState(0)
-  const [mobileOpen, setMobileOpen] = useState(false)
+  const [mobileMenuPath, setMobileMenuPath] = useState<string | null>(null)
   const [helpOpen, setHelpOpen] = useState(false)
+  const mobileOpen = mobileMenuPath === location.pathname
+  const setMobileOpen = (open: boolean) => setMobileMenuPath(open ? location.pathname : null)
+  const needsOnboarding = Boolean(user && !user.onboardingCompletedAt)
 
   // Enable keyboard shortcuts
   useKeyboardShortcuts({
@@ -56,29 +63,39 @@ export default function DashboardLayout() {
     onHelpOpen: () => setHelpOpen(true),
   })
 
-  // Redirect to onboarding if not completed
-  if (user && !user.onboardingCompletedAt) {
-    return <Navigate to={ROUTES.ONBOARDING} replace />
-  }
+  useEffect(() => {
+    if (needsOnboarding) return
+    let cancelled = false
 
-  const fetchNotificationCount = useCallback(async () => {
-    try {
-      const res = await api.get('/user/notifications')
-      setUnreadCount(res.data.data?.unreadCount ?? 0)
-    } catch {
-      // Non-critical
+    const loadNotificationCount = () => {
+      api.get('/user/notifications')
+        .then((res) => {
+          if (!cancelled) {
+            setUnreadCount(res.data.data?.unreadCount ?? 0)
+          }
+        })
+        .catch(() => {
+          // Non-critical
+        })
     }
-  }, [])
 
-  useEffect(() => {
-    fetchNotificationCount()
-    const interval = setInterval(fetchNotificationCount, 60000)
-    return () => clearInterval(interval)
-  }, [fetchNotificationCount])
+    loadNotificationCount()
+    const interval = setInterval(loadNotificationCount, 60000)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [needsOnboarding])
 
-  useEffect(() => {
-    setMobileOpen(false)
-  }, [location.pathname])
+  // Redirect to onboarding if not completed
+  if (needsOnboarding) {
+    const currentPath = `${location.pathname}${location.search}`
+    const onboardingUrl =
+      currentPath !== ROUTES.DASHBOARD && currentPath.startsWith('/') && !currentPath.startsWith('//')
+        ? `${ROUTES.ONBOARDING}?redirect=${encodeURIComponent(currentPath)}`
+        : ROUTES.ONBOARDING
+    return <Navigate to={onboardingUrl} replace />
+  }
 
   const handleLogout = async () => {
     await logout()
@@ -108,7 +125,7 @@ export default function DashboardLayout() {
       {/* Accent line */}
       <div className="h-px bg-gradient-to-r from-transparent via-accent/20 to-transparent mx-4" />
 
-      <nav className="flex-1 px-3 mt-3 relative">
+      <nav className="flex-1 px-3 mt-3 relative overflow-y-auto">
         {navKeys.map((item) => (
           <NavLink
             key={item.to}

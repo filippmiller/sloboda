@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Button from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Input';
-import { cn } from '@/lib/utils';
+import { cn, getApiErrorMessage } from '@/lib/utils';
 
 interface CommentFormProps {
   threadId: number;
@@ -18,7 +18,6 @@ interface CommentFormProps {
 }
 
 export function CommentForm({
-  threadId,
   parentCommentId,
   onSubmit,
   onCancel,
@@ -45,8 +44,8 @@ export function CommentForm({
       await onSubmit(body.trim());
       setBody('');
       if (onCancel) onCancel();
-    } catch (err: any) {
-      setError(err.response?.data?.error || t('forum.comment.failedToPost'));
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, t('forum.comment.failedToPost')));
     } finally {
       setIsSubmitting(false);
     }

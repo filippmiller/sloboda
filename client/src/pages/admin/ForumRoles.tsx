@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Shield, Award, TrendingUp, Users, MessageSquare, AlertTriangle } from 'lucide-react'
+import { Shield, Award, TrendingUp, MessageSquare, AlertTriangle } from 'lucide-react'
 import { ROUTES } from '@/config/routes'
 import Button from '@/components/ui/Button'
 import Card from '@/components/ui/Card'
@@ -68,7 +68,7 @@ export default function ForumRoles() {
       })
       toast.success(`Пользователь повышен до ${nextTier.label}`)
       fetchUsers()
-    } catch (error) {
+    } catch {
       toast.error('Ошибка при повышении пользователя')
     }
   }
@@ -88,7 +88,7 @@ export default function ForumRoles() {
       })
       toast.success(`Пользователь понижен до ${prevTier.label}`)
       fetchUsers()
-    } catch (error) {
+    } catch {
       toast.error('Ошибка при понижении пользователя')
     }
   }

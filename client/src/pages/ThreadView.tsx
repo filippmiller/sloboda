@@ -8,7 +8,7 @@ import { CommentForm } from '@/components/forum/CommentForm';
 import { VoteButtons } from '@/components/forum/VoteButtons';
 import { ModActions } from '@/components/forum/ModActions';
 import Button from '@/components/ui/Button';
-import { useForumStore } from '@/stores/forumStore';
+import { useForumStore, type Comment as ForumComment } from '@/stores/forumStore';
 import { useAuthStore } from '@/stores/authStore';
 import { formatDistanceToNow } from 'date-fns';
 import { useDateLocale } from '@/hooks/useDateLocale';
@@ -53,11 +53,13 @@ export default function ThreadView() {
   const isModerator = userRole && (userRole.level >= 3); // moderator level or higher
 
   // Build nested comment tree
+  type CommentNode = ForumComment & { replies: CommentNode[] };
+
   const commentTree = useMemo(() => {
     if (!comments.length) return [];
 
-    const commentMap = new Map();
-    const rootComments: any[] = [];
+    const commentMap = new Map<number, CommentNode>();
+    const rootComments: CommentNode[] = [];
 
     // First pass: create map
     comments.forEach(comment => {
@@ -67,7 +69,8 @@ export default function ThreadView() {
     // Second pass: build tree
     comments.forEach(comment => {
       const node = commentMap.get(comment.id);
-      if (comment.parent_comment_id === null) {
+      if (!node) return;
+      if (comment.parent_comment_id === null || comment.parent_comment_id === undefined) {
         rootComments.push(node);
       } else {
         const parent = commentMap.get(comment.parent_comment_id);
@@ -81,7 +84,7 @@ export default function ThreadView() {
   }, [comments]);
 
   // Render comment tree recursively
-  const renderComment = (comment: any) => {
+  const renderComment = (comment: CommentNode) => {
     return (
       <Comment
         key={comment.id}

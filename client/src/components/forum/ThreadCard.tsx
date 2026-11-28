@@ -1,14 +1,12 @@
 // Adapted from Reddit-Clone Post component
 // Source: https://github.com/DurgeshPatil24/Reddit-Clone
 
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { MessageSquare, Edit2, Trash2, Pin, Lock } from 'lucide-react';
 import { VoteButtons } from './VoteButtons';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
-import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { useDateLocale } from '@/hooks/useDateLocale';
 
@@ -61,7 +59,6 @@ export function ThreadCard({
 }: ThreadCardProps) {
   const { t } = useTranslation();
   const dateLocale = useDateLocale();
-  const [isEditing, setIsEditing] = useState(false);
   const isAuthor = currentUserId === authorId;
   const isTextPost = type === 'discussion';
   const deletedText = t('forum.threadCard.deleted');

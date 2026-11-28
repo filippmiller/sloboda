@@ -20,6 +20,8 @@ const Library = lazy(() => import('@/pages/user/Library'))
 const Librarian = lazy(() => import('@/pages/user/Librarian'))
 const KnowledgeSubmit = lazy(() => import('@/pages/user/KnowledgeSubmit'))
 const Finance = lazy(() => import('@/pages/user/Finance'))
+const Applications = lazy(() => import('@/pages/user/Applications'))
+const Governance = lazy(() => import('@/pages/user/Governance'))
 const Bookmarks = lazy(() => import('@/pages/user/Bookmarks'))
 const Notifications = lazy(() => import('@/pages/user/Notifications'))
 const Profile = lazy(() => import('@/pages/user/Profile'))
@@ -37,6 +39,7 @@ const CampaignDetail = lazy(() => import('@/pages/user/CampaignDetail'))
 const AdminLogin = lazy(() => import('@/pages/admin/Login'))
 const AdminDashboard = lazy(() => import('@/pages/admin/Dashboard'))
 const Registrations = lazy(() => import('@/pages/admin/Registrations'))
+const AdminApplications = lazy(() => import('@/pages/admin/Applications'))
 const Users = lazy(() => import('@/pages/admin/Users'))
 const Posts = lazy(() => import('@/pages/admin/Posts'))
 const Knowledge = lazy(() => import('@/pages/admin/Knowledge'))
@@ -94,6 +97,8 @@ function App() {
           <Route path={ROUTES.LIBRARIAN} element={<Safe><Librarian /></Safe>} />
           <Route path={ROUTES.SUBMIT} element={<Safe><KnowledgeSubmit /></Safe>} />
           <Route path={ROUTES.FINANCE} element={<Safe><Finance /></Safe>} />
+          <Route path={ROUTES.APPLICATIONS} element={<Safe><Applications /></Safe>} />
+          <Route path={ROUTES.GOVERNANCE} element={<Safe><Governance /></Safe>} />
           <Route path={ROUTES.BOOKMARKS} element={<Safe><Bookmarks /></Safe>} />
           <Route path={ROUTES.NOTIFICATIONS} element={<Safe><Notifications /></Safe>} />
           <Route path={ROUTES.PROFILE} element={<Safe><Profile /></Safe>} />
@@ -116,6 +121,7 @@ function App() {
         <Route element={<AdminLayout />}>
           <Route path={ROUTES.ADMIN_DASHBOARD} element={<Safe><AdminDashboard /></Safe>} />
           <Route path={ROUTES.ADMIN_REGISTRATIONS} element={<Safe><Registrations /></Safe>} />
+          <Route path={ROUTES.ADMIN_APPLICATIONS} element={<Safe><AdminApplications /></Safe>} />
           <Route path={ROUTES.ADMIN_USERS} element={<Safe><Users /></Safe>} />
           <Route path={ROUTES.ADMIN_POSTS} element={<Safe><Posts /></Safe>} />
           <Route path={ROUTES.ADMIN_KNOWLEDGE} element={<Safe><Knowledge /></Safe>} />

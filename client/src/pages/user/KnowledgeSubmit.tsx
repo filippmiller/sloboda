@@ -246,7 +246,7 @@ export default function KnowledgeSubmit() {
       }
       setFiles((prev) => [...prev, ...toAdd])
     },
-    [files.length],
+    [files.length, t],
   )
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Calendar, MapPin, Users, Download, ArrowLeft } from 'lucide-react'
 import api from '@/services/api'
@@ -46,7 +46,7 @@ export default function EventDetail() {
   const [event, setEvent] = useState<EventDetail | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const fetchEvent = async () => {
+  const fetchEvent = useCallback(async () => {
     try {
       setLoading(true)
       const response = await api.get(`/user/events/${id}`)
@@ -58,11 +58,11 @@ export default function EventDetail() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [id, navigate])
 
   useEffect(() => {
     fetchEvent()
-  }, [id])
+  }, [fetchEvent])
 
   const handleRSVP = async (status: string) => {
     try {

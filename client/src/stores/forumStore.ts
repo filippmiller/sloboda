@@ -1,6 +1,8 @@
 // Forum state management with Zustand
 import { create } from 'zustand';
 import axios from 'axios';
+import api from '@/services/api';
+import { getApiErrorMessage } from '@/lib/utils';
 
 interface Thread {
   id: number;
@@ -23,7 +25,7 @@ interface Thread {
   last_activity_at: string;
 }
 
-interface Comment {
+export interface Comment {
   id: number;
   body: string;
   thread_id: number;
@@ -125,9 +127,9 @@ export const useForumStore = create<ForumState>((set, get) => ({
 
       const response = await axios.get(`/api/forum/threads?${params}`);
       set({ threads: response.data.threads, threadsLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
-        threadsError: error.response?.data?.error || 'Failed to load threads',
+        threadsError: getApiErrorMessage(error, 'Failed to load threads'),
         threadsLoading: false
       });
     }
@@ -142,9 +144,9 @@ export const useForumStore = create<ForumState>((set, get) => ({
         comments: response.data.comments || [],
         threadsLoading: false
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
-        threadsError: error.response?.data?.error || 'Failed to load thread',
+        threadsError: getApiErrorMessage(error, 'Failed to load thread'),
         threadsLoading: false
       });
     }
@@ -202,9 +204,9 @@ export const useForumStore = create<ForumState>((set, get) => ({
         comments: response.data.comments || [],
         commentsLoading: false
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
-        commentsError: error.response?.data?.error || 'Failed to load comments',
+        commentsError: getApiErrorMessage(error, 'Failed to load comments'),
         commentsLoading: false
       });
     }
@@ -265,9 +267,26 @@ export const useForumStore = create<ForumState>((set, get) => ({
   fetchUserRole: async () => {
     set({ roleLoading: true });
     try {
-      const response = await axios.get('/api/roles/user/me');
-      set({ userRole: response.data.role, roleLoading: false });
-    } catch (error) {
+      const response = await api.get('/roles/user/me');
+      const rawRole = response.data.role || response.data.userRole || null;
+      const normalizedRole = rawRole
+        ? {
+            ...rawRole,
+            role: rawRole.role ?? rawRole.role_name ?? 'user',
+            level:
+              typeof rawRole.level === 'number'
+                ? rawRole.level
+                : rawRole.can_manage_roles
+                  ? 4
+                  : rawRole.can_moderate ||
+                      rawRole.role_name === 'moderator' ||
+                      rawRole.role_name === 'super_moderator'
+                    ? 3
+                    : 1,
+          }
+        : null;
+      set({ userRole: normalizedRole, roleLoading: false });
+    } catch {
       set({ roleLoading: false });
     }
   },

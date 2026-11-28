@@ -15,7 +15,7 @@ interface TagAutocompleteProps {
 
 export default function TagAutocomplete({ value, onChange, placeholder }: TagAutocompleteProps) {
   const [input, setInput] = useState('')
-  const [suggestions, setSuggestions] = useState<Tag[]>([])
+  const [searchSuggestions, setSearchSuggestions] = useState<Tag[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [popularTags, setPopularTags] = useState<Tag[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
@@ -30,19 +30,24 @@ export default function TagAutocomplete({ value, onChange, placeholder }: TagAut
 
   // Search tags as user types
   useEffect(() => {
-    if (input.length < 2) {
-      setSuggestions(popularTags)
-      return
-    }
+    if (input.length < 2) return
 
+    let cancelled = false
     const timer = setTimeout(() => {
       api.get('/tags/search', { params: { q: input } })
-        .then(res => setSuggestions(res.data.data ?? []))
-        .catch(() => setSuggestions([]))
+        .then(res => {
+          if (!cancelled) setSearchSuggestions(res.data.data ?? [])
+        })
+        .catch(() => {
+          if (!cancelled) setSearchSuggestions([])
+        })
     }, 300)
 
-    return () => clearTimeout(timer)
-  }, [input, popularTags])
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [input])
 
   // Handle click outside
   useEffect(() => {
@@ -80,7 +85,8 @@ export default function TagAutocomplete({ value, onChange, placeholder }: TagAut
     }
   }
 
-  const filteredSuggestions = suggestions.filter(
+  const activeSuggestions = input.length < 2 ? popularTags : searchSuggestions
+  const filteredSuggestions = activeSuggestions.filter(
     s => !value.includes(s.tag.toLowerCase())
   )
 

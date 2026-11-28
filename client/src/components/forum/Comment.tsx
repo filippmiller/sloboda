@@ -36,7 +36,6 @@ export function Comment({
   id,
   body,
   threadId,
-  parentCommentId,
   authorId,
   authorName,
   voteCount,

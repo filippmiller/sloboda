@@ -13,18 +13,15 @@ function setDb(database) {
     db = database;
 }
 
-const DOMAINS = [
-    { code: 'GEN', name: 'Общие принципы' },
-    { code: 'DOM', name: 'Дом и стройка' },
-    { code: 'EKO', name: 'Еда и хозяйство' },
-    { code: 'ENR', name: 'Энергия' },
-    { code: 'VOD', name: 'Вода' },
-    { code: 'MED', name: 'Здоровье' },
-    { code: 'OBR', name: 'Обучение' },
-    { code: 'NOR', name: 'Право' },
-];
+const { SETTLEMENT_DOMAINS: DOMAINS } = require('../config/domains');
 
 async function ensureTables() {
+    if (!db || !db.pool || typeof db.pool.connect !== 'function') {
+        if (db && typeof db.ensureCommunityTables === 'function') {
+            await db.ensureCommunityTables();
+        }
+        return;
+    }
     const client = await db.pool.connect();
     try {
         await client.query(`
@@ -165,11 +162,14 @@ function mapPoll(row, voterKey) {
         text,
         votes: counts[index] || 0,
     }));
+    const legacyKind = row.kind && row.kind !== 'advisory' ? row.kind : undefined;
     return {
         id: row.id,
         title: row.title,
         body: row.body,
-        kind: row.kind,
+        // Public community polls are ALWAYS advisory on read; historical kind is preserved in DB & legacy_kind.
+        kind: 'advisory',
+        ...(legacyKind ? { legacy_kind: legacyKind } : {}),
         status: row.status,
         author_name: row.author_name,
         ends_at: row.ends_at,
@@ -207,9 +207,67 @@ async function attachPollVotes(polls, voterKey) {
     });
 }
 
+const memCommunity = {
+    polls: [
+        {
+            id: 1,
+            title: 'С чего начать Слободу в ближайшие 90 дней?',
+            body: 'Это совещательный опрос. Голос поможет выбрать приоритет инженерной работы.',
+            options: [
+                'Собрать базу знаний и выбрать кураторов',
+                'Сначала юрист и оформление кооператива/АНО',
+                'Сразу искать землю',
+                'Сначала виртуальное поселение на сайте',
+            ],
+            kind: 'advisory',
+            status: 'published',
+            author_name: 'SLOBODA',
+            created_at: new Date().toISOString(),
+        },
+    ],
+    pollVotes: [],
+    nextPollId: 2,
+    wall: [],
+    news: [
+        {
+            id: 1,
+            title: 'Мы перешли к честному проектированию Слободы',
+            summary: 'На сайте нет нарисованных участников и фейковых платежей. Все публичные сводки и этапы стройки читаются из базы.',
+            source_name: 'SLOBODA',
+            status: 'published',
+            published_at: new Date().toISOString(),
+        },
+    ],
+    curators: [],
+};
+
+function hasPgPool() {
+    return Boolean(db && db.pool && typeof db.pool.query === 'function' && process.env.TEST_NO_DB !== 'true');
+}
+
 router.get('/public/community', optionalUserAuth, async (req, res) => {
     try {
         const voterKey = getVoterKey(req);
+        if (!hasPgPool()) {
+            const polls = memCommunity.polls
+                .filter((p) => p.status === 'published')
+                .map((p) => {
+                    const vote_counts = [];
+                    memCommunity.pollVotes
+                        .filter((v) => v.poll_id === p.id)
+                        .forEach((v) => { vote_counts[v.option_index] = (vote_counts[v.option_index] || 0) + 1; });
+                    const my = memCommunity.pollVotes.find((v) => v.poll_id === p.id && v.voter_key === voterKey);
+                    return mapPoll({ ...p, vote_counts, my_vote: my ? my.option_index : null }, voterKey);
+                });
+            const curators = DOMAINS.map((d) => ({ ...d, leaders: [] }));
+            return res.json({
+                success: true,
+                polls,
+                wall: memCommunity.wall.filter((w) => w.status === 'approved'),
+                news: memCommunity.news.filter((n) => n.status === 'published'),
+                curators,
+            });
+        }
         const [pollsRes, wallRes, newsRes, curatorsRes] = await Promise.all([
             db.pool.query(
                 `SELECT * FROM community_polls WHERE status = 'published' ORDER BY created_at DESC LIMIT 20`
@@ -260,12 +318,39 @@ router.post('/public/polls', requireCsrf, rejectHoneypot, optionalUserAuth, asyn
         const options = Array.isArray(req.body.options)
             ? req.body.options.map((o) => sanitizePlain(o, 120)).filter(Boolean).slice(0, 6)
             : [];
-        const kind = req.body.kind === 'binding' ? 'binding' : 'advisory';
+        if (req.body.kind === 'binding') {
+            return res.status(400).json({
+                success: false,
+                error: 'Публичные опросы могут быть только совещательными. Обязательные решения принимаются в контуре голосований участников.',
+            });
+        }
+        const kind = 'advisory';
 
         if (title.length < 8 || options.length < 2) {
             return res.status(400).json({
                 success: false,
                 error: 'Нужен вопрос не короче 8 символов и минимум два варианта',
+            });
+        }
+
+        if (!hasPgPool()) {
+            const id = memCommunity.nextPollId++;
+            memCommunity.polls.push({
+                id,
+                title,
+                body,
+                options,
+                kind,
+                status: 'pending',
+                author_name: authorName,
+                author_user_id: req.user?.id || null,
+                created_at: new Date().toISOString(),
+            });
+            return res.json({
+                success: true,
+                id,
+                kind,
+                message: 'Опрос отправлен на проверку. Он появится после одобрения.',
             });
         }
 

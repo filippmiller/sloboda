@@ -1,12 +1,12 @@
 // Modal for banning users
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X } from 'lucide-react';
 import Button from '@/components/ui/Button';
-import Input, { Textarea } from '@/components/ui/Input';
+import { Textarea } from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
-import axios from 'axios';
+import api from '@/services/api';
 import { toast } from 'sonner';
+import { getApiErrorMessage } from '@/lib/utils';
 
 interface BanUserModalProps {
   userId: number;
@@ -44,9 +44,13 @@ export function BanUserModal({
 
     setIsSubmitting(true);
     try {
-      await axios.post(`/api/moderation/users/${userId}/ban`, {
+      const expiresAt = duration
+        ? new Date(Date.now() + duration * 3600 * 1000).toISOString()
+        : null;
+      await api.post(`/moderation/users/${userId}/ban`, {
         reason: reason.trim(),
-        duration_hours: duration
+        duration_hours: duration,
+        expiresAt
       });
 
       toast.success(t('forum.moderation.toasts.userBanned', { name: userName }));
@@ -54,8 +58,8 @@ export function BanUserModal({
       onClose();
       setReason('');
       setDuration(24);
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || t('forum.moderation.toasts.failedToBan'));
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, t('forum.moderation.toasts.failedToBan')));
     } finally {
       setIsSubmitting(false);
     }

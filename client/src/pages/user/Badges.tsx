@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { useTranslation } from 'react-i18next'
 import api from '@/services/api'
 import { Loader2, Award, CheckCircle, Lock } from 'lucide-react'
 
@@ -14,7 +13,6 @@ interface Badge {
 }
 
 export default function Badges() {
-  const { t } = useTranslation()
   const [badges, setBadges] = useState<Badge[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -29,7 +27,7 @@ export default function Badges() {
       setError(null)
       const res = await api.get('/user/badges/all')
       setBadges(res.data.data || [])
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error loading badges:', err)
       setError('Failed to load badges')
     } finally {

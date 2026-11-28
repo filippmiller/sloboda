@@ -603,35 +603,47 @@ const App = {
                 </div>
             `;
 
-            // Render chart
-            const ctx = document.getElementById('registrations-chart').getContext('2d');
-            new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: timeseries.data.map(d => new Date(d.date).toLocaleDateString()),
-                    datasets: [{
-                        label: 'Registrations',
-                        data: timeseries.data.map(d => parseInt(d.count)),
-                        borderColor: '#7cb586',
-                        backgroundColor: 'rgba(124, 181, 134, 0.1)',
-                        fill: true,
-                        tension: 0.4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: { stepSize: 1 }
+            // Render chart (resilient when Chart.js CDN is unavailable offline)
+            const chartCanvas = document.getElementById('registrations-chart');
+            const ctx = chartCanvas ? chartCanvas.getContext('2d') : null;
+            try {
+                if (typeof Chart !== 'undefined' && ctx) {
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: timeseries.data.map(d => new Date(d.date).toLocaleDateString()),
+                            datasets: [{
+                                label: 'Registrations',
+                                data: timeseries.data.map(d => parseInt(d.count)),
+                                borderColor: '#7cb586',
+                                backgroundColor: 'rgba(124, 181, 134, 0.1)',
+                                fill: true,
+                                tension: 0.4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: { stepSize: 1 }
+                                }
+                            }
                         }
-                    }
+                    });
+                } else if (chartCanvas && chartCanvas.parentElement) {
+                    chartCanvas.parentElement.innerHTML = '<p class="chart-fallback">Chart unavailable offline</p>';
                 }
-            });
+            } catch (chartErr) {
+                console.warn('Failed to render registrations chart:', chartErr);
+                if (chartCanvas && chartCanvas.parentElement) {
+                    chartCanvas.parentElement.innerHTML = '<p class="chart-fallback">Chart unavailable offline</p>';
+                }
+            }
         } catch (err) {
             console.error('Failed to load dashboard:', err);
             document.getElementById('page-content').innerHTML = `
@@ -1348,40 +1360,66 @@ We have exciting news..."></textarea>
 
             // Motivation chart
             if (breakdown.motivation.length > 0) {
-                new Chart(document.getElementById('motivation-chart').getContext('2d'), {
-                    type: 'doughnut',
-                    data: {
-                        labels: breakdown.motivation.map(m => m.motivation),
-                        datasets: [{
-                            data: breakdown.motivation.map(m => parseInt(m.count)),
-                            backgroundColor: ['#7cb586', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6']
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false
+                const motCanvas = document.getElementById('motivation-chart');
+                const motCtx = motCanvas ? motCanvas.getContext('2d') : null;
+                try {
+                    if (typeof Chart !== 'undefined' && motCtx) {
+                        new Chart(motCtx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: breakdown.motivation.map(m => m.motivation),
+                                datasets: [{
+                                    data: breakdown.motivation.map(m => parseInt(m.count)),
+                                    backgroundColor: ['#7cb586', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6']
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false
+                            }
+                        });
+                    } else if (motCanvas && motCanvas.parentElement) {
+                        motCanvas.parentElement.innerHTML = '<p class="chart-fallback">Chart unavailable offline</p>';
                     }
-                });
+                } catch (chartErr) {
+                    console.warn('Failed to render motivation chart:', chartErr);
+                    if (motCanvas && motCanvas.parentElement) {
+                        motCanvas.parentElement.innerHTML = '<p class="chart-fallback">Chart unavailable offline</p>';
+                    }
+                }
             }
 
             // Participation chart
             if (breakdown.participation.length > 0) {
-                new Chart(document.getElementById('participation-chart').getContext('2d'), {
-                    type: 'bar',
-                    data: {
-                        labels: breakdown.participation.map(p => p.participation),
-                        datasets: [{
-                            label: 'Count',
-                            data: breakdown.participation.map(p => parseInt(p.count)),
-                            backgroundColor: '#7cb586'
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } }
+                const partCanvas = document.getElementById('participation-chart');
+                const partCtx = partCanvas ? partCanvas.getContext('2d') : null;
+                try {
+                    if (typeof Chart !== 'undefined' && partCtx) {
+                        new Chart(partCtx, {
+                            type: 'bar',
+                            data: {
+                                labels: breakdown.participation.map(p => p.participation),
+                                datasets: [{
+                                    label: 'Count',
+                                    data: breakdown.participation.map(p => parseInt(p.count)),
+                                    backgroundColor: '#7cb586'
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { display: false } }
+                            }
+                        });
+                    } else if (partCanvas && partCanvas.parentElement) {
+                        partCanvas.parentElement.innerHTML = '<p class="chart-fallback">Chart unavailable offline</p>';
                     }
-                });
+                } catch (chartErr) {
+                    console.warn('Failed to render participation chart:', chartErr);
+                    if (partCanvas && partCanvas.parentElement) {
+                        partCanvas.parentElement.innerHTML = '<p class="chart-fallback">Chart unavailable offline</p>';
+                    }
+                }
             }
         } catch (err) {
             console.error('Failed to load analytics:', err);

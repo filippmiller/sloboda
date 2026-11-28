@@ -15,7 +15,6 @@ interface VoteButtonsProps {
 }
 
 export function VoteButtons({
-  type,
   voteCount,
   userVote,
   onVote,
@@ -23,8 +22,6 @@ export function VoteButtons({
   disabled = false
 }: VoteButtonsProps) {
   const iconSize = size === 'sm' ? 16 : 20;
-  const upvoteColor = '#c23616'; // SLOBODA accent
-  const downvoteColor = '#4a69bd';
 
   const handleUpvote = () => {
     if (disabled) return;

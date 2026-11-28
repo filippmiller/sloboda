@@ -3116,7 +3116,7 @@ async function removeCommentVote(userId, commentId) {
 
 async function getUserRole(userId) {
     const query = `
-        SELECT * FROM user_roles
+        SELECT * FROM forum_roles
         WHERE user_id = $1
     `;
     const client = await pool.connect();
@@ -3138,7 +3138,7 @@ async function createDefaultUserRole(userId) {
     const defaultRole = ROLE_TIERS.new_user;
 
     const query = `
-        INSERT INTO user_roles (
+        INSERT INTO forum_roles (
             user_id,
             role,
             can_post,
@@ -3149,6 +3149,7 @@ async function createDefaultUserRole(userId) {
             can_delete_own_posts
         )
         VALUES ($1, 'new_user', $2, $3, $4, $5, $6, $7)
+        ON CONFLICT (user_id) DO NOTHING
         RETURNING *
     `;
 
@@ -3166,7 +3167,15 @@ async function createDefaultUserRole(userId) {
 
         await createUserReputation(userId);
 
-        return result.rows[0];
+        if (result.rows.length > 0) {
+            return result.rows[0];
+        }
+
+        const existing = await client.query(
+            'SELECT * FROM forum_roles WHERE user_id = $1',
+            [userId]
+        );
+        return existing.rows[0];
     } finally {
         client.release();
     }
@@ -3188,7 +3197,7 @@ async function updateUserRole(userId, data) {
 
     params.push(userId);
     const query = `
-        UPDATE user_roles
+        UPDATE forum_roles
         SET ${fields.join(', ')}
         WHERE user_id = $${paramIndex}
         RETURNING *
@@ -3209,7 +3218,7 @@ async function updateUserRole(userId, data) {
 
 async function getUserReputation(userId) {
     const query = `
-        SELECT * FROM user_reputation
+        SELECT * FROM forum_reputation
         WHERE user_id = $1
     `;
     const client = await pool.connect();
@@ -3228,14 +3237,22 @@ async function getUserReputation(userId) {
 
 async function createUserReputation(userId) {
     const query = `
-        INSERT INTO user_reputation (user_id)
+        INSERT INTO forum_reputation (user_id)
         VALUES ($1)
+        ON CONFLICT (user_id) DO NOTHING
         RETURNING *
     `;
     const client = await pool.connect();
     try {
         const result = await client.query(query, [userId]);
-        return result.rows[0];
+        if (result.rows.length > 0) {
+            return result.rows[0];
+        }
+        const existing = await client.query(
+            'SELECT * FROM forum_reputation WHERE user_id = $1',
+            [userId]
+        );
+        return existing.rows[0];
     } finally {
         client.release();
     }
@@ -3260,7 +3277,7 @@ async function incrementReputation(userId, action) {
     const fieldUpdate = field ? `, ${field} = ${field} + 1` : '';
 
     const query = `
-        UPDATE user_reputation
+        UPDATE forum_reputation
         SET total_points = total_points + $1,
             last_activity_at = NOW(),
             updated_at = NOW()
@@ -3283,7 +3300,7 @@ async function decrementReputation(userId, action) {
     if (points === 0) return;
 
     const query = `
-        UPDATE user_reputation
+        UPDATE forum_reputation
         SET total_points = total_points - $1,
             updated_at = NOW()
         WHERE user_id = $2
@@ -3335,17 +3352,16 @@ async function getUserCommentsToday(userId) {
 
 async function createModerationAction(data) {
     const query = `
-        INSERT INTO moderation_actions (
+        INSERT INTO forum_moderation_actions (
             moderator_id,
             action_type,
             target_user_id,
             target_comment_id,
             target_thread_id,
-            target_post_id,
             reason,
             details
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING *
     `;
     const client = await pool.connect();
@@ -3356,7 +3372,6 @@ async function createModerationAction(data) {
             data.target_user_id || null,
             data.target_comment_id || null,
             data.target_thread_id || null,
-            data.target_post_id || null,
             data.reason || null,
             data.details ? JSON.stringify(data.details) : null
         ]);
@@ -3372,11 +3387,11 @@ async function getModerationActions(filters = {}) {
     let paramIndex = 1;
 
     if (filters.action_type) {
-        conditions.push(`action_type = $${paramIndex++}`);
+        conditions.push(`ma.action_type = $${paramIndex++}`);
         params.push(filters.action_type);
     }
     if (filters.moderator_id) {
-        conditions.push(`moderator_id = $${paramIndex++}`);
+        conditions.push(`ma.moderator_id = $${paramIndex++}`);
         params.push(filters.moderator_id);
     }
 
@@ -3391,7 +3406,7 @@ async function getModerationActions(filters = {}) {
             ma.*,
             u.name as moderator_name,
             tu.name as target_user_name
-        FROM moderation_actions ma
+        FROM forum_moderation_actions ma
         LEFT JOIN users u ON ma.moderator_id = u.id
         LEFT JOIN users tu ON ma.target_user_id = tu.id
         ${whereClause}
@@ -3410,7 +3425,7 @@ async function getModerationActions(filters = {}) {
 
 async function createUserWarning(data) {
     const query = `
-        INSERT INTO user_warnings (user_id, issued_by, severity, reason)
+        INSERT INTO forum_warnings (user_id, issued_by, severity, reason)
         VALUES ($1, $2, $3, $4)
         RETURNING *
     `;
@@ -3430,7 +3445,7 @@ async function createUserWarning(data) {
 
 async function createUserBan(data) {
     const query = `
-        INSERT INTO user_bans (
+        INSERT INTO forum_bans (
             user_id,
             banned_by,
             ban_type,
@@ -3457,7 +3472,7 @@ async function createUserBan(data) {
 
 async function getActiveBan(userId) {
     const query = `
-        SELECT * FROM user_bans
+        SELECT * FROM forum_bans
         WHERE user_id = $1
             AND is_active = true
             AND (expires_at IS NULL OR expires_at > NOW())
@@ -3476,7 +3491,7 @@ async function getActiveBan(userId) {
 async function assignModeratorCategories(userId, categoryIds) {
     const client = await pool.connect();
     try {
-        await client.query('DELETE FROM moderator_categories WHERE user_id = $1', [userId]);
+        await client.query('DELETE FROM forum_moderator_categories WHERE user_id = $1', [userId]);
 
         if (categoryIds.length > 0) {
             const values = categoryIds.map((catId, idx) =>
@@ -3484,7 +3499,7 @@ async function assignModeratorCategories(userId, categoryIds) {
             ).join(', ');
 
             const query = `
-                INSERT INTO moderator_categories (user_id, category_id)
+                INSERT INTO forum_moderator_categories (user_id, category_id)
                 VALUES ${values}
             `;
 

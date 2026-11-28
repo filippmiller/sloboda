@@ -6,6 +6,38 @@ import { RoleProgress } from './RoleProgress';
 import { ReputationCard } from './ReputationCard';
 import axios from 'axios';
 import { Loader2 } from 'lucide-react';
+import { getApiErrorMessage } from '@/lib/utils';
+
+interface ProgressMetric {
+  current: number;
+  required: number;
+  percentage: number;
+}
+
+interface ForumRoleData {
+  role: string;
+  level: number;
+  reputation?: number;
+  nextRole?: string;
+  nextLevel?: number;
+  progress?: {
+    days?: ProgressMetric;
+    total_points?: ProgressMetric;
+    comments_made?: ProgressMetric;
+    threads_created?: ProgressMetric;
+    upvotes_received?: ProgressMetric;
+  };
+  canPromote?: boolean;
+}
+
+interface ReputationStats {
+  total_points: number;
+  threads_created: number;
+  comments_made: number;
+  upvotes_received: number;
+  best_answers: number;
+  helpful_votes: number;
+}
 
 interface ForumProfileProps {
   userId?: number; // If omitted, shows current user
@@ -15,8 +47,8 @@ export function ForumProfile({ userId }: ForumProfileProps) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [roleData, setRoleData] = useState<any>(null);
-  const [reputationData, setReputationData] = useState<any>(null);
+  const [roleData, setRoleData] = useState<ForumRoleData | null>(null);
+  const [reputationData, setReputationData] = useState<ReputationStats | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -41,8 +73,8 @@ export function ForumProfile({ userId }: ForumProfileProps) {
           best_answers: 0,
           helpful_votes: 0
         });
-      } catch (err: any) {
-        setError(err.response?.data?.error || 'Failed to load forum profile');
+      } catch (err: unknown) {
+        setError(getApiErrorMessage(err, 'Failed to load forum profile'));
       } finally {
         setLoading(false);
       }

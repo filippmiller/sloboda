@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { BarChart3, TrendingUp, Users, MessageSquare, Activity, Award } from 'lucide-react'
 import Card from '@/components/ui/Card'
 import axios from 'axios'
 import { toast } from 'sonner'
-import { format, subDays, startOfDay } from 'date-fns'
+import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 
 interface AnalyticsData {
@@ -37,11 +37,7 @@ export default function ForumAnalytics() {
   const [loading, setLoading] = useState(true)
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('30d')
 
-  useEffect(() => {
-    fetchAnalytics()
-  }, [timeRange])
-
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
     try {
       setLoading(true)
       const response = await axios.get('/api/forum/analytics', {
@@ -54,7 +50,11 @@ export default function ForumAnalytics() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [timeRange])
+
+  useEffect(() => {
+    fetchAnalytics()
+  }, [fetchAnalytics])
 
   if (loading || !data) {
     return (

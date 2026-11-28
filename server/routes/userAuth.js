@@ -61,6 +61,121 @@ setInterval(() => {
     }
 }, LOGIN_WINDOW_MS).unref();
 
+function hasControlChars(str) {
+    for (let i = 0; i < str.length; i += 1) {
+        const code = str.charCodeAt(i);
+        if (code <= 0x1f || code === 0x7f) return true;
+    }
+    return false;
+}
+
+const MAX_REDIRECT_NEST_DEPTH = 2;
+
+function parseSafeInternalRedirect(raw, depth = 0) {
+    if (typeof raw !== 'string') return null;
+    const trimmed = raw.trim();
+    if (
+        !trimmed
+        || !trimmed.startsWith('/')
+        || trimmed.startsWith('//')
+        || trimmed.includes('\\')
+        || /%00/i.test(trimmed)
+        || hasControlChars(trimmed)
+        || /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)
+    ) {
+        return null;
+    }
+    const rawPath = trimmed.split(/[?#]/)[0];
+    if (/%2f|%5c/i.test(rawPath)) {
+        return null;
+    }
+    let decodedRawPath;
+    try {
+        decodedRawPath = decodeURIComponent(rawPath);
+    } catch {
+        return null;
+    }
+    if (
+        !decodedRawPath.startsWith('/')
+        || decodedRawPath.startsWith('//')
+        || decodedRawPath.includes('\\')
+        || hasControlChars(decodedRawPath)
+        || rawPath.split('/').some((seg) => seg === '..')
+        || decodedRawPath.split('/').some((seg) => seg === '..')
+        || /^\/api(\/|$)/i.test(decodedRawPath)
+    ) {
+        return null;
+    }
+    try {
+        const parsed = new URL(trimmed, 'http://sloboda.local');
+        if (
+            parsed.origin !== 'http://sloboda.local'
+            || !parsed.pathname.startsWith('/')
+            || parsed.pathname.startsWith('//')
+        ) {
+            return null;
+        }
+        let decodedCanonicalPath;
+        try {
+            decodedCanonicalPath = decodeURIComponent(parsed.pathname);
+        } catch {
+            return null;
+        }
+        const normalizedLower = parsed.pathname.toLowerCase();
+        const decodedLower = decodedCanonicalPath.toLowerCase();
+        if (
+            normalizedLower === '/api'
+            || normalizedLower.startsWith('/api/')
+            || decodedLower === '/api'
+            || decodedLower.startsWith('/api/')
+            || decodedCanonicalPath.startsWith('//')
+            || decodedCanonicalPath.includes('\\')
+            || hasControlChars(decodedCanonicalPath)
+            || decodedCanonicalPath.split('/').some((seg) => seg === '..')
+        ) {
+            return null;
+        }
+        const nestedRedirects = parsed.searchParams.getAll('redirect');
+        if (nestedRedirects.length > 1) {
+            return null;
+        }
+        if (nestedRedirects.length === 1) {
+            if (depth >= MAX_REDIRECT_NEST_DEPTH) {
+                return null;
+            }
+            if (parseSafeInternalRedirect(nestedRedirects[0], depth + 1) === null) {
+                return null;
+            }
+        }
+        return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    } catch {
+        return null;
+    }
+}
+
+function sanitizeInternalRedirect(raw, fallback = '/dashboard') {
+    return parseSafeInternalRedirect(raw, 0) ?? fallback;
+}
+
+function getPublicAppOrigin(req) {
+    const configured = (
+        process.env.PUBLIC_APP_URL
+        || process.env.APP_URL
+        || process.env.FRONTEND_URL
+        || ''
+    ).trim().replace(/\/+$/, '');
+    if (configured) return configured;
+    if (process.env.NODE_ENV === 'production') {
+        throw new Error('PUBLIC_APP_URL is required in production');
+    }
+    const host = typeof req?.get === 'function' ? (req.get('host') || '').trim() : '';
+    if (/^(localhost|127\.0\.0\.1)(:\d+)?$/i.test(host)) {
+        const protocol = req.protocol === 'https' ? 'https' : 'http';
+        return `${protocol}://${host}`;
+    }
+    return 'http://localhost:3000';
+}
+
 /**
  * Generate JWT for user (different payload from admin)
  */
@@ -151,7 +266,8 @@ router.post('/login', async (req, res) => {
             user: {
                 id: user.id,
                 email: user.email,
-                name: user.name
+                name: user.name,
+                onboardingCompletedAt: user.onboarding_completed_at || null
             }
         });
     } catch (err) {
@@ -187,6 +303,10 @@ router.post('/magic-link', async (req, res) => {
 
         recordLoginAttempt(`magic:${emailLower}`);
 
+        // Fail fast on missing PUBLIC_APP_URL in production BEFORE user lookup/token mutation (prevents account enumeration)
+        const origin = getPublicAppOrigin(req);
+        const safeRedirect = sanitizeInternalRedirect(req.body.redirect, '/dashboard');
+
         const user = await db.getUserByEmail(emailLower);
         if (!user) {
             // Don't reveal whether user exists
@@ -213,9 +333,13 @@ router.post('/magic-link', async (req, res) => {
             magicLinkExpires: expires
         });
 
+        const redirectQuery = safeRedirect !== '/dashboard'
+            ? `&redirect=${encodeURIComponent(safeRedirect)}`
+            : '';
+        const magicLink = `${origin}/api/user/auth/magic-link/verify?token=${magicToken}${redirectQuery}`;
+
         // Send magic link email
         if (emailService) {
-            const magicLink = `${req.protocol}://${req.get('host')}/api/user/auth/magic-link/verify?token=${magicToken}`;
             emailService.sendEmail({
                 to: user.email,
                 subject: 'SLOBODA - Login Link',
@@ -223,10 +347,14 @@ router.post('/magic-link', async (req, res) => {
             }).catch(err => console.error('Magic link email error:', err));
         }
 
-        res.json({
+        const payload = {
             success: true,
             message: 'If an account with that email exists, a magic link has been sent.'
-        });
+        };
+        if (process.env.NODE_ENV === 'test') {
+            payload.debugMagicLink = magicLink;
+        }
+        res.json(payload);
     } catch (err) {
         console.error('Magic link error:', err);
         res.status(500).json({ success: false, error: 'Failed to send magic link' });
@@ -287,8 +415,12 @@ router.get('/magic-link/verify', async (req, res) => {
             maxAge: 24 * 60 * 60 * 1000
         });
 
-        // Redirect to dashboard after successful magic link login
-        res.redirect('/dashboard');
+        // Redirect to onboarding if incomplete, otherwise safe internal redirect
+        const safeRedirect = sanitizeInternalRedirect(req.query.redirect, '/dashboard');
+        if (!user.onboarding_completed_at && !safeRedirect.startsWith('/onboarding')) {
+            return res.redirect(`/onboarding?redirect=${encodeURIComponent(safeRedirect)}`);
+        }
+        res.redirect(safeRedirect);
     } catch (err) {
         console.error('Magic link verify error:', err);
         res.status(500).json({ success: false, error: 'Failed to verify magic link' });
@@ -431,7 +563,8 @@ router.post('/accept-invite', async (req, res) => {
             user: {
                 id: user.id,
                 email: user.email,
-                name: user.name
+                name: user.name,
+                onboardingCompletedAt: user.onboarding_completed_at || null
             }
         });
     } catch (err) {

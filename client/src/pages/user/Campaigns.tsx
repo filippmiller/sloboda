@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { Heart, Plus, TrendingUp, Users } from 'lucide-react'
 import api from '@/services/api'
@@ -29,7 +29,7 @@ export default function Campaigns() {
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
 
-  const fetchCampaigns = async () => {
+  const fetchCampaigns = useCallback(async () => {
     try {
       setLoading(true)
       const endpoint = view === 'my' ? '/user/campaigns/my' : '/user/campaigns'
@@ -41,11 +41,11 @@ export default function Campaigns() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [view])
 
   useEffect(() => {
     fetchCampaigns()
-  }, [view])
+  }, [fetchCampaigns])
 
   const handleCampaignCreated = () => {
     setShowCreateModal(false)

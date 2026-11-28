@@ -386,5 +386,9 @@ module.exports = {
     getTransactionById,
     updateTransaction,
     deleteTransaction,
+
+    // landing & funding goals (test-mode parity)
+    getLandingPageContent: async () => [],
+    getActiveFundingGoal: async () => null,
 };
 

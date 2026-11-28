@@ -22,7 +22,7 @@ const { router: authRouter, setDb: setAuthDb } = require('./routes/auth');
 const { router: userAuthRouter, setDb: setUserAuthDb, setEmailService: setUserAuthEmailService } = require('./routes/userAuth');
 const { router: userPortalRouter, setDb: setUserPortalDb } = require('./routes/userPortal');
 const { router: adminContentRouter, setDb: setAdminContentDb, setEmailService: setAdminContentEmailService } = require('./routes/adminContent');
-const { router: financeRouter, setDb: setFinanceDb } = require('./routes/finance');
+const { router: financeRouter, setDb: setFinanceDb, invalidatePublicFinanceCache } = require('./routes/finance');
 const { router: landingContentRouter, setDb: setLandingContentDb } = require('./routes/landingContent');
 const { router: forumRouter, setDb: setForumDb } = require('./routes/forum');
 const { router: commentsRouter, setDb: setCommentsDb } = require('./routes/comments');
@@ -313,6 +313,26 @@ app.use('/api/public/intents', communityWriteLimiter);
 app.use('/api/public/curators', communityWriteLimiter);
 app.use('/api', community.router);
 
+// Sloboda Core Platform: Applications/Portfolio, Governance/Voting, Conservation Ledger & Construction Panel
+const coreStore = require('./services/coreStore');
+coreStore.setDb(db);
+const applicationsRoutes = require('./routes/applications');
+const governanceRoutes = require('./routes/governance');
+const ledgerRoutes = require('./routes/ledger');
+ledgerRoutes.setOnLedgerMutated(invalidatePublicFinanceCache);
+
+const coreWriteLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: process.env.NODE_ENV === 'test' ? 500 : 60,
+    message: { success: false, error: 'Слишком много запросов. Повторите позже.' },
+});
+app.use('/api/applications', coreWriteLimiter);
+app.use('/api/governance', coreWriteLimiter);
+app.use('/api/admin/ledger', coreWriteLimiter);
+app.use('/api', applicationsRoutes.router);
+app.use('/api', governanceRoutes.router);
+app.use('/api', ledgerRoutes.router);
+
 // ============================================
 // IMAGE UPLOAD ROUTE (authenticated)
 // ============================================
@@ -518,7 +538,7 @@ app.post('/api/register', registrationLimiter, requireCsrf, rejectHoneypot, asyn
 });
 
 // API: Get registration statistics (public)
-app.get('/api/stats', async (req, res) => {
+async function handlePublicStats(req, res) {
     try {
         const count = await db.getRegistrationCount();
         res.json({
@@ -531,7 +551,9 @@ app.get('/api/stats', async (req, res) => {
         console.error('Error fetching stats:', err);
         res.status(500).json({ success: false, error: 'Failed to fetch statistics' });
     }
-});
+}
+app.get('/api/stats', handlePublicStats);
+app.get('/api/public/stats', handlePublicStats);
 
 // API: Get active funding goal (public)
 app.get('/api/public/funding-goal', async (req, res) => {
@@ -1143,16 +1165,25 @@ async function seedDefaultAdmin() {
         return;
     }
 
-    // Reset admin password if environment variable is set
+    // Reset admin password if environment variable is set (scoped to ADMIN_EMAIL in test/stub mode)
     if (process.env.RESET_ADMIN_PASSWORD === 'true') {
         const passwordHash = await bcrypt.hash(password, 12);
-        const reset = await db.pool.query(
-            'UPDATE admins SET password_hash = $1, must_change_password = TRUE WHERE password_hash IS NOT NULL',
-            [passwordHash]
-        );
-        console.log(`Password reset for ${reset.rowCount} admin(s). Set RESET_ADMIN_PASSWORD=false after login.`);
-        if (reset.rowCount === 0) {
-            await createSuperAdmin(email, password, name);
+        if (db.pool && typeof db.pool.query === 'function' && process.env.TEST_NO_DB !== 'true') {
+            const reset = await db.pool.query(
+                'UPDATE admins SET password_hash = $1, must_change_password = TRUE WHERE email = $2 AND password_hash IS NOT NULL',
+                [passwordHash, email.toLowerCase()]
+            );
+            console.log(`Password reset for ${reset.rowCount} admin(s) (${email}). Set RESET_ADMIN_PASSWORD=false after login.`);
+            if (reset.rowCount === 0) {
+                await createSuperAdmin(email, password, name);
+            }
+        } else {
+            const existing = await db.getAdminByEmail(email);
+            if (existing) {
+                await db.updateAdminPassword(existing.id, passwordHash, false);
+            } else {
+                await createSuperAdmin(email, password, name);
+            }
         }
         return;
     }
@@ -1186,29 +1217,32 @@ async function start() {
         // Initialize database
         await db.initDatabase();
         await community.ensureTables();
+        await coreStore.ensureCoreSchema();
 
-        // Auto-run forum migrations if MIGRATE_ON_START=true
-        const { checkAndRunMigrations } = require('./scripts/migrate-on-startup');
-        await checkAndRunMigrations();
+        // Auto-run forum migrations if MIGRATE_ON_START=true (skip when TEST_NO_DB=true)
+        if (process.env.TEST_NO_DB !== 'true') {
+            const { checkAndRunMigrations } = require('./scripts/migrate-on-startup');
+            await checkAndRunMigrations();
 
-        // Set up role progression checks (every 6 hours)
-        const roleProgressionService = require('./services/roleProgressionService');
-        setInterval(async () => {
-          try {
-            await roleProgressionService.checkRoleProgressions();
-          } catch (error) {
-            console.error('[RoleProgression] Scheduled check failed:', error.message);
-          }
-        }, 6 * 60 * 60 * 1000); // 6 hours
+            // Set up role progression checks (every 6 hours)
+            const roleProgressionService = require('./services/roleProgressionService');
+            setInterval(async () => {
+              try {
+                await roleProgressionService.checkRoleProgressions();
+              } catch (error) {
+                console.error('[RoleProgression] Scheduled check failed:', error.message);
+              }
+            }, 6 * 60 * 60 * 1000); // 6 hours
 
-        // Run initial check after startup
-        setTimeout(async () => {
-          try {
-            await roleProgressionService.checkRoleProgressions();
-          } catch (error) {
-            console.error('[RoleProgression] Initial check failed:', error.message);
-          }
-        }, 60000); // 1 minute after startup
+            // Run initial check after startup
+            setTimeout(async () => {
+              try {
+                await roleProgressionService.checkRoleProgressions();
+              } catch (error) {
+                console.error('[RoleProgression] Initial check failed:', error.message);
+              }
+            }, 60000); // 1 minute after startup
+        }
 
         // Check for CLI commands
         const args = process.argv.slice(2);

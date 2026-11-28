@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import * as L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -9,7 +8,7 @@ import { Loader2, MapPin, User } from 'lucide-react'
 
 // Fix for default marker icons in Leaflet
 if (L.Icon && L.Icon.Default && L.Icon.Default.prototype) {
-  delete (L.Icon.Default.prototype as any)._getIconUrl
+  delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl
   L.Icon.Default.mergeOptions({
     iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
     iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
@@ -45,7 +44,6 @@ interface Member {
 }
 
 export default function Map() {
-  const { t } = useTranslation()
   const [members, setMembers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -60,7 +58,7 @@ export default function Map() {
       setError(null)
       const res = await api.get('/user/map/members')
       setMembers(res.data.data || [])
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error loading map members:', err)
       setError('Failed to load members')
     } finally {

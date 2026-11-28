@@ -4,8 +4,9 @@ import { useTranslation } from 'react-i18next';
 import Button from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
-import axios from 'axios';
+import api from '@/services/api';
 import { toast } from 'sonner';
+import { getApiErrorMessage } from '@/lib/utils';
 
 interface WarnUserModalProps {
   userId: number;
@@ -34,7 +35,7 @@ export function WarnUserModal({
 
     setIsSubmitting(true);
     try {
-      await axios.post(`/api/moderation/users/${userId}/warn`, {
+      await api.post(`/moderation/users/${userId}/warn`, {
         reason: reason.trim()
       });
 
@@ -42,15 +43,15 @@ export function WarnUserModal({
       onSuccess?.();
       onClose();
       setReason('');
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || t('forum.moderation.toasts.failedToWarn'));
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, t('forum.moderation.toasts.failedToWarn')));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <Modal open={isOpen} onOpenChange={(open) => !open && onClose} title={t('forum.moderation.warnModal.title', { name: userName })}>
+    <Modal open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }} title={t('forum.moderation.warnModal.title', { name: userName })}>
       <div className="space-y-4">
         <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg text-sm text-yellow-500">
           {t('forum.moderation.warnModal.notice')}

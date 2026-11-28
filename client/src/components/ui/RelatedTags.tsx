@@ -15,27 +15,33 @@ interface RelatedTagsProps {
 }
 
 export default function RelatedTags({ currentTag, selectedTags, onTagAdd }: RelatedTagsProps) {
-  const [relatedTags, setRelatedTags] = useState<Tag[]>([])
-  const [loading, setLoading] = useState(false)
+  const [fetchState, setFetchState] = useState<{ key: string; tags: Tag[] }>({ key: '', tags: [] })
+  const requestKey = currentTag ? `${currentTag}::${selectedTags.join(',')}` : ''
 
   useEffect(() => {
-    if (!currentTag) {
-      setRelatedTags([])
-      return
-    }
+    if (!currentTag) return
 
-    setLoading(true)
+    let cancelled = false
+    const key = `${currentTag}::${selectedTags.join(',')}`
+
     api.get('/tags/related', { params: { tag: currentTag, limit: 8 } })
       .then(res => {
+        if (cancelled) return
         const tags = (res.data.data ?? []).filter((t: Tag) => !selectedTags.includes(t.tag))
-        setRelatedTags(tags)
-        setLoading(false)
+        setFetchState({ key, tags })
       })
       .catch(() => {
-        setRelatedTags([])
-        setLoading(false)
+        if (cancelled) return
+        setFetchState({ key, tags: [] })
       })
+
+    return () => {
+      cancelled = true
+    }
   }, [currentTag, selectedTags])
+
+  const loading = Boolean(currentTag) && fetchState.key !== requestKey
+  const relatedTags = currentTag && fetchState.key === requestKey ? fetchState.tags : []
 
   if (loading) {
     return (

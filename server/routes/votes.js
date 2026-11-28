@@ -8,11 +8,27 @@ function setDb(database) {
   db = database;
 }
 
+async function getBanResponseIfBanned(userId) {
+  const activeBan = await db.getActiveBan(userId);
+  if (!activeBan) return null;
+  return {
+    success: false,
+    error: 'Your account is banned',
+    banReason: activeBan.reason,
+    expiresAt: activeBan.expires_at
+  };
+}
+
 // POST /api/votes - Cast or update vote on a comment
 router.post('/', requireUserAuth, async (req, res) => {
   try {
     const { commentId, voteType } = req.body;
     const userId = req.user.id;
+
+    const banBody = await getBanResponseIfBanned(userId);
+    if (banBody) {
+      return res.status(403).json(banBody);
+    }
 
     if (!commentId || !voteType) {
       return res.status(400).json({ error: 'Comment ID and vote type are required' });
@@ -154,6 +170,11 @@ router.delete('/comment/:commentId', requireUserAuth, async (req, res) => {
   try {
     const { commentId } = req.params;
     const userId = req.user.id;
+
+    const banBody = await getBanResponseIfBanned(userId);
+    if (banBody) {
+      return res.status(403).json(banBody);
+    }
 
     // Check if vote exists
     const voteResult = await db.pool.query(`
